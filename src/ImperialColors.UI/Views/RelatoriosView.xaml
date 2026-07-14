@@ -1,0 +1,177 @@
+<UserControl x:Class="ImperialColors.UI.Views.RelatoriosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:helpers="clr-namespace:ImperialColors.UI.Helpers">
+
+    <UserControl.Resources>
+        <ResourceDictionary Source="/Resources/AppTheme.xaml"/>
+    </UserControl.Resources>
+
+    <ScrollViewer Style="{StaticResource ScrollViewerComMargem}"
+                  VerticalScrollBarVisibility="Auto"
+                  helpers:ScrollViewerMouseWheelHelper.Habilitar="True">
+        <Grid Margin="24,20" MaxWidth="1100" HorizontalAlignment="Left">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="20"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Cabeçalho -->
+            <StackPanel Grid.Row="0">
+                <TextBlock Style="{StaticResource TituloModulo}" Text="Relatórios"/>
+                <TextBlock Text="Escolha o relatório, ajuste os filtros e exporte em PDF ou Excel"
+                           FontSize="13" Foreground="{StaticResource CinzaTextoBrush}" Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <!-- Corpo: lista + painel de emissão -->
+            <Grid Grid.Row="2" MinHeight="480">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Navegação lateral -->
+                <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0,4,0,8">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource RelatorioCategoriaHeader}" Text="VENDAS"/>
+                            <Button x:Name="BtnNavVendasPeriodo" Tag="VendasPeriodo"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Vendas por Período"/>
+                            </Button>
+                            <Button x:Name="BtnNavVendasExternas" Tag="VendasExternas"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Vendas Externas"/>
+                            </Button>
+                            <Button x:Name="BtnNavVendasConsolidadas" Tag="VendasConsolidadas"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Consolidado de Vendas (Geral)"/>
+                            </Button>
+
+                            <TextBlock Style="{StaticResource RelatorioCategoriaHeader}" Text="ESTOQUE"/>
+                            <Button x:Name="BtnNavEstoque" Tag="EstoqueCompleto"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Estoque Completo"/>
+                            </Button>
+                            <Button x:Name="BtnNavEstoqueBaixo" Tag="EstoqueBaixo"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Estoque Baixo"/>
+                            </Button>
+                            <Button x:Name="BtnNavSemEstoque" Tag="SemEstoque"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Sem Estoque"/>
+                            </Button>
+
+                            <TextBlock Style="{StaticResource RelatorioCategoriaHeader}" Text="PREÇOS"/>
+                            <Button x:Name="BtnNavTabelaLoja" Tag="TabelaLoja"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Tabela da Loja"/>
+                            </Button>
+                            <Button x:Name="BtnNavTabelaPintor" Tag="TabelaPintor"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Tabela do Pintor"/>
+                            </Button>
+
+                            <TextBlock Style="{StaticResource RelatorioCategoriaHeader}" Text="ANÁLISE"/>
+                            <Button x:Name="BtnNavAnaliseGiro" Tag="AnaliseGiro"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Giro de Produtos"/>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Painel de emissão -->
+                <Border Grid.Column="2" Style="{StaticResource Card}" Padding="28,24">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="6"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="24"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock x:Name="TxtTituloRelatorio" Grid.Row="0"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{StaticResource PretoPrimarioBrush}"/>
+
+                        <TextBlock x:Name="TxtDescricaoRelatorio" Grid.Row="2"
+                                   FontSize="13" TextWrapping="Wrap"
+                                   Foreground="{StaticResource CinzaTextoBrush}" LineHeight="20"/>
+
+                        <!-- Filtros -->
+                        <Border Grid.Row="4" Style="{StaticResource PainelFiltroRelatorio}">
+                            <StackPanel>
+                                <!-- Período -->
+                                <StackPanel x:Name="PainelPeriodo">
+                                    <TextBlock Style="{StaticResource LabelCampo}" Text="Período" Margin="0,0,0,8"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="16"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Data início" FontSize="11"
+                                                       Foreground="{StaticResource CinzaTextoBrush}" Margin="0,0,0,4"/>
+                                            <DatePicker x:Name="DpInicio" Style="{StaticResource DatePickerModerno}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Data fim" FontSize="11"
+                                                       Foreground="{StaticResource CinzaTextoBrush}" Margin="0,0,0,4"/>
+                                            <DatePicker x:Name="DpFim" Style="{StaticResource DatePickerModerno}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Visão analítica (giro) -->
+                                <StackPanel x:Name="PainelGiro" Margin="0,16,0,0" Visibility="Collapsed">
+                                    <TextBlock Style="{StaticResource LabelCampo}" Text="Visão analítica" Margin="0,0,0,6"/>
+                                    <ComboBox x:Name="CmbTipoGiro" Style="{StaticResource ComboBoxModerno}">
+                                        <ComboBoxItem Content="Produtos Mais Vendidos" Tag="MaisVendidos" IsSelected="True"/>
+                                        <ComboBoxItem Content="Produtos Menos Vendidos" Tag="MenosVendidos"/>
+                                        <ComboBoxItem Content="Produtos Nunca Vendidos (Encalhados)" Tag="NuncaVendidos"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- Formato -->
+                                <StackPanel Margin="0,18,0,0">
+                                    <TextBlock Style="{StaticResource LabelCampo}" Text="Formato de exportação" Margin="0,0,0,8"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ToggleButton x:Name="BtnFormatoPdf" Content="PDF"
+                                                      Style="{StaticResource ToggleFormatoExportacao}"
+                                                      IsChecked="True" Click="BtnFormato_Click" Tag="Pdf"
+                                                      Margin="0,0,8,0"/>
+                                        <ToggleButton x:Name="BtnFormatoExcel" Content="Excel"
+                                                      Style="{StaticResource ToggleFormatoExportacao}"
+                                                      Click="BtnFormato_Click" Tag="Excel"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Colunas / info -->
+                        <Border Grid.Row="5" Margin="0,16,0,0" Padding="0,4,0,0"
+                                BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,1,0,0">
+                            <StackPanel Margin="0,12,0,0">
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Conteúdo do relatório" Margin="0,0,0,6"/>
+                                <TextBlock x:Name="TxtColunasRelatorio" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{StaticResource CinzaTextoBrush}" LineHeight="18"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Ação -->
+                        <Button Grid.Row="6" x:Name="BtnGerar" Style="{StaticResource BotaoPrimario}"
+                                Content="Gerar relatório" HorizontalAlignment="Right"
+                                MinWidth="160" Margin="0,20,0,0" Click="BtnGerar_Click"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

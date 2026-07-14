@@ -1,0 +1,255 @@
+<Window x:Class="ImperialColors.UI.Views.ProdutoFormView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:helpers="clr-namespace:ImperialColors.UI.Helpers"
+        Title="Produto" Width="720" Height="740"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/ImperialColors;component/Resources/AppTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <DataTemplate x:Key="ComboBoxNomeTemplate">
+                <TextBlock Text="{Binding Nome}" FontSize="13"/>
+            </DataTemplate>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource CinzaClaroBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="White" Padding="25,18">
+            <StackPanel>
+                <TextBlock x:Name="TxtTitulo" Text="Novo Produto"
+                           FontSize="18" FontWeight="Bold" Foreground="{StaticResource PretoPrimarioBrush}"/>
+                <TextBlock Text="Cadastro comercial — estoque, preços e fornecedor"
+                           FontSize="12" Foreground="{StaticResource CinzaTextoBrush}" Margin="0,3,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Margin="20,12,20,8" VerticalScrollBarVisibility="Auto"
+                      helpers:ScrollViewerMouseWheelHelper.Habilitar="True">
+            <StackPanel>
+                <StackPanel Margin="0,0,0,12">
+                    <TextBlock Style="{StaticResource LabelCampo}" Text="Nome do Produto *"/>
+                    <TextBox x:Name="TxtNome" Style="{StaticResource TextBoxModerno}"
+                             LostFocus="TxtNome_LostFocus"/>
+                </StackPanel>
+
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Código do Produto *"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="38"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtCodigoInterno" Grid.Column="0"
+                                     Style="{StaticResource TextBoxModerno}"
+                                     IsReadOnly="True"
+                                     TextChanged="TxtCodigoInterno_TextChanged"/>
+                            <Button x:Name="BtnAlternarCodigoManual" Grid.Column="2"
+                                    Content="🔒" ToolTip="Desbloquear edição manual do código"
+                                    Style="{StaticResource BotaoSecundario}" Padding="0" Height="38"
+                                    Click="BtnAlternarCodigoManual_Click"/>
+                        </Grid>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Código de Barras"/>
+                        <TextBox x:Name="TxtCodigoBarras" Style="{StaticResource TextBoxModerno}"
+                                 LostFocus="TxtCodigoBarras_LostFocus"
+                                 ToolTip="Use um leitor de código de barras ou digite manualmente"/>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="200"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Fornecedor (opcional)"/>
+                        <ComboBox x:Name="CmbFornecedor" Style="{StaticResource ComboBoxModerno}"
+                                  SelectedValuePath="Id"
+                                  ItemTemplate="{StaticResource ComboBoxNomeTemplate}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Data de Validade (opcional)"/>
+                        <DatePicker x:Name="DpValidade" Style="{StaticResource DatePickerModerno}"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock x:Name="TxtErroValidacao" TextWrapping="Wrap" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource VermelhoErroBrush}" Visibility="Collapsed"
+                           Margin="0,0,0,12"/>
+
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Categoria *"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="36"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="CmbCategoria" Grid.Column="0"
+                                      Style="{StaticResource ComboBoxModerno}"
+                                      SelectedValuePath="Id"
+                                      ItemTemplate="{StaticResource ComboBoxNomeTemplate}"/>
+                            <Button Grid.Column="2" Content="+" ToolTip="Cadastrar nova categoria"
+                                    Style="{StaticResource BotaoPrimario}" FontSize="16" FontWeight="Bold"
+                                    Padding="0" Height="36" Click="BtnNovaCategoria_Click"/>
+                        </Grid>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Marca *"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="36"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="CmbMarca" Grid.Column="0"
+                                      Style="{StaticResource ComboBoxModerno}"
+                                      SelectedValuePath="Id"
+                                      ItemTemplate="{StaticResource ComboBoxNomeTemplate}"/>
+                            <Button Grid.Column="2" Content="+" ToolTip="Cadastrar nova marca"
+                                    Style="{StaticResource BotaoPrimario}" FontSize="16" FontWeight="Bold"
+                                    Padding="0" Height="36" Click="BtnNovaMarca_Click"/>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="110"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Quantidade em Estoque"/>
+                        <TextBox x:Name="TxtQuantidade" Style="{StaticResource TextBoxNumerico}" Text="0"
+                                 TextChanged="TxtQuantidade_TextChanged"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Estoque Mínimo"/>
+                        <TextBox x:Name="TxtEstoqueMinimo" Style="{StaticResource TextBoxNumerico}" Text="0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Unidade"/>
+                        <ComboBox x:Name="CmbUnidade" Style="{StaticResource ComboBoxModerno}"
+                                  SelectionChanged="CmbUnidade_SelectionChanged">
+                            <ComboBoxItem Content="UN"/>
+                            <ComboBoxItem Content="GL"/>
+                            <ComboBoxItem Content="BD"/>
+                            <ComboBoxItem Content="LT"/>
+                            <ComboBoxItem Content="RL"/>
+                            <ComboBoxItem Content="CX"/>
+                            <ComboBoxItem Content="PCT"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
+
+                <Grid x:Name="PainelLitragemGl" Margin="0,0,0,12" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Litragem do Galão *"/>
+                        <ComboBox x:Name="CmbLitragemGl" Style="{StaticResource ComboBoxModerno}">
+                            <ComboBoxItem Content="3,6L" Tag="3.6"/>
+                            <ComboBoxItem Content="18L" Tag="18"/>
+                        </ComboBox>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" VerticalAlignment="Bottom" Margin="12,0,0,6"
+                               FontSize="12" Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Galão padrão tinta imobiliária (3,6L) ou galão industrial (18L)."
+                               TextWrapping="Wrap"/>
+                </Grid>
+
+                <StackPanel Margin="0,0,0,12">
+                    <CheckBox x:Name="ChkCustoTotal"
+                              Content="Informar Valor Total da Compra"
+                              FontSize="12" Margin="0,0,0,10"
+                              Checked="ChkCustoTotal_Changed"
+                              Unchecked="ChkCustoTotal_Changed"/>
+                    <Grid x:Name="PainelCustoTotal" Visibility="Collapsed" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Valor Total da Compra (R$)"/>
+                            <TextBox x:Name="TxtCustoTotal" Style="{StaticResource TextBoxNumerico}"
+                                     TextChanged="TxtCustoTotal_TextChanged"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Custo Unitário (R$)"/>
+                            <TextBox x:Name="TxtCusto" Style="{StaticResource TextBoxNumerico}"
+                                     TextChanged="TxtCusto_TextChanged"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Preço de Venda (R$) *"/>
+                            <TextBox x:Name="TxtPrecoVenda" Style="{StaticResource TextBoxNumerico}" Text="R$ 0,00"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <Border Style="{StaticResource Card}" Padding="15" Margin="0,0,0,12">
+                    <StackPanel>
+                        <CheckBox x:Name="ChkPromocaoAtiva"
+                                  Content="Modo Promocional / Preço de Desconto"
+                                  FontWeight="SemiBold"
+                                  Checked="ChkPromocaoAtiva_Changed"
+                                  Unchecked="ChkPromocaoAtiva_Changed"/>
+                        <StackPanel x:Name="PainelPrecoPromocional" Margin="0,12,0,0" Visibility="Collapsed">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Preço Promocional (R$) *"/>
+                            <TextBox x:Name="TxtPrecoPromocional" Style="{StaticResource TextBoxNumerico}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel>
+                    <TextBlock Style="{StaticResource LabelCampo}" Text="Observações"/>
+                    <TextBox x:Name="TxtObservacoes" Style="{StaticResource TextBoxModerno}"
+                             Height="70" TextWrapping="Wrap" AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Background="White" Padding="20,15">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                        Margin="0,0,10,0" Click="BtnCancelar_Click"/>
+                <Button x:Name="BtnSalvar" Content="Salvar Produto" Style="{StaticResource BotaoPrimario}"
+                        Click="BtnSalvar_Click"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
