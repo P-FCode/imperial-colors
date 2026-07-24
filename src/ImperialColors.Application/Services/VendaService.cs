@@ -9,12 +9,15 @@ using Microsoft.Extensions.Logging;
 
 namespace ImperialColors.Application.Services;
 
-public class VendaService : IVendaService
+public class VendaService : IVendaService, IVendaContingenciaSync
 {
     private readonly IVendaRepository _vendaRepository;
     private readonly IProdutoRepository _produtoRepository;
     private readonly IMovimentacaoEstoqueRepository _movimentacaoRepository;
     private readonly IClienteRepository _clienteRepository;
+    private readonly IDatabaseHealthService _health;
+    private readonly IContingencyVendaService _contingency;
+    private readonly IAuditoriaService _auditoria;
     private readonly ILogger<VendaService> _logger;
 
     public VendaService(
@@ -22,12 +25,18 @@ public class VendaService : IVendaService
         IProdutoRepository produtoRepository,
         IMovimentacaoEstoqueRepository movimentacaoRepository,
         IClienteRepository clienteRepository,
+        IDatabaseHealthService health,
+        IContingencyVendaService contingency,
+        IAuditoriaService auditoria,
         ILogger<VendaService> logger)
     {
         _vendaRepository = vendaRepository;
         _produtoRepository = produtoRepository;
         _movimentacaoRepository = movimentacaoRepository;
         _clienteRepository = clienteRepository;
+        _health = health;
+        _contingency = contingency;
+        _auditoria = auditoria;
         _logger = logger;
     }
 
@@ -73,6 +82,49 @@ public class VendaService : IVendaService
 
     public async Task<VendaDto> CriarAsync(CriarVendaDto dto)
     {
+        if (!_health.IsOnline)
+            return await SalvarOfflineComAuditoriaAsync(dto);
+
+        try
+        {
+            return await CriarOnlineInternoAsync(dto, contingenciaId: null);
+        }
+        catch (Exception ex) when (EhFalhaDeConectividade(ex))
+        {
+            _health.MarcarOffline();
+            _logger.LogWarning(ex, "PostgreSQL indisponível na finalização — ativando contingência offline");
+            return await SalvarOfflineComAuditoriaAsync(dto);
+        }
+    }
+
+    public Task<VendaDto> CriarComContingenciaIdAsync(
+        CriarVendaDto dto,
+        Guid contingenciaId,
+        CancellationToken cancellationToken = default)
+        => CriarOnlineInternoAsync(dto, contingenciaId);
+
+    private async Task<VendaDto> SalvarOfflineComAuditoriaAsync(CriarVendaDto dto)
+    {
+        var venda = await _contingency.SalvarVendaOfflineAsync(dto);
+        await _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = dto.Usuario ?? "Caixa",
+            Modulo = "PDV",
+            Acao = "VENDA_CONTINGENCIA_OFFLINE",
+            Descricao = $"Venda offline {venda.NumeroVenda} — Total {venda.Total:C}",
+            Nivel = NivelLogAuditoria.Warning,
+            PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                venda.NumeroVenda,
+                venda.Total,
+                Itens = venda.Itens.Count
+            })
+        });
+        return venda;
+    }
+
+    private async Task<VendaDto> CriarOnlineInternoAsync(CriarVendaDto dto, Guid? contingenciaId)
+    {
         if (!dto.Itens.Any())
             throw new DomainException("A venda deve ter pelo menos um item.");
 
@@ -96,6 +148,7 @@ public class VendaService : IVendaService
             Observacoes = dto.Observacoes,
             Usuario = dto.Usuario,
             DataVenda = DateTime.Now,
+            ContingenciaId = contingenciaId,
             Itens = dto.Itens.Select(i =>
             {
                 var item = new ItemVenda
@@ -148,7 +201,9 @@ public class VendaService : IVendaService
                 Quantidade = item.Quantidade,
                 QuantidadeAnterior = quantidadeAnterior,
                 QuantidadeAtual = produto.QuantidadeEstoque,
-                Motivo = $"Venda #{numeroVenda}",
+                Motivo = contingenciaId.HasValue
+                    ? $"Venda #{numeroVenda} (sync contingência)"
+                    : $"Venda #{numeroVenda}",
                 Usuario = dto.Usuario,
                 VendaId = vendaCriada.Id
             });
@@ -156,8 +211,33 @@ public class VendaService : IVendaService
 
         _logger.LogInformation("Venda criada: {NumeroVenda} - Total: {Total}", numeroVenda, venda.Total);
 
+        await _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = dto.Usuario ?? "Caixa",
+            Modulo = "PDV",
+            Acao = contingenciaId.HasValue ? "VENDA_SINCRONIZADA" : "VENDA_FINALIZADA",
+            Descricao = $"Venda {numeroVenda} finalizada — Total {venda.Total:C}",
+            Nivel = NivelLogAuditoria.Info
+        });
+
         var vendaCompleta = await _vendaRepository.ObterComItensAsync(vendaCriada.Id);
         return MapParaDto(vendaCompleta!);
+    }
+
+    private static bool EhFalhaDeConectividade(Exception ex)
+    {
+        for (var atual = ex; atual is not null; atual = atual.InnerException!)
+        {
+            var nomeTipo = atual.GetType().FullName ?? atual.GetType().Name;
+            if (nomeTipo.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) ||
+                atual is TimeoutException or IOException ||
+                atual.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
+                atual.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+                atual.Message.Contains("network", StringComparison.OrdinalIgnoreCase) ||
+                atual.Message.Contains("failed to connect", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     private async Task ResolverIdentificacaoCompradorAsync(Venda venda, CriarVendaDto dto)

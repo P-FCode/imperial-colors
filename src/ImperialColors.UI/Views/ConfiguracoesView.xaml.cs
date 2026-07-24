@@ -47,29 +47,18 @@ public partial class ConfiguracoesView : UserControl
 
 
         PainelPerifericos.Content = serviceProvider.GetRequiredService<PerifericosView>();
-
-
+        PainelAuditoria.Content = serviceProvider.GetRequiredService<AuditoriaLogsView>();
 
         if (_sessaoService.EhAdmin)
-
         {
-
             BtnCardUsuarios.Visibility = Visibility.Visible;
-
-            GridSubmodulos.Columns = 3;
-
+            GridSubmodulos.Columns = 4;
             PainelGestaoUsuarios.Content = serviceProvider.GetRequiredService<GestaoUsuariosView>();
-
         }
-
         else
-
         {
-
             BtnCardUsuarios.Visibility = Visibility.Collapsed;
-
-            GridSubmodulos.Columns = 2;
-
+            GridSubmodulos.Columns = 3;
         }
 
 
@@ -104,6 +93,8 @@ public partial class ConfiguracoesView : UserControl
 
         PainelGestaoUsuarios.Visibility = Visibility.Collapsed;
 
+        PainelAuditoria.Visibility = Visibility.Collapsed;
+
 
 
         painel.Visibility = Visibility.Visible;
@@ -127,6 +118,12 @@ public partial class ConfiguracoesView : UserControl
     private void BtnCardUsuarios_Click(object sender, RoutedEventArgs e)
 
         => SelecionarSubmodulo(BtnCardUsuarios, PainelGestaoUsuarios);
+
+
+
+    private void BtnCardAuditoria_Click(object sender, RoutedEventArgs e)
+
+        => SelecionarSubmodulo(BtnCardAuditoria, PainelAuditoria);
 
 
 

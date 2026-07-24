@@ -21,6 +21,11 @@ public class Venda : BaseEntity
     public string? Usuario { get; set; }
     public DateTime DataVenda { get; set; } = DateTime.Now;
 
+    /// <summary>
+    /// Chave de idempotência de vendas originadas no modo de contingência (SQLite).
+    /// </summary>
+    public Guid? ContingenciaId { get; set; }
+
     public Cliente? Cliente { get; set; }
     public ICollection<ItemVenda> Itens { get; set; } = new List<ItemVenda>();
     public ICollection<VendaPagamento> Pagamentos { get; set; } = new List<VendaPagamento>();

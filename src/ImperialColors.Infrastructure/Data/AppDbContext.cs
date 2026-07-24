@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<VendaExterna> VendasExternas { get; set; }
     public DbSet<ItemVendaExterna> ItensVendaExterna { get; set; }
     public DbSet<ParametroSistema> ParametrosSistema { get; set; }
+    public DbSet<LogAuditoria> LogsAuditoria { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

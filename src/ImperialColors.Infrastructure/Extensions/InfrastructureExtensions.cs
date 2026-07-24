@@ -2,6 +2,7 @@ using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Configuration;
+using ImperialColors.Infrastructure.Contingency;
 using ImperialColors.Infrastructure.Data;
 using ImperialColors.Infrastructure.Repositories;
 using ImperialColors.Infrastructure.Services;
@@ -16,6 +17,15 @@ public static class InfrastructureExtensions
     {
         services.AddDbContextFactory<AppDbContext>(options =>
             options.UseNpgsql(connectionString));
+
+        var caminhoSqlite = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ImperialColors",
+            "pdv_contingency.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(caminhoSqlite)!);
+
+        services.AddDbContextFactory<ContingencyDbContext>(options =>
+            options.UseSqlite($"Data Source={caminhoSqlite}"));
 
         services.AddSingleton(BackupOptions.CarregarDoAmbiente());
         services.AddSingleton<IBackupService, BackupService>();
@@ -35,6 +45,17 @@ public static class InfrastructureExtensions
         services.AddSingleton<ITrocaRepository, TrocaRepository>();
         services.AddSingleton<IVendaExternaRepository, VendaExternaRepository>();
         services.AddSingleton<IRelatorioAnalyticsRepository, RelatorioAnalyticsRepository>();
+        services.AddSingleton<ILogAuditoriaRepository, LogAuditoriaRepository>();
+
+        services.AddSingleton<IContingencyVendaService, ContingencyVendaService>();
+
+        services.AddSingleton<DatabaseHealthService>();
+        services.AddSingleton<IDatabaseHealthService>(sp => sp.GetRequiredService<DatabaseHealthService>());
+        services.AddHostedService(sp => sp.GetRequiredService<DatabaseHealthService>());
+
+        services.AddSingleton<DataSyncService>();
+        services.AddSingleton<IDataSyncService>(sp => sp.GetRequiredService<DataSyncService>());
+        services.AddHostedService(sp => sp.GetRequiredService<DataSyncService>());
 
         services.AddSingleton<IPrinterService, PrinterService>();
         services.AddSingleton<ILocalConfigService, LocalConfigService>();

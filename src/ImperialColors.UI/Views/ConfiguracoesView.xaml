@@ -52,7 +52,7 @@
 
             <!-- Cards de submódulos -->
 
-            <UniformGrid Grid.Row="2" Columns="3" x:Name="GridSubmodulos">
+            <UniformGrid Grid.Row="2" Columns="4" x:Name="GridSubmodulos">
 
                 <Button x:Name="BtnCardGeral" Style="{StaticResource SubmoduloCard}"
 
@@ -149,6 +149,40 @@
                                        Foreground="{StaticResource PretoPrimarioBrush}"/>
 
                             <TextBlock Text="Aprovar cadastros, permissões e contas de acesso"
+
+                                       FontSize="11" Foreground="{StaticResource CinzaTextoBrush}"
+
+                                       TextWrapping="Wrap" Margin="0,4,0,0"/>
+
+                        </StackPanel>
+
+                    </Grid>
+
+                </Button>
+
+                <Button x:Name="BtnCardAuditoria" Style="{StaticResource SubmoduloCard}"
+
+                        Click="BtnCardAuditoria_Click">
+
+                    <Grid>
+
+                        <Grid.ColumnDefinitions>
+
+                            <ColumnDefinition Width="Auto"/>
+
+                            <ColumnDefinition Width="*"/>
+
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="📋" FontSize="26" VerticalAlignment="Center" Margin="0,0,14,0"/>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+
+                            <TextBlock Text="Auditoria de Logs" FontSize="14" FontWeight="Bold"
+
+                                       Foreground="{StaticResource PretoPrimarioBrush}"/>
+
+                            <TextBlock Text="Consulta de eventos, erros e ações do sistema"
 
                                        FontSize="11" Foreground="{StaticResource CinzaTextoBrush}"
 
@@ -356,6 +390,8 @@
                     <ContentControl x:Name="PainelPerifericos" Margin="20" Visibility="Collapsed"/>
 
                     <ContentControl x:Name="PainelGestaoUsuarios" Margin="20" Visibility="Collapsed"/>
+
+                    <ContentControl x:Name="PainelAuditoria" Margin="20" Visibility="Collapsed"/>
 
                 </Grid>
 

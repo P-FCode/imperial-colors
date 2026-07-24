@@ -1,6 +1,7 @@
 ﻿using DotNetEnv;
 using ImperialColors.Application.Configuration;
 using ImperialColors.Application.Extensions;
+using ImperialColors.Infrastructure.Contingency;
 using ImperialColors.Infrastructure.Data;
 using ImperialColors.Infrastructure.Extensions;
 using ImperialColors.UI.Helpers;
@@ -84,6 +85,7 @@ public partial class App : System.Windows.Application
 
                 services.AddTransient<LoginViewModel>();
                 services.AddTransient<GestaoUsuariosViewModel>();
+                services.AddTransient<AuditoriaLogsViewModel>();
                 services.AddTransient<DashboardViewModel>();
                 services.AddTransient<ProdutoViewModel>();
                 services.AddTransient<VendaViewModel>();
@@ -104,6 +106,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<VendaExternaFormView>();
                 services.AddTransient<CupomView>();
                 services.AddTransient<GestaoUsuariosView>();
+                services.AddTransient<AuditoriaLogsView>();
                 services.AddTransient<PerifericosView>();
 
                 services.AddLogging(logging =>
@@ -124,6 +127,10 @@ public partial class App : System.Windows.Application
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<App>>();
             await dbContext.Database.MigrateAsync();
             await UsuarioDatabaseSeeder.SeedAdminAsync(dbContext, logger);
+
+            var contingencyFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ContingencyDbContext>>();
+            await using var contingencyDb = await contingencyFactory.CreateDbContextAsync();
+            await contingencyDb.Database.EnsureCreatedAsync();
         }
         catch (Exception ex)
         {

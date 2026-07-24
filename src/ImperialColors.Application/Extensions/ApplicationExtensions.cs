@@ -21,6 +21,7 @@ public static class ApplicationExtensions
         services.AddSingleton<IRelatorioAnalyticsService, RelatorioAnalyticsService>();
         services.AddSingleton<IAuthService, AuthService>();
         services.AddSingleton<IUsuarioService, UsuarioService>();
+        services.AddSingleton<IAuditoriaService, AuditoriaService>();
         return services;
     }
 }

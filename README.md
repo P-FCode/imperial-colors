@@ -701,7 +701,8 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 ### Configurações
 - Teste de conexão com o banco
 - Dados da empresa (incluindo **Inscrição Estadual**) exibidos somente leitura — configure via `.env` (`EMPRESA_IE`) ou `appsettings.json`
-- **Navegação por cards** para submódulos (Geral, Periféricos, Gestão de Usuários)
+- **Navegação por cards** para submódulos (Geral, Periféricos, Gestão de Usuários, **Auditoria de Logs**)
+- **Auditoria de Logs:** listagem paginada no servidor com filtros por período, nível, módulo e busca textual; detalhes em modal
 - **Periféricos:** seleção de impressora para cupom + teste de leitor de código de barras
 - **Gestão de usuários (Admin):** aprovar, cancelar e **excluir permanentemente** operadores (hard delete no PostgreSQL), com proteção contra autoexclusão e remoção do último administrador aprovado
 - Informações do sistema
@@ -917,6 +918,23 @@ dotnet ef database update --project src/ImperialColors.Infrastructure --startup-
 - Botão **"📑 Contrato de Serviços (PDF)"** disponível em Configurações → seção Documentos.
 - Gera o *Contrato Oficial de Prestação de Serviços de Desenvolvimento* com qualificação das partes, objeto detalhado, cláusula fiscal (módulo NF-e/NFC-e como escopo futuro opcional) e linhas de assinatura.
 - Numeração de páginas aplicada automaticamente via segunda passagem no PDF.
+
+---
+
+## Novidades — Versão 1.4.0
+
+### Modo de Contingência Offline (PDV)
+- Health-check periódico do PostgreSQL (`DatabaseHealthService`, ~8s) com evento `IsOnline` para a UI.
+- Badge no PDV: **🟢 Online** / **🟠 Offline (Contingência)**.
+- SQLite local em `%LocalAppData%\ImperialColors\pdv_contingency.db` (`ContingencyDbContext`) com vendas, itens, pagamentos e cache de estoque.
+- Se o servidor cair na finalização (`F2`), a venda é gravada offline com `ContingenciaId` (idempotência) e baixa no estoque local.
+- `DataSyncService` sincroniza pendências ao reconectar (e a cada ~15s online), aplica estoque/movimentações no PostgreSQL e evita duplicidade via índice único em `vendas.contingencia_id`.
+
+### Auditoria de Logs (Configurações)
+- Nova tabela PostgreSQL `logs_auditoria` (migration `AddLogsAuditoriaAndContingenciaId`).
+- Card **Auditoria de Logs** em Configurações com filtros (período, nível, módulo, texto), paginação server-side (50/página) e DataGrid virtualizado.
+- Duplo clique / **Ver detalhes** abre modal com payload JSON/stack.
+- Eventos de PDV (venda online, offline e sync) passam a registrar auditoria automaticamente.
 
 ---
 

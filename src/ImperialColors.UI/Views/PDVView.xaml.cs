@@ -4,6 +4,7 @@ using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Enums;
 using ImperialColors.UI.Helpers;
 using ImperialColors.UI.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -12,6 +13,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace ImperialColors.UI.Views;
 
@@ -24,6 +26,8 @@ public partial class PDVView : Window, INotifyPropertyChanged
     private readonly IClienteService _clienteService;
     private readonly IServiceProvider _serviceProvider;
     private readonly ISessaoService _sessaoService;
+    private readonly IDatabaseHealthService _healthService;
+    private readonly IContingencyVendaService _contingencyService;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -67,7 +71,9 @@ public partial class PDVView : Window, INotifyPropertyChanged
         IVendaService vendaService,
         IClienteService clienteService,
         IServiceProvider serviceProvider,
-        ISessaoService sessaoService)
+        ISessaoService sessaoService,
+        IDatabaseHealthService healthService,
+        IContingencyVendaService contingencyService)
     {
         InitializeComponent();
         DataContext = this;
@@ -76,24 +82,56 @@ public partial class PDVView : Window, INotifyPropertyChanged
         _clienteService = clienteService;
         _serviceProvider = serviceProvider;
         _sessaoService = sessaoService;
+        _healthService = healthService;
+        _contingencyService = contingencyService;
 
         DgPagamentos.ItemsSource = _pagamentos;
         for (var i = 1; i <= 12; i++)
             CmbParcelas.Items.Add($"{i}x");
         CmbParcelas.SelectedIndex = 0;
 
-        Loaded += (_, _) =>
+        Loaded += async (_, _) =>
         {
             _uiPronta = true;
             _suprimirTrocaEtapa = true;
             RbEtapaProdutos.IsChecked = true;
             RbConsumidorFinal.IsChecked = true;
-            _suprimirTrocaEtapa = false;
+            AtualizarBadgeStatusRede(_healthService.IsOnline);
+            _healthService.StatusChanged += OnHealthStatusChanged;
+            if (_healthService.IsOnline)
+            {
+                try { await _contingencyService.AtualizarCacheProdutosAsync(); }
+                catch { /* cache opcional */ }
+            }
 
+            _suprimirTrocaEtapa = false;
             SelecionarFormaPagamento(FormaPagamento.Dinheiro, BtnDinheiro);
             IrParaEtapa(EtapaPdv.Produtos, forcar: true);
             AtualizarResumoCliente();
         };
+
+        Closed += (_, _) => _healthService.StatusChanged -= OnHealthStatusChanged;
+    }
+
+    private void OnHealthStatusChanged(object? sender, bool online)
+        => Dispatcher.Invoke(() => AtualizarBadgeStatusRede(online));
+
+    private void AtualizarBadgeStatusRede(bool online)
+    {
+        if (BadgeStatusRede is null || TxtStatusRede is null) return;
+
+        if (online)
+        {
+            BadgeStatusRede.Background = new SolidColorBrush(Color.FromRgb(212, 237, 218));
+            TxtStatusRede.Text = "🟢 Online";
+            TxtStatusRede.Foreground = new SolidColorBrush(Color.FromRgb(21, 87, 36));
+        }
+        else
+        {
+            BadgeStatusRede.Background = new SolidColorBrush(Color.FromRgb(255, 243, 205));
+            TxtStatusRede.Text = "🟠 Offline (Contingência)";
+            TxtStatusRede.Foreground = new SolidColorBrush(Color.FromRgb(133, 100, 4));
+        }
     }
 
     public void PrepararFocoBusca()
@@ -1036,6 +1074,17 @@ public partial class PDVView : Window, INotifyPropertyChanged
             };
 
             var venda = await _vendaService.CriarAsync(dto);
+
+            if (venda.NumeroVenda.StartsWith("OFF-", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    "Venda salva em modo de contingência offline.\n" +
+                    "Ela será sincronizada automaticamente quando o servidor voltar.",
+                    "Contingência Offline",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
             await WindowHelper.ExibirCupomAsync(_serviceProvider, venda, Owner);
 
             DialogResult = true;

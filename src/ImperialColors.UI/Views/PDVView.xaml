@@ -59,8 +59,15 @@
         <Border Grid.Row="0" Background="White" Padding="20,16" BorderBrush="#E8E8E8" BorderThickness="0,0,0,1">
             <Grid>
                 <StackPanel>
-                    <TextBlock Text="PDV - Nova Venda" FontSize="20" FontWeight="Bold"
-                               Foreground="{StaticResource PretoPrimarioBrush}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="PDV - Nova Venda" FontSize="20" FontWeight="Bold"
+                                   Foreground="{StaticResource PretoPrimarioBrush}" VerticalAlignment="Center"/>
+                        <Border x:Name="BadgeStatusRede" Margin="14,0,0,0" CornerRadius="6" Padding="10,4"
+                                Background="#D4EDDA" VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtStatusRede" Text="🟢 Online" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#155724"/>
+                        </Border>
+                    </StackPanel>
                     <TextBlock x:Name="TxtNumeroVenda" FontSize="12"
                                Foreground="{StaticResource CinzaTextoBrush}" Margin="0,3,0,0"/>
                 </StackPanel>

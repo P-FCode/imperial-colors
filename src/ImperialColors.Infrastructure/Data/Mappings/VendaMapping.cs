@@ -27,6 +27,7 @@ public class VendaMapping : IEntityTypeConfiguration<Venda>
         builder.Property(v => v.Observacoes).HasColumnName("observacoes");
         builder.Property(v => v.Usuario).HasColumnName("usuario").HasMaxLength(100);
         builder.Property(v => v.DataVenda).HasColumnName("data_venda");
+        builder.Property(v => v.ContingenciaId).HasColumnName("contingencia_id");
         builder.Property(v => v.CriadoEm).HasColumnName("criado_em");
         builder.Property(v => v.AtualizadoEm).HasColumnName("atualizado_em");
         builder.Property(v => v.Ativo).HasColumnName("ativo");
@@ -34,6 +35,10 @@ public class VendaMapping : IEntityTypeConfiguration<Venda>
         builder.HasIndex(v => v.NumeroVenda).IsUnique();
         builder.HasIndex(v => v.DataVenda);
         builder.HasIndex(v => v.Status).HasDatabaseName("IX_vendas_status");
+        builder.HasIndex(v => v.ContingenciaId)
+            .IsUnique()
+            .HasFilter("contingencia_id IS NOT NULL")
+            .HasDatabaseName("IX_vendas_contingencia_id");
         builder.HasOne(v => v.Cliente).WithMany(c => c.Vendas).HasForeignKey(v => v.ClienteId).OnDelete(DeleteBehavior.SetNull);
     }
 }
