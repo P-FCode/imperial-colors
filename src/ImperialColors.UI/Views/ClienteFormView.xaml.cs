@@ -3,6 +3,7 @@ using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Security;
 using ImperialColors.Domain.Enums;
 using ImperialColors.UI.Helpers;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -91,6 +92,8 @@ public partial class ClienteFormView : Window
         TxtBairro.Text = cliente.Bairro ?? string.Empty;
         TxtCidade.Text = cliente.Cidade ?? string.Empty;
         TxtEstado.Text = cliente.Estado ?? string.Empty;
+        TxtCodigoIbge.Text = cliente.CodigoMunicipioIbge ?? string.Empty;
+        SelecionarIndicadorIe(cliente.IndicadorIe);
         TxtObservacoes.Text = cliente.Observacoes ?? string.Empty;
         TxtStatus.Text = string.Empty;
     }
@@ -221,7 +224,8 @@ public partial class ClienteFormView : Window
 
             EnderecoFormHelper.PreencherEndereco(
                 TxtLogradouro, TxtBairro, TxtCidade, TxtEstado,
-                endereco.Logradouro, endereco.Bairro, endereco.Cidade, endereco.Uf);
+                endereco.Logradouro, endereco.Bairro, endereco.Cidade, endereco.Uf,
+                TxtCodigoIbge, endereco.CodigoIbge);
 
             TxtStatus.Text = "Endereço preenchido automaticamente.";
             TxtNumero.Focus();
@@ -353,6 +357,8 @@ public partial class ClienteFormView : Window
                 Bairro = TxtBairro.Text.Trim(),
                 Cidade = TxtCidade.Text.Trim(),
                 Estado = TxtEstado.Text.Trim().ToUpperInvariant(),
+                CodigoMunicipioIbge = string.IsNullOrWhiteSpace(TxtCodigoIbge.Text) ? null : TxtCodigoIbge.Text.Trim(),
+                IndicadorIe = ObterIndicadorIeSelecionado(),
                 Observacoes = TxtObservacoes.Text.Trim()
             };
 
@@ -369,6 +375,25 @@ public partial class ClienteFormView : Window
             MessageBox.Show($"Erro: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
+
+    private void SelecionarIndicadorIe(IndicadorIeDestinatario? indicador)
+    {
+        var tag = (indicador ?? IndicadorIeDestinatario.NaoContribuinte).ToString();
+        foreach (var item in CmbIndicadorIe.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag as string == tag)
+            {
+                CmbIndicadorIe.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private IndicadorIeDestinatario? ObterIndicadorIeSelecionado()
+        => CmbIndicadorIe.SelectedItem is ComboBoxItem item &&
+           Enum.TryParse<IndicadorIeDestinatario>(item.Tag as string, out var indicador)
+            ? indicador
+            : null;
 
     private void BtnCancelar_Click(object sender, RoutedEventArgs e)
         => ModalWindowHelper.Fechar(this, false);

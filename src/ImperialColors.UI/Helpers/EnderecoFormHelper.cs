@@ -23,11 +23,19 @@ public static class EnderecoFormHelper
         string? log,
         string? bair,
         string? cid,
-        string? estado)
+        string? estado,
+        TextBox? codigoIbge = null,
+        string? ibge = null)
     {
         logradouro.Text = log ?? string.Empty;
         bairro.Text = bair ?? string.Empty;
         cidade.Text = cid ?? string.Empty;
         uf.Text = (estado ?? string.Empty).Trim().ToUpperInvariant();
+
+        // Código IBGE do município — obrigatório no enderDest da NF-e, a SEFAZ não aceita
+        // "cidade em texto livre". Só preenche se a tela passar o campo (Cliente sim,
+        // Fornecedor não precisa — nunca é destinatário de nota).
+        if (codigoIbge is not null)
+            codigoIbge.Text = ibge ?? string.Empty;
     }
 }

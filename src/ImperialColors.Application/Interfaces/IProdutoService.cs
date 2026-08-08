@@ -24,4 +24,10 @@ public interface IProdutoService
     Task RegistrarMovimentacaoAsync(MovimentacaoEstoqueDto dto);
     Task<string> GerarProximoCodigoInternoAsync();
     Task<string> GerarCodigoInternoPorNomeAsync(string nome, CancellationToken cancellationToken = default);
+
+    /// <summary>Retorna a tributação do produto, ou um DTO vazio (ProdutoId preenchido) se nunca foi cadastrada.</summary>
+    Task<TributacaoProdutoDto> ObterTributacaoAsync(int produtoId, CancellationToken cancellationToken = default);
+
+    /// <summary>Valida (formato + regra CST×CSOSN conforme regime tributário) e salva a tributação do produto.</summary>
+    Task<TributacaoProdutoDto> SalvarTributacaoAsync(int produtoId, TributacaoProdutoDto dto, CancellationToken cancellationToken = default);
 }

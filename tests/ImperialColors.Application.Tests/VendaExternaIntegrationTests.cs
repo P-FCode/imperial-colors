@@ -1,7 +1,9 @@
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Extensions;
 using ImperialColors.Application.Interfaces;
+using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Exceptions;
+using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Data;
 using ImperialColors.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +34,19 @@ public class VendaExternaIntegrationTests
         return true;
     }
 
+    /// <summary>Categoria/Marca são obrigatórias em <see cref="ProdutoValidator"/> — cria um
+    /// par isolado (sufixo único) para não colidir com outros testes rodando em paralelo.</summary>
+    private static async Task<(int CategoriaId, int MarcaId)> CriarCategoriaEMarcaAsync(
+        IServiceProvider serviceProvider, string sufixo)
+    {
+        var categoriaRepo = serviceProvider.GetRequiredService<IRepository<Categoria>>();
+        var marcaRepo = serviceProvider.GetRequiredService<IRepository<Marca>>();
+
+        var categoria = await categoriaRepo.AdicionarAsync(new Categoria { Nome = $"CatVendaExterna{sufixo}", Ativo = true });
+        var marca = await marcaRepo.AdicionarAsync(new Marca { Nome = $"MarcaVendaExterna{sufixo}", Ativo = true });
+        return (categoria.Id, marca.Id);
+    }
+
     [Fact]
     public async Task RegistrarVendaExternaMista_DeveBaixarEstoqueApenasDoProdutoVinculado()
     {
@@ -43,12 +58,15 @@ public class VendaExternaIntegrationTests
         var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
 
         var sufixo = Guid.NewGuid().ToString("N")[..8];
+        var (categoriaId, marcaId) = await CriarCategoriaEMarcaAsync(scope.ServiceProvider, sufixo);
         var produto = await produtoService.CriarAsync(new CriarProdutoDto
         {
             Nome = $"Tinta Externa {sufixo}",
             CodigoInterno = $"EXT-{sufixo}",
             CodigoInternoDefinidoManualmente = true,
             CodigoBarras = $"789{sufixo}",
+            CategoriaId = categoriaId,
+            MarcaId = marcaId,
             PrecoVenda = 100m,
             QuantidadeEstoque = 10,
             EstoqueMinimo = 1
@@ -106,11 +124,14 @@ public class VendaExternaIntegrationTests
         var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
 
         var sufixo = Guid.NewGuid().ToString("N")[..8];
+        var (categoriaId, marcaId) = await CriarCategoriaEMarcaAsync(scope.ServiceProvider, sufixo);
         var produto = await produtoService.CriarAsync(new CriarProdutoDto
         {
             Nome = $"Produto Rollback {sufixo}",
             CodigoInterno = $"RB-{sufixo}",
             CodigoInternoDefinidoManualmente = true,
+            CategoriaId = categoriaId,
+            MarcaId = marcaId,
             PrecoVenda = 50m,
             QuantidadeEstoque = 1,
             EstoqueMinimo = 0
@@ -152,11 +173,14 @@ public class VendaExternaIntegrationTests
         var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
 
         var sufixo = Guid.NewGuid().ToString("N")[..8];
+        var (categoriaId, marcaId) = await CriarCategoriaEMarcaAsync(scope.ServiceProvider, sufixo);
         var produto = await produtoService.CriarAsync(new CriarProdutoDto
         {
             Nome = $"Galão Externo {sufixo}",
             CodigoInterno = $"GAL-{sufixo}",
             CodigoInternoDefinidoManualmente = true,
+            CategoriaId = categoriaId,
+            MarcaId = marcaId,
             PrecoVenda = 80m,
             QuantidadeEstoque = 20,
             EstoqueMinimo = 1,
@@ -218,11 +242,14 @@ public class VendaExternaIntegrationTests
         var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
 
         var sufixo = Guid.NewGuid().ToString("N")[..8];
+        var (categoriaId, marcaId) = await CriarCategoriaEMarcaAsync(scope.ServiceProvider, sufixo);
         var produto = await produtoService.CriarAsync(new CriarProdutoDto
         {
             Nome = $"Prod Exclusão {sufixo}",
             CodigoInterno = $"DEL-{sufixo}",
             CodigoInternoDefinidoManualmente = true,
+            CategoriaId = categoriaId,
+            MarcaId = marcaId,
             PrecoVenda = 60m,
             QuantidadeEstoque = 15,
             EstoqueMinimo = 0

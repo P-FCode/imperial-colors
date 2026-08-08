@@ -30,6 +30,18 @@ public partial class MovimentacaoEstoqueView : Window
         TxtEstoqueAtual.Text = FormattingHelper.FormatarQuantidadeUnidade(produto.QuantidadeEstoque, produto.Unidade);
     }
 
+    private void CmbTipo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (TxtLabelQuantidade is null) return;
+
+        // "Ajuste" define o novo total absoluto do estoque (ex.: contagem física de
+        // inventário) — diferente de Entrada/Saída, que somam/subtraem do total atual.
+        // O rótulo deixa isso explícito para não ser confundido com uma quantidade a somar.
+        TxtLabelQuantidade.Text = CmbTipo.SelectedIndex == 2
+            ? "Nova Quantidade Total em Estoque *"
+            : "Quantidade a Movimentar *";
+    }
+
     private async void BtnSalvar_Click(object sender, RoutedEventArgs e)
     {
         if (_produto is null) return;
@@ -39,7 +51,19 @@ public partial class MovimentacaoEstoqueView : Window
             return;
         }
 
-        if (!FormattingHelper.TryParseQuantidade(TxtQuantidade.Text, out decimal quantidade) || quantidade <= 0)
+        var tipo = (CmbTipo.SelectedIndex) switch
+        {
+            0 => TipoMovimentacao.Entrada,
+            1 => TipoMovimentacao.Saida,
+            _ => TipoMovimentacao.Ajuste
+        };
+
+        // Ajuste pode zerar o estoque (ex.: perda total / descontinuado) — só
+        // Entrada/Saída exigem uma quantidade estritamente positiva.
+        var quantidadeValida = FormattingHelper.TryParseQuantidade(TxtQuantidade.Text, out decimal quantidade)
+            && (tipo == TipoMovimentacao.Ajuste ? quantidade >= 0 : quantidade > 0);
+
+        if (!quantidadeValida)
         {
             MessageBox.Show("Quantidade inválida.", "Validação", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
@@ -47,13 +71,6 @@ public partial class MovimentacaoEstoqueView : Window
 
         try
         {
-            var tipo = (CmbTipo.SelectedIndex) switch
-            {
-                0 => TipoMovimentacao.Entrada,
-                1 => TipoMovimentacao.Saida,
-                _ => TipoMovimentacao.Ajuste
-            };
-
             await _produtoService.RegistrarMovimentacaoAsync(new MovimentacaoEstoqueDto
             {
                 ProdutoId = _produto.Id,

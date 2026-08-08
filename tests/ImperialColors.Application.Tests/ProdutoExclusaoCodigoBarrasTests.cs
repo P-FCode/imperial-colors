@@ -1,4 +1,5 @@
 using ImperialColors.Application.DTOs;
+using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Services;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Exceptions;
@@ -105,6 +106,8 @@ public class ProdutoExclusaoCodigoBarrasTests
         _movimentacaoRepository.Object,
         _categoriaRepository.Object,
         _marcaRepository.Object,
+        Mock.Of<ITributacaoProdutoRepository>(),
+        Mock.Of<IConfiguracaoFiscalService>(),
         NullLogger<ProdutoService>.Instance);
 
     private static CriarProdutoDto CriarDtoValido() => new()

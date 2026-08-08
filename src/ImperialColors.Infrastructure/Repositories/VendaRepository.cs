@@ -3,6 +3,7 @@ using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Data;
+using ImperialColors.Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
 
 namespace ImperialColors.Infrastructure.Repositories;
@@ -10,6 +11,85 @@ namespace ImperialColors.Infrastructure.Repositories;
 public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
 {
     public VendaRepository(IDbContextFactory<AppDbContext> contextFactory) : base(contextFactory) { }
+
+    public async Task<Venda> CriarComBaixaEstoqueTransacionalAsync(Venda venda, CancellationToken cancellationToken = default)
+    {
+        if (venda.Itens.Count == 0)
+            throw new DomainException("A venda deve ter pelo menos um item.");
+
+        await using var context = ContextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var prefixo = DateTime.Today.ToString("yyyyMMdd");
+            var chaveLock = $"venda_numero:{prefixo}";
+
+            // Advisory lock transacional: serializa a geração do número de venda entre
+            // PDVs concorrentes (liberado automaticamente no commit/rollback), sem
+            // bloquear a tabela inteira nem depender de retry em caso de colisão.
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtext({chaveLock}))",
+                cancellationToken);
+
+            // IgnoreQueryFilters: precisa considerar até vendas soft-deletadas (Ativo=false)
+            // para não gerar um numero_venda que colida com o índice único da tabela.
+            var ultimaVenda = await context.Set<Venda>()
+                .IgnoreQueryFilters()
+                .Where(v => v.NumeroVenda.StartsWith(prefixo))
+                .OrderByDescending(v => v.NumeroVenda)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var sequencial = 1;
+            if (ultimaVenda is not null)
+            {
+                var partes = ultimaVenda.NumeroVenda.Split('-');
+                if (partes.Length == 2 && int.TryParse(partes[1], out var seq))
+                    sequencial = seq + 1;
+            }
+
+            venda.NumeroVenda = $"{prefixo}-{sequencial:D4}";
+
+            await context.Set<Venda>().AddAsync(venda, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+
+            var produtoIds = venda.Itens.Select(i => i.ProdutoId).Distinct().ToList();
+            var nomesProdutos = await context.Set<Produto>()
+                .IgnoreQueryFilters()
+                .Where(p => produtoIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Nome, cancellationToken);
+
+            foreach (var item in venda.Itens)
+            {
+                var nomeProduto = nomesProdutos.GetValueOrDefault(item.ProdutoId, $"produto Id {item.ProdutoId}");
+                var (quantidadeAnterior, quantidadeAtual) = await EstoqueAtomicoHelper.BaixarAsync(
+                    context, item.ProdutoId, item.Quantidade, nomeProduto, cancellationToken);
+
+                context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
+                {
+                    ProdutoId = item.ProdutoId,
+                    Tipo = TipoMovimentacao.Saida,
+                    Quantidade = item.Quantidade,
+                    QuantidadeAnterior = quantidadeAnterior,
+                    QuantidadeAtual = quantidadeAtual,
+                    Motivo = venda.ContingenciaId.HasValue
+                        ? $"Venda #{venda.NumeroVenda} (sync contingência)"
+                        : $"Venda #{venda.NumeroVenda}",
+                    Usuario = venda.Usuario,
+                    VendaId = venda.Id
+                });
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return venda;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
 
     public async Task<Venda?> ObterComItensAsync(int id)
     {
@@ -139,12 +219,8 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
             {
                 foreach (var item in venda.Itens)
                 {
-                    var produto = await context.Set<Produto>()
-                        .FirstOrDefaultAsync(p => p.Id == item.ProdutoId, cancellationToken)
-                        ?? throw new DomainException($"Produto com Id {item.ProdutoId} não encontrado para estorno.");
-
-                    var quantidadeAnterior = produto.QuantidadeEstoque;
-                    produto.QuantidadeEstoque += item.Quantidade;
+                    var (quantidadeAnterior, quantidadeAtual) = await EstoqueAtomicoHelper.ReporAsync(
+                        context, item.ProdutoId, item.Quantidade, cancellationToken);
 
                     context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
                     {
@@ -152,7 +228,7 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
                         Tipo = TipoMovimentacao.Entrada,
                         Quantidade = item.Quantidade,
                         QuantidadeAnterior = quantidadeAnterior,
-                        QuantidadeAtual = produto.QuantidadeEstoque,
+                        QuantidadeAtual = quantidadeAtual,
                         Motivo = $"Cancelamento venda #{venda.NumeroVenda}",
                         VendaId = vendaId
                     });
@@ -194,12 +270,8 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
             {
                 foreach (var item in venda.Itens)
                 {
-                    var produto = await context.Set<Produto>()
-                        .FirstOrDefaultAsync(p => p.Id == item.ProdutoId, cancellationToken)
-                        ?? throw new DomainException($"Produto com Id {item.ProdutoId} não encontrado para estorno.");
-
-                    var quantidadeAnterior = produto.QuantidadeEstoque;
-                    produto.QuantidadeEstoque += item.Quantidade;
+                    var (quantidadeAnterior, quantidadeAtual) = await EstoqueAtomicoHelper.ReporAsync(
+                        context, item.ProdutoId, item.Quantidade, cancellationToken);
 
                     context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
                     {
@@ -207,7 +279,7 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
                         Tipo = TipoMovimentacao.Entrada,
                         Quantidade = item.Quantidade,
                         QuantidadeAnterior = quantidadeAnterior,
-                        QuantidadeAtual = produto.QuantidadeEstoque,
+                        QuantidadeAtual = quantidadeAtual,
                         Motivo = $"Exclusão permanente venda #{venda.NumeroVenda}",
                         VendaId = vendaId
                     });

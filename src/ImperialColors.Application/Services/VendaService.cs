@@ -4,6 +4,7 @@ using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -13,7 +14,6 @@ public class VendaService : IVendaService, IVendaContingenciaSync
 {
     private readonly IVendaRepository _vendaRepository;
     private readonly IProdutoRepository _produtoRepository;
-    private readonly IMovimentacaoEstoqueRepository _movimentacaoRepository;
     private readonly IClienteRepository _clienteRepository;
     private readonly IDatabaseHealthService _health;
     private readonly IContingencyVendaService _contingency;
@@ -23,7 +23,6 @@ public class VendaService : IVendaService, IVendaContingenciaSync
     public VendaService(
         IVendaRepository vendaRepository,
         IProdutoRepository produtoRepository,
-        IMovimentacaoEstoqueRepository movimentacaoRepository,
         IClienteRepository clienteRepository,
         IDatabaseHealthService health,
         IContingencyVendaService contingency,
@@ -32,7 +31,6 @@ public class VendaService : IVendaService, IVendaContingenciaSync
     {
         _vendaRepository = vendaRepository;
         _produtoRepository = produtoRepository;
-        _movimentacaoRepository = movimentacaoRepository;
         _clienteRepository = clienteRepository;
         _health = health;
         _contingency = contingency;
@@ -137,11 +135,8 @@ public class VendaService : IVendaService, IVendaContingenciaSync
                 throw new DomainException($"Estoque insuficiente para '{produto.Nome}'. Disponível: {produto.QuantidadeEstoque} {produto.Unidade}");
         }
 
-        var numeroVenda = await _vendaRepository.GerarNumeroVendaAsync();
-
         var venda = new Venda
         {
-            NumeroVenda = numeroVenda,
             ClienteId = dto.ClienteId,
             Status = StatusVenda.Finalizada,
             Desconto = dto.Desconto,
@@ -185,38 +180,22 @@ public class VendaService : IVendaService, IVendaContingenciaSync
             Ordem = index + 1
         }).ToList();
 
-        var vendaCriada = await _vendaRepository.AdicionarAsync(venda);
+        // Cabeçalho + itens + baixa de estoque de todos os itens são gravados em uma
+        // única transação no repositório: se algum item ficar sem estoque disponível
+        // no instante exato da baixa (ex.: outro PDV vendeu o último item um milissegundo
+        // antes), a venda inteira é revertida — nunca fica "meio salva". O número da
+        // venda também é gerado dentro dessa mesma transação, sob advisory lock, para
+        // dois PDVs nunca gerarem o mesmo número.
+        var vendaCriada = await _vendaRepository.CriarComBaixaEstoqueTransacionalAsync(venda);
 
-        foreach (var item in dto.Itens)
-        {
-            var produto = await _produtoRepository.ObterPorIdAsync(item.ProdutoId)!;
-            var quantidadeAnterior = produto!.QuantidadeEstoque;
-            produto.QuantidadeEstoque -= item.Quantidade;
-            await _produtoRepository.AtualizarAsync(produto);
-
-            await _movimentacaoRepository.AdicionarAsync(new MovimentacaoEstoque
-            {
-                ProdutoId = item.ProdutoId,
-                Tipo = TipoMovimentacao.Saida,
-                Quantidade = item.Quantidade,
-                QuantidadeAnterior = quantidadeAnterior,
-                QuantidadeAtual = produto.QuantidadeEstoque,
-                Motivo = contingenciaId.HasValue
-                    ? $"Venda #{numeroVenda} (sync contingência)"
-                    : $"Venda #{numeroVenda}",
-                Usuario = dto.Usuario,
-                VendaId = vendaCriada.Id
-            });
-        }
-
-        _logger.LogInformation("Venda criada: {NumeroVenda} - Total: {Total}", numeroVenda, venda.Total);
+        _logger.LogInformation("Venda criada: {NumeroVenda} - Total: {Total}", vendaCriada.NumeroVenda, venda.Total);
 
         await _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
         {
             NomeUsuario = dto.Usuario ?? "Caixa",
             Modulo = "PDV",
             Acao = contingenciaId.HasValue ? "VENDA_SINCRONIZADA" : "VENDA_FINALIZADA",
-            Descricao = $"Venda {numeroVenda} finalizada — Total {venda.Total:C}",
+            Descricao = $"Venda {vendaCriada.NumeroVenda} finalizada — Total {venda.Total:C}",
             Nivel = NivelLogAuditoria.Info
         });
 
@@ -264,6 +243,19 @@ public class VendaService : IVendaService, IVendaContingenciaSync
 
         if (string.IsNullOrWhiteSpace(dto.NomeCompradorAvulso))
             throw new DomainException("Informe o nome do comprador ou selecione Consumidor Final.");
+
+        if (!string.IsNullOrWhiteSpace(dto.DocumentoCompradorAvulso))
+        {
+            // Documento com dígito verificador errado passa despercebido no cupom e só
+            // seria descoberto na hora de emitir a nota fiscal — pega o erro aqui.
+            var ehJuridica = dto.TipoPessoaCompradorAvulso == TipoPessoa.Juridica;
+            var documentoValido = ehJuridica
+                ? DocumentoFiscalHelper.CnpjValido(dto.DocumentoCompradorAvulso)
+                : DocumentoFiscalHelper.CpfValido(dto.DocumentoCompradorAvulso);
+
+            if (!documentoValido)
+                throw new DomainException($"{(ehJuridica ? "CNPJ" : "CPF")} do comprador inválido — confira os dígitos.");
+        }
 
         venda.NomeCompradorCupom = dto.NomeCompradorAvulso.Trim();
         venda.DocumentoCompradorCupom = string.IsNullOrWhiteSpace(dto.DocumentoCompradorAvulso)

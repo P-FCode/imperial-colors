@@ -1,4 +1,5 @@
 using ImperialColors.Application.DTOs;
+using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Services;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Interfaces;
@@ -26,6 +27,8 @@ public class ProdutoPaginacaoTests
             Mock.Of<IMovimentacaoEstoqueRepository>(),
             Mock.Of<IRepository<Categoria>>(),
             Mock.Of<IRepository<Marca>>(),
+            Mock.Of<ITributacaoProdutoRepository>(),
+            Mock.Of<IConfiguracaoFiscalService>(),
             NullLogger<ProdutoService>.Instance);
 
         var resultado = await service.ObterPaginadoAsync(2, 50);

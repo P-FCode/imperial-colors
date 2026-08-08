@@ -24,6 +24,8 @@ public class ProdutoService : IProdutoService
     private readonly IMovimentacaoEstoqueRepository _movimentacaoRepository;
     private readonly IRepository<Categoria> _categoriaRepository;
     private readonly IRepository<Marca> _marcaRepository;
+    private readonly ITributacaoProdutoRepository _tributacaoRepository;
+    private readonly IConfiguracaoFiscalService _configuracaoFiscal;
     private readonly ILogger<ProdutoService> _logger;
 
     public ProdutoService(
@@ -31,12 +33,16 @@ public class ProdutoService : IProdutoService
         IMovimentacaoEstoqueRepository movimentacaoRepository,
         IRepository<Categoria> categoriaRepository,
         IRepository<Marca> marcaRepository,
+        ITributacaoProdutoRepository tributacaoRepository,
+        IConfiguracaoFiscalService configuracaoFiscal,
         ILogger<ProdutoService> logger)
     {
         _produtoRepository = produtoRepository;
         _movimentacaoRepository = movimentacaoRepository;
         _categoriaRepository = categoriaRepository;
         _marcaRepository = marcaRepository;
+        _tributacaoRepository = tributacaoRepository;
+        _configuracaoFiscal = configuracaoFiscal;
         _logger = logger;
     }
 
@@ -170,6 +176,12 @@ public class ProdutoService : IProdutoService
         var produto = await _produtoRepository.ObterPorIdAsync(id)
             ?? throw new DomainException($"Produto com Id {id} não encontrado.");
 
+        // Prioriza o baseline que a tela de edição capturou ao carregar (protege contra o
+        // formulário ficar aberto enquanto uma venda concorrente altera o estoque real);
+        // sem esse valor, cai para o estoque atual do banco (ainda seguro para o caso de
+        // duas gravações concorrentes na mesma janela desta chamada).
+        var quantidadeBaseline = dto.QuantidadeEstoqueOriginal ?? produto.QuantidadeEstoque;
+
         if (await _produtoRepository.CodigoInternoExisteAsync(dto.CodigoInterno, id))
             throw new DomainException("Este código interno já está em uso por outro produto.");
 
@@ -190,24 +202,13 @@ public class ProdutoService : IProdutoService
         produto.FornecedorId = dto.FornecedorId;
         produto.Observacoes = InputSanitizer.SanitizarTexto(dto.Observacoes, 500);
 
-        var quantidadeAnterior = produto.QuantidadeEstoque;
-        produto.QuantidadeEstoque = dto.QuantidadeEstoque;
-
-        var atualizado = await _produtoRepository.AtualizarAsync(produto);
-
-        if (quantidadeAnterior != dto.QuantidadeEstoque)
-        {
-            await _movimentacaoRepository.AdicionarAsync(new MovimentacaoEstoque
-            {
-                ProdutoId = id,
-                Tipo = TipoMovimentacao.Ajuste,
-                Quantidade = Math.Abs(dto.QuantidadeEstoque - quantidadeAnterior),
-                QuantidadeAnterior = quantidadeAnterior,
-                QuantidadeAtual = dto.QuantidadeEstoque,
-                Motivo = "Ajuste manual via edição de produto",
-                Usuario = "Administrador"
-            });
-        }
+        // Campos comerciais + ajuste de estoque (se a quantidade foi alterada na tela)
+        // são gravados em uma única transação, com o delta de estoque calculado contra
+        // o valor real e atual do banco — não contra o valor que estava em memória quando
+        // o formulário foi aberto. Isso evita que salvar a edição de um produto apague
+        // silenciosamente uma baixa feita por uma venda concorrente no PDV.
+        var atualizado = await _produtoRepository.AtualizarComAjusteEstoqueTransacionalAsync(
+            produto, quantidadeBaseline, dto.QuantidadeEstoque, "Ajuste manual via edição de produto", "Administrador");
 
         _logger.LogInformation("Produto atualizado: {Nome} ({Id})", dto.Nome, id);
         return MapParaDto(atualizado);
@@ -255,42 +256,14 @@ public class ProdutoService : IProdutoService
 
     public async Task RegistrarMovimentacaoAsync(MovimentacaoEstoqueDto dto)
     {
-        var produto = await _produtoRepository.ObterPorIdAsync(dto.ProdutoId)
-            ?? throw new DomainException($"Produto com Id {dto.ProdutoId} não encontrado.");
+        if (dto.Quantidade < 0)
+            throw new DomainException("Quantidade inválida.");
 
-        var quantidadeAnterior = produto.QuantidadeEstoque;
-        decimal quantidadeAtual;
-
-        switch (dto.Tipo)
-        {
-            case TipoMovimentacao.Entrada:
-                quantidadeAtual = quantidadeAnterior + dto.Quantidade;
-                break;
-            case TipoMovimentacao.Saida:
-                if (quantidadeAnterior < dto.Quantidade)
-                    throw new DomainException($"Estoque insuficiente. Disponível: {quantidadeAnterior} {produto.Unidade}");
-                quantidadeAtual = quantidadeAnterior - dto.Quantidade;
-                break;
-            case TipoMovimentacao.Ajuste:
-                quantidadeAtual = dto.Quantidade;
-                break;
-            default:
-                throw new DomainException("Tipo de movimentação inválido.");
-        }
-
-        produto.QuantidadeEstoque = quantidadeAtual;
-        await _produtoRepository.AtualizarAsync(produto);
-
-        await _movimentacaoRepository.AdicionarAsync(new MovimentacaoEstoque
-        {
-            ProdutoId = dto.ProdutoId,
-            Tipo = dto.Tipo,
-            Quantidade = dto.Tipo == TipoMovimentacao.Ajuste ? Math.Abs(quantidadeAtual - quantidadeAnterior) : dto.Quantidade,
-            QuantidadeAnterior = quantidadeAnterior,
-            QuantidadeAtual = quantidadeAtual,
-            Motivo = dto.Motivo,
-            Usuario = dto.Usuario
-        });
+        // Baixa/reposição/ajuste + registro da movimentação em uma única transação, com
+        // UPDATE atômico guardado (nunca deixa o estoque negativo por concorrência com
+        // uma venda simultânea no PDV — ver EstoqueAtomicoHelper).
+        await _produtoRepository.AjustarEstoqueTransacionalAsync(
+            dto.ProdutoId, dto.Tipo, dto.Quantidade, dto.Motivo, dto.Usuario);
     }
 
     public async Task<string> GerarProximoCodigoInternoAsync()
@@ -346,6 +319,104 @@ public class ProdutoService : IProdutoService
                 $"A marca selecionada (Id={marcaId}) não existe no banco de dados. " +
                 "Selecione ou cadastre uma marca válida.");
     }
+
+    public async Task<TributacaoProdutoDto> ObterTributacaoAsync(int produtoId, CancellationToken cancellationToken = default)
+    {
+        var tributacao = await _tributacaoRepository.ObterPorProdutoIdAsync(produtoId, cancellationToken);
+        return tributacao is null
+            ? new TributacaoProdutoDto { ProdutoId = produtoId }
+            : MapParaDto(tributacao);
+    }
+
+    public async Task<TributacaoProdutoDto> SalvarTributacaoAsync(
+        int produtoId, TributacaoProdutoDto dto, CancellationToken cancellationToken = default)
+    {
+        if (!await _produtoRepository.ExisteAsync(produtoId))
+            throw new DomainException($"Produto com Id {produtoId} não encontrado.");
+
+        var regime = await _configuracaoFiscal.ObterRegimeAsync(cancellationToken);
+        dto.ProdutoId = produtoId;
+        TributacaoProdutoValidator.Validar(dto, regime);
+
+        var entidade = new TributacaoProduto
+        {
+            ProdutoId = produtoId,
+            Ncm = NormalizarDigitos(dto.Ncm),
+            Cest = NormalizarDigitos(dto.Cest),
+            Origem = dto.Origem,
+            CstIcms = NormalizarDigitos(dto.CstIcms),
+            CsosnIcms = NormalizarDigitos(dto.CsosnIcms),
+            AliquotaIcms = dto.AliquotaIcms,
+            AliquotaIcmsSt = dto.AliquotaIcmsSt,
+            Mva = dto.Mva,
+            ReducaoBaseCalculo = dto.ReducaoBaseCalculo,
+            CstPis = NormalizarDigitos(dto.CstPis),
+            AliquotaPis = dto.AliquotaPis,
+            CstCofins = NormalizarDigitos(dto.CstCofins),
+            AliquotaCofins = dto.AliquotaCofins,
+            CstIpi = NormalizarDigitos(dto.CstIpi),
+            CodigoEnquadramentoIpi = NormalizarDigitos(dto.CodigoEnquadramentoIpi),
+            AliquotaIpi = dto.AliquotaIpi,
+            ValorIpiFixo = dto.ValorIpiFixo,
+            ExTipi = NormalizarDigitos(dto.ExTipi),
+            UnidadeTributavel = string.IsNullOrWhiteSpace(dto.UnidadeTributavel)
+                ? null
+                : dto.UnidadeTributavel.Trim().ToUpperInvariant(),
+            FatorConversao = dto.FatorConversao,
+            GtinTributavel = string.IsNullOrWhiteSpace(dto.GtinTributavel) ? null : dto.GtinTributavel.Trim(),
+            CfopDentroEstado = NormalizarDigitos(dto.CfopDentroEstado),
+            CfopForaEstado = NormalizarDigitos(dto.CfopForaEstado),
+            CstIbsCbs = NormalizarDigitos(dto.CstIbsCbs),
+            CClassTrib = NormalizarDigitos(dto.CClassTrib),
+            CstIS = NormalizarDigitos(dto.CstIS),
+            CClassTribIS = NormalizarDigitos(dto.CClassTribIS),
+            AliquotaIS = dto.AliquotaIS,
+            AliquotaIbsMunicipioDiferimento = dto.AliquotaIbsMunicipioDiferimento,
+            AliquotaIbsMunicipioReducao = dto.AliquotaIbsMunicipioReducao
+        };
+
+        var salvo = await _tributacaoRepository.SalvarAsync(entidade, cancellationToken);
+        _logger.LogInformation("Tributação salva para o produto Id={ProdutoId}", produtoId);
+        return MapParaDto(salvo);
+    }
+
+    private static string? NormalizarDigitos(string? valor)
+        => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
+
+    private static TributacaoProdutoDto MapParaDto(TributacaoProduto t) => new()
+    {
+        ProdutoId = t.ProdutoId,
+        Ncm = t.Ncm,
+        Cest = t.Cest,
+        Origem = t.Origem,
+        CstIcms = t.CstIcms,
+        CsosnIcms = t.CsosnIcms,
+        AliquotaIcms = t.AliquotaIcms,
+        AliquotaIcmsSt = t.AliquotaIcmsSt,
+        Mva = t.Mva,
+        ReducaoBaseCalculo = t.ReducaoBaseCalculo,
+        CstPis = t.CstPis,
+        AliquotaPis = t.AliquotaPis,
+        CstCofins = t.CstCofins,
+        AliquotaCofins = t.AliquotaCofins,
+        CstIpi = t.CstIpi,
+        CodigoEnquadramentoIpi = t.CodigoEnquadramentoIpi,
+        AliquotaIpi = t.AliquotaIpi,
+        ValorIpiFixo = t.ValorIpiFixo,
+        ExTipi = t.ExTipi,
+        UnidadeTributavel = t.UnidadeTributavel,
+        FatorConversao = t.FatorConversao,
+        GtinTributavel = t.GtinTributavel,
+        CfopDentroEstado = t.CfopDentroEstado,
+        CfopForaEstado = t.CfopForaEstado,
+        CstIbsCbs = t.CstIbsCbs,
+        CClassTrib = t.CClassTrib,
+        CstIS = t.CstIS,
+        CClassTribIS = t.CClassTribIS,
+        AliquotaIS = t.AliquotaIS,
+        AliquotaIbsMunicipioDiferimento = t.AliquotaIbsMunicipioDiferimento,
+        AliquotaIbsMunicipioReducao = t.AliquotaIbsMunicipioReducao
+    };
 
     private static ProdutoDto MapParaDto(Produto p) => new()
     {

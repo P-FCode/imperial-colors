@@ -49,15 +49,16 @@
 
                     <StackPanel Margin="0,0,0,12">
                         <TextBlock Style="{StaticResource LabelCampo}" Text="Tipo de Movimentação *"/>
-                        <ComboBox x:Name="CmbTipo" Style="{StaticResource ComboBoxModerno}">
+                        <ComboBox x:Name="CmbTipo" Style="{StaticResource ComboBoxModerno}"
+                                  SelectionChanged="CmbTipo_SelectionChanged">
                             <ComboBoxItem Content="Entrada" IsSelected="True"/>
                             <ComboBoxItem Content="Saída"/>
-                            <ComboBoxItem Content="Ajuste"/>
+                            <ComboBoxItem Content="Ajuste (corrigir para um novo total)"/>
                         </ComboBox>
                     </StackPanel>
 
                     <StackPanel Margin="0,0,0,12">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Quantidade *"/>
+                        <TextBlock x:Name="TxtLabelQuantidade" Style="{StaticResource LabelCampo}" Text="Quantidade a Movimentar *"/>
                         <TextBox x:Name="TxtQuantidade" Style="{StaticResource TextBoxNumerico}" Text="0"/>
                     </StackPanel>
 

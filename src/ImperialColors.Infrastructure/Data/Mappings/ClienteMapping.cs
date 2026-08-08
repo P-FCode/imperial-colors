@@ -26,6 +26,8 @@ public class ClienteMapping : IEntityTypeConfiguration<Cliente>
         builder.Property(c => c.Bairro).HasColumnName("bairro").HasMaxLength(100);
         builder.Property(c => c.Cidade).HasColumnName("cidade").HasMaxLength(100);
         builder.Property(c => c.Estado).HasColumnName("estado").HasMaxLength(2);
+        builder.Property(c => c.CodigoMunicipioIbge).HasColumnName("codigo_municipio_ibge").HasMaxLength(7);
+        builder.Property(c => c.IndicadorIe).HasColumnName("indicador_ie");
         builder.Property(c => c.Observacoes).HasColumnName("observacoes");
         builder.Property(c => c.CriadoEm).HasColumnName("criado_em");
         builder.Property(c => c.AtualizadoEm).HasColumnName("atualizado_em");

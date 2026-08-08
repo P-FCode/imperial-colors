@@ -60,4 +60,16 @@ public class CriarProdutoDto
 public class AtualizarProdutoDto : CriarProdutoDto
 {
     public int Id { get; set; }
+
+    /// <summary>
+    /// Quantidade em estoque que a tela de edição exibia quando foi carregada (antes de
+    /// qualquer alteração do usuário). Usada para calcular o delta real pretendido —
+    /// <see cref="CriarProdutoDto.QuantidadeEstoque"/> (o que está no campo agora) menos
+    /// este valor — em vez de tratar o campo como um valor absoluto a sobrescrever.
+    /// Isso evita que salvar uma edição que não tocou no campo de quantidade apague uma
+    /// venda concorrente feita no PDV enquanto a tela estava aberta. Se não informado
+    /// (null), o serviço usa o valor atual do banco como baseline (mesmo comportamento,
+    /// só que sem proteção contra o cenário de "tela aberta por um tempo").
+    /// </summary>
+    public decimal? QuantidadeEstoqueOriginal { get; set; }
 }

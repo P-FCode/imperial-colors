@@ -26,6 +26,13 @@ public class VendaExternaService : IVendaExternaService
         return vendas.Select(MapearParaDto);
     }
 
+    public async Task<IEnumerable<VendaExternaDto>> ObterPorPeriodoAsync(
+        DateTime inicio, DateTime fim, CancellationToken cancellationToken = default)
+    {
+        var vendas = await _vendaExternaRepository.ObterPorPeriodoAsync(inicio, fim, cancellationToken);
+        return vendas.Select(MapearParaDto);
+    }
+
     public async Task<VendaExternaDto?> ObterPorIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var venda = await _vendaExternaRepository.ObterComItensAsync(id, cancellationToken);

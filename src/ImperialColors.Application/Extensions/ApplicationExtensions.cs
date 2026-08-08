@@ -22,6 +22,9 @@ public static class ApplicationExtensions
         services.AddSingleton<IAuthService, AuthService>();
         services.AddSingleton<IUsuarioService, UsuarioService>();
         services.AddSingleton<IAuditoriaService, AuditoriaService>();
+        services.AddSingleton<IConfiguracaoFiscalService, ConfiguracaoFiscalService>();
+        services.AddSingleton<ICalculoFiscalVendaService, CalculoFiscalVendaService>();
+        services.AddSingleton<INaturezaOperacaoService, NaturezaOperacaoService>();
         return services;
     }
 }

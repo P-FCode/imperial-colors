@@ -32,7 +32,8 @@ public class ViaCepService : IViaCepService
             Bairro = payload.Bairro ?? string.Empty,
             Cidade = payload.Localidade ?? string.Empty,
             Uf = payload.Uf ?? string.Empty,
-            Complemento = payload.Complemento
+            Complemento = payload.Complemento,
+            CodigoIbge = payload.Ibge
         };
     }
 
@@ -55,5 +56,8 @@ public class ViaCepService : IViaCepService
 
         [JsonPropertyName("complemento")]
         public string? Complemento { get; set; }
+
+        [JsonPropertyName("ibge")]
+        public string? Ibge { get; set; }
     }
 }

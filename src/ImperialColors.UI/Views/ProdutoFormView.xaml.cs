@@ -1,6 +1,8 @@
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Services;
+using ImperialColors.Application.Validation;
+using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.UI.Helpers;
 using System.Globalization;
@@ -15,7 +17,9 @@ public partial class ProdutoFormView : Window
     private readonly ICategoriaService _categoriaService;
     private readonly IMarcaService _marcaService;
     private readonly IFornecedorService _fornecedorService;
+    private readonly IConfiguracaoFiscalService _configuracaoFiscal;
     private int? _produtoId;
+    private decimal? _quantidadeEstoqueCarregadaNaEdicao;
     private bool _codigoDefinidoManualmente;
     private bool _codigoDesbloqueadoManualmente;
     private string? _ultimoCodigoGeradoAutomaticamente;
@@ -23,12 +27,14 @@ public partial class ProdutoFormView : Window
     private bool _modoCustoTotal;
     private bool _suprimirAtualizacaoCusto;
     private bool _suprimirEventosUi;
+    private RegimeTributario _regimeAtual = RegimeTributario.SimplesNacional;
 
     public ProdutoFormView(
         IProdutoService produtoService,
         ICategoriaService categoriaService,
         IMarcaService marcaService,
-        IFornecedorService fornecedorService)
+        IFornecedorService fornecedorService,
+        IConfiguracaoFiscalService configuracaoFiscal)
     {
         InitializeComponent();
         ModalWindowHelper.AplicarEstiloModerno(this);
@@ -36,6 +42,7 @@ public partial class ProdutoFormView : Window
         _categoriaService = categoriaService;
         _marcaService = marcaService;
         _fornecedorService = fornecedorService;
+        _configuracaoFiscal = configuracaoFiscal;
 
         SelecionarUnidadePadrao();
         Loaded += OnLoadedInicial;
@@ -45,7 +52,34 @@ public partial class ProdutoFormView : Window
     {
         Loaded -= OnLoadedInicial;
         await CarregarComboBoxesAsync();
+        await CarregarRegimeTributarioAsync();
     }
+
+    private async Task CarregarRegimeTributarioAsync()
+    {
+        var regime = await _configuracaoFiscal.ObterRegimeAsync();
+        AplicarRegimeTributario(regime);
+    }
+
+    private void AplicarRegimeTributario(RegimeTributario regime)
+    {
+        _regimeAtual = regime;
+
+        var usaCsosn = regime == RegimeTributario.SimplesNacional;
+        PainelCstIcms.Visibility = usaCsosn ? Visibility.Collapsed : Visibility.Visible;
+        PainelCsosnIcms.Visibility = usaCsosn ? Visibility.Visible : Visibility.Collapsed;
+
+        TxtRegimeInfo.Text = usaCsosn
+            ? "Regime da empresa: Simples Nacional — informe o CSOSN do ICMS."
+            : $"Regime da empresa: {DescricaoRegime(regime)} — informe o CST do ICMS.";
+    }
+
+    private static string DescricaoRegime(RegimeTributario regime) => regime switch
+    {
+        RegimeTributario.LucroPresumido => "Lucro Presumido",
+        RegimeTributario.LucroReal => "Lucro Real",
+        _ => "Simples Nacional"
+    };
 
     private void SelecionarUnidadePadrao()
     {
@@ -86,6 +120,7 @@ public partial class ProdutoFormView : Window
     {
         TxtTitulo.Text = "Novo Produto";
         _produtoId = null;
+        _quantidadeEstoqueCarregadaNaEdicao = null;
         _codigoDefinidoManualmente = false;
         _codigoDesbloqueadoManualmente = false;
         _ultimoCodigoGeradoAutomaticamente = null;
@@ -105,6 +140,8 @@ public partial class ProdutoFormView : Window
         PainelPrecoPromocional.Visibility = Visibility.Collapsed;
         DefinirCodigoInternoSemMarcarManual(string.Empty);
         AplicarEstadoCampoCodigo();
+        LimparCamposTributacao();
+        ExpTributacao.IsExpanded = false;
     }
 
     public void InicializarEdicao(ProdutoDto produto)
@@ -116,6 +153,10 @@ public partial class ProdutoFormView : Window
         {
             TxtTitulo.Text = "Editar Produto";
             _produtoId = produto.Id;
+            // Guardado para calcular o delta real pretendido no save (ver
+            // AtualizarProdutoDto.QuantidadeEstoqueOriginal) — não o valor que o campo
+            // tiver na hora de salvar, que pode já ter sido editado pelo usuário.
+            _quantidadeEstoqueCarregadaNaEdicao = produto.QuantidadeEstoque;
             _codigoDefinidoManualmente = true;
             _codigoDesbloqueadoManualmente = false;
             LimparErroValidacao();
@@ -160,7 +201,286 @@ public partial class ProdutoFormView : Window
 
         AplicarEstadoCampoCodigo();
         _ = CarregarComboBoxesAsync(produto.CategoriaId, produto.MarcaId, produto.FornecedorId);
+        _ = CarregarTributacaoAsync(produto.Id);
     }
+
+    private async Task CarregarTributacaoAsync(int produtoId)
+    {
+        LimparCamposTributacao();
+
+        TributacaoProdutoDto tributacao;
+        try
+        {
+            tributacao = await _produtoService.ObterTributacaoAsync(produtoId);
+        }
+        catch
+        {
+            // Falha ao carregar tributação não deve impedir a edição do produto —
+            // o usuário ainda pode salvar os dados comerciais normalmente.
+            return;
+        }
+
+        if (tributacao is null || !tributacao.Preenchida)
+            return;
+
+        PreencherCamposTributacao(tributacao);
+        ExpTributacao.IsExpanded = true;
+    }
+
+    private void PreencherCamposTributacao(TributacaoProdutoDto tributacao)
+    {
+        TxtNcm.Text = tributacao.Ncm ?? string.Empty;
+        TxtCest.Text = tributacao.Cest ?? string.Empty;
+        DefinirOrigemSelecionada(tributacao.Origem);
+        TxtCstIcms.Text = tributacao.CstIcms ?? string.Empty;
+        TxtCsosnIcms.Text = tributacao.CsosnIcms ?? string.Empty;
+        TxtAliquotaIcms.Text = FormatarPercentual(tributacao.AliquotaIcms);
+        TxtAliquotaIcmsSt.Text = FormatarPercentual(tributacao.AliquotaIcmsSt);
+        TxtMva.Text = FormatarPercentual(tributacao.Mva);
+        TxtReducaoBaseCalculo.Text = FormatarPercentual(tributacao.ReducaoBaseCalculo);
+        TxtCstPis.Text = tributacao.CstPis ?? string.Empty;
+        TxtAliquotaPis.Text = FormatarPercentual(tributacao.AliquotaPis);
+        TxtCstCofins.Text = tributacao.CstCofins ?? string.Empty;
+        TxtAliquotaCofins.Text = FormatarPercentual(tributacao.AliquotaCofins);
+        TxtCstIpi.Text = tributacao.CstIpi ?? string.Empty;
+        TxtCodigoEnquadramentoIpi.Text = tributacao.CodigoEnquadramentoIpi ?? string.Empty;
+        TxtAliquotaIpi.Text = FormatarPercentual(tributacao.AliquotaIpi);
+        TxtValorIpiFixo.Text = FormatarPercentual(tributacao.ValorIpiFixo);
+        TxtExTipi.Text = tributacao.ExTipi ?? string.Empty;
+        TxtUnidadeTributavel.Text = tributacao.UnidadeTributavel ?? string.Empty;
+        TxtFatorConversao.Text = FormatarPercentual(tributacao.FatorConversao);
+        TxtGtinTributavel.Text = tributacao.GtinTributavel ?? string.Empty;
+        TxtCfopDentroEstado.Text = tributacao.CfopDentroEstado ?? string.Empty;
+        TxtCfopForaEstado.Text = tributacao.CfopForaEstado ?? string.Empty;
+        TxtCstIbsCbs.Text = tributacao.CstIbsCbs ?? string.Empty;
+        TxtCClassTrib.Text = tributacao.CClassTrib ?? string.Empty;
+        TxtCstIS.Text = tributacao.CstIS ?? string.Empty;
+        TxtCClassTribIS.Text = tributacao.CClassTribIS ?? string.Empty;
+        TxtAliquotaIS.Text = FormatarPercentual(tributacao.AliquotaIS);
+        TxtAliquotaIbsMunicipioDiferimento.Text = FormatarPercentual(tributacao.AliquotaIbsMunicipioDiferimento);
+        TxtAliquotaIbsMunicipioReducao.Text = FormatarPercentual(tributacao.AliquotaIbsMunicipioReducao);
+    }
+
+    /// <summary>
+    /// Ao escolher a categoria de um produto NOVO (ainda sem tributação preenchida na
+    /// tela), pré-preenche a seção fiscal com o padrão salvo para essa categoria, se
+    /// existir. O usuário pode revisar e sobrescrever qualquer campo antes de salvar.
+    /// </summary>
+    private async void CmbCategoria_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suprimirEventosUi || _produtoId.HasValue || ExpTributacao.IsExpanded)
+            return;
+
+        var categoriaId = ObterIdSelecionado(CmbCategoria);
+        if (categoriaId is not > 0)
+            return;
+
+        TributacaoCategoriaDto padrao;
+        try
+        {
+            padrao = await _categoriaService.ObterTributacaoPadraoAsync(categoriaId.Value);
+        }
+        catch
+        {
+            return;
+        }
+
+        // Reconfere após o await: usuário pode ter aberto a seção manualmente enquanto
+        // a consulta ao padrão da categoria estava em andamento.
+        if (padrao is null || !padrao.Preenchida || _produtoId.HasValue || ExpTributacao.IsExpanded)
+            return;
+
+        PreencherCamposTributacao(padrao.ParaProdutoDto(produtoId: 0));
+        TxtOrigemPadraoCategoria.Visibility = Visibility.Visible;
+        ExpTributacao.IsExpanded = true;
+    }
+
+    private async void BtnSalvarPadraoCategoria_Click(object sender, RoutedEventArgs e)
+    {
+        var categoriaId = ObterIdSelecionado(CmbCategoria);
+        if (categoriaId is not > 0)
+        {
+            MessageBox.Show("Selecione uma categoria antes de definir o padrão fiscal.", "Tributação",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var tributacaoDto = MontarDtoTributacaoOuNulo();
+        if (tributacaoDto is null)
+        {
+            MessageBox.Show("Preencha ao menos um campo fiscal antes de definir o padrão da categoria.",
+                "Tributação", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            TributacaoProdutoValidator.Validar(tributacaoDto, _regimeAtual);
+
+            var categoriaNome = (CmbCategoria.SelectedItem as CategoriaDto)?.Nome ?? "esta categoria";
+            var confirmar = MessageBox.Show(
+                $"Os campos fiscais preenchidos acima vão virar o padrão para novos produtos de \"{categoriaNome}\". " +
+                "Produtos já cadastrados não são alterados. Continuar?",
+                "Definir padrão fiscal da categoria", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (confirmar != MessageBoxResult.Yes)
+                return;
+
+            var dtoCategoria = TributacaoCategoriaDto.DoProdutoDto(categoriaId.Value, tributacaoDto);
+            await _categoriaService.SalvarTributacaoPadraoAsync(categoriaId.Value, dtoCategoria);
+
+            MessageBox.Show("Padrão fiscal da categoria salvo.", "Tributação",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (DomainException ex)
+        {
+            MessageBox.Show(ex.Message, "Validação", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ExceptionMessageHelper.ObterMensagemAmigavel(ex), "Erro",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void LimparCamposTributacao()
+    {
+        TxtNcm.Text = string.Empty;
+        TxtCest.Text = string.Empty;
+        CmbOrigem.SelectedItem = null;
+        TxtCstIcms.Text = string.Empty;
+        TxtCsosnIcms.Text = string.Empty;
+        TxtAliquotaIcms.Text = string.Empty;
+        TxtAliquotaIcmsSt.Text = string.Empty;
+        TxtMva.Text = string.Empty;
+        TxtReducaoBaseCalculo.Text = string.Empty;
+        TxtCstPis.Text = string.Empty;
+        TxtAliquotaPis.Text = string.Empty;
+        TxtCstCofins.Text = string.Empty;
+        TxtAliquotaCofins.Text = string.Empty;
+        TxtCstIpi.Text = string.Empty;
+        TxtCodigoEnquadramentoIpi.Text = string.Empty;
+        TxtAliquotaIpi.Text = string.Empty;
+        TxtValorIpiFixo.Text = string.Empty;
+        TxtExTipi.Text = string.Empty;
+        TxtUnidadeTributavel.Text = string.Empty;
+        TxtFatorConversao.Text = string.Empty;
+        TxtGtinTributavel.Text = string.Empty;
+        TxtCfopDentroEstado.Text = string.Empty;
+        TxtCfopForaEstado.Text = string.Empty;
+        TxtCstIbsCbs.Text = string.Empty;
+        TxtCClassTrib.Text = string.Empty;
+        TxtCstIS.Text = string.Empty;
+        TxtCClassTribIS.Text = string.Empty;
+        TxtAliquotaIS.Text = string.Empty;
+        TxtAliquotaIbsMunicipioDiferimento.Text = string.Empty;
+        TxtAliquotaIbsMunicipioReducao.Text = string.Empty;
+        TxtOrigemPadraoCategoria.Visibility = Visibility.Collapsed;
+    }
+
+    private void DefinirOrigemSelecionada(OrigemMercadoria? origem)
+    {
+        if (origem is null)
+        {
+            CmbOrigem.SelectedItem = null;
+            return;
+        }
+
+        foreach (ComboBoxItem item in CmbOrigem.Items)
+        {
+            if (item.Tag is string tag && int.TryParse(tag, out var valor) && valor == (int)origem.Value)
+            {
+                CmbOrigem.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private OrigemMercadoria? ObterOrigemSelecionada()
+    {
+        var tag = (CmbOrigem.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        return int.TryParse(tag, out var valor) ? (OrigemMercadoria)valor : null;
+    }
+
+    private static string FormatarPercentual(decimal? valor)
+        => valor.HasValue ? valor.Value.ToString("0.####", FormattingHelper.CulturaPtBr) : string.Empty;
+
+    /// <summary>Monta o DTO de tributação a partir dos campos preenchidos na tela.
+    /// Retorna null se nenhum campo fiscal foi preenchido (nada a salvar).</summary>
+    private TributacaoProdutoDto? MontarDtoTributacaoOuNulo()
+    {
+        var temAlgumCampo =
+            !string.IsNullOrWhiteSpace(TxtNcm.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCest.Text) ||
+            CmbOrigem.SelectedItem is not null ||
+            !string.IsNullOrWhiteSpace(TxtCstIcms.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCsosnIcms.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCstPis.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCstCofins.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCstIpi.Text) ||
+            !string.IsNullOrWhiteSpace(TxtUnidadeTributavel.Text) ||
+            !string.IsNullOrWhiteSpace(TxtGtinTributavel.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCfopDentroEstado.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCfopForaEstado.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCstIbsCbs.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCClassTrib.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCstIS.Text) ||
+            !string.IsNullOrWhiteSpace(TxtCClassTribIS.Text) ||
+            !string.IsNullOrWhiteSpace(TxtValorIpiFixo.Text) ||
+            !string.IsNullOrWhiteSpace(TxtExTipi.Text);
+
+        if (!temAlgumCampo)
+            return null;
+
+        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIcms.Text, out var aliquotaIcms);
+        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIcmsSt.Text, out var aliquotaIcmsSt);
+        FormattingHelper.TryParseMoedaOpcional(TxtMva.Text, out var mva);
+        FormattingHelper.TryParseMoedaOpcional(TxtReducaoBaseCalculo.Text, out var reducaoBase);
+        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaPis.Text, out var aliquotaPis);
+        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaCofins.Text, out var aliquotaCofins);
+        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIpi.Text, out var aliquotaIpi);
+        FormattingHelper.TryParseMoedaOpcional(TxtValorIpiFixo.Text, out var valorIpiFixo);
+        FormattingHelper.TryParseMoedaOpcional(TxtFatorConversao.Text, out var fatorConversao);
+        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIS.Text, out var aliquotaIS);
+        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIbsMunicipioDiferimento.Text, out var aliquotaIbsMunicipioDiferimento);
+        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIbsMunicipioReducao.Text, out var aliquotaIbsMunicipioReducao);
+
+        return new TributacaoProdutoDto
+        {
+            Ncm = TextoOuNulo(TxtNcm.Text),
+            Cest = TextoOuNulo(TxtCest.Text),
+            Origem = ObterOrigemSelecionada(),
+            CstIcms = TextoOuNulo(TxtCstIcms.Text),
+            CsosnIcms = TextoOuNulo(TxtCsosnIcms.Text),
+            AliquotaIcms = aliquotaIcms,
+            AliquotaIcmsSt = aliquotaIcmsSt,
+            Mva = mva,
+            ReducaoBaseCalculo = reducaoBase,
+            CstPis = TextoOuNulo(TxtCstPis.Text),
+            AliquotaPis = aliquotaPis,
+            CstCofins = TextoOuNulo(TxtCstCofins.Text),
+            AliquotaCofins = aliquotaCofins,
+            CstIpi = TextoOuNulo(TxtCstIpi.Text),
+            CodigoEnquadramentoIpi = TextoOuNulo(TxtCodigoEnquadramentoIpi.Text),
+            AliquotaIpi = aliquotaIpi,
+            ValorIpiFixo = valorIpiFixo,
+            ExTipi = TextoOuNulo(TxtExTipi.Text),
+            UnidadeTributavel = TextoOuNulo(TxtUnidadeTributavel.Text),
+            FatorConversao = fatorConversao,
+            GtinTributavel = TextoOuNulo(TxtGtinTributavel.Text),
+            CfopDentroEstado = TextoOuNulo(TxtCfopDentroEstado.Text),
+            CfopForaEstado = TextoOuNulo(TxtCfopForaEstado.Text),
+            CstIbsCbs = TextoOuNulo(TxtCstIbsCbs.Text),
+            CClassTrib = TextoOuNulo(TxtCClassTrib.Text),
+            CstIS = TextoOuNulo(TxtCstIS.Text),
+            CClassTribIS = TextoOuNulo(TxtCClassTribIS.Text),
+            AliquotaIS = aliquotaIS,
+            AliquotaIbsMunicipioDiferimento = aliquotaIbsMunicipioDiferimento,
+            AliquotaIbsMunicipioReducao = aliquotaIbsMunicipioReducao
+        };
+    }
+
+    private static string? TextoOuNulo(string texto)
+        => string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
 
     private async void TxtNome_LostFocus(object sender, RoutedEventArgs e)
     {
@@ -393,8 +713,14 @@ public partial class ProdutoFormView : Window
             var unidade = (CmbUnidade.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "UN";
             var litragemGl = ObterLitragemGlSelecionada();
 
+            var tributacaoDto = MontarDtoTributacaoOuNulo();
+            if (tributacaoDto is not null)
+                TributacaoProdutoValidator.Validar(tributacaoDto, _regimeAtual);
+
             BtnSalvar.IsEnabled = false;
             BtnSalvar.Content = "Salvando...";
+
+            int produtoIdSalvo;
 
             if (_produtoId.HasValue)
             {
@@ -416,9 +742,11 @@ public partial class ProdutoFormView : Window
                     PrecoVenda = preco,
                     PromocaoAtiva = promocaoAtiva,
                     PrecoPromocional = precoPromocional,
-                    Observacoes = string.IsNullOrWhiteSpace(TxtObservacoes.Text) ? null : TxtObservacoes.Text.Trim()
+                    Observacoes = string.IsNullOrWhiteSpace(TxtObservacoes.Text) ? null : TxtObservacoes.Text.Trim(),
+                    QuantidadeEstoqueOriginal = _quantidadeEstoqueCarregadaNaEdicao
                 };
                 await _produtoService.AtualizarAsync(_produtoId.Value, dto);
+                produtoIdSalvo = _produtoId.Value;
             }
             else
             {
@@ -442,8 +770,12 @@ public partial class ProdutoFormView : Window
                     PrecoPromocional = precoPromocional,
                     Observacoes = string.IsNullOrWhiteSpace(TxtObservacoes.Text) ? null : TxtObservacoes.Text.Trim()
                 };
-                await _produtoService.CriarAsync(dto);
+                var criado = await _produtoService.CriarAsync(dto);
+                produtoIdSalvo = criado.Id;
             }
+
+            if (tributacaoDto is not null)
+                await _produtoService.SalvarTributacaoAsync(produtoIdSalvo, tributacaoDto);
 
             DialogResult = true;
             Close();

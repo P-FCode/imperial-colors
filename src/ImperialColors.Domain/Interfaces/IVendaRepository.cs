@@ -9,6 +9,15 @@ public interface IVendaRepository : IRepository<Venda>
     Task<decimal> ObterTotalVendasDiaAsync(DateTime data);
     Task<decimal> ObterTotalVendasMesAsync(int ano, int mes);
     Task<string> GerarNumeroVendaAsync();
+
+    /// <summary>
+    /// Cria a venda (cabeçalho + itens + pagamentos) e dá baixa atômica no estoque de
+    /// cada item numa única transação: se qualquer item ficar sem estoque no momento
+    /// exato da baixa, tudo é revertido (nada de venda "meio salva"). O número da venda
+    /// também é gerado dentro dessa transação, sob um advisory lock do PostgreSQL, para
+    /// que dois PDVs finalizando no mesmo instante nunca gerem o mesmo número.
+    /// </summary>
+    Task<Venda> CriarComBaixaEstoqueTransacionalAsync(Venda venda, CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<Venda> Itens, int Total)> ObterPaginadoPorPeriodoAsync(
         DateTime inicio, DateTime fim, int pagina, int itensPorPagina, string? termoBusca = null,
         CancellationToken cancellationToken = default);

@@ -98,6 +98,11 @@ namespace ImperialColors.Infrastructure.Migrations
                         .HasColumnType("character varying(18)")
                         .HasColumnName("cnpj");
 
+                    b.Property<string>("CodigoMunicipioIbge")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)")
+                        .HasColumnName("codigo_municipio_ibge");
+
                     b.Property<string>("Complemento")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -121,6 +126,10 @@ namespace ImperialColors.Infrastructure.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)")
                         .HasColumnName("estado");
+
+                    b.Property<int?>("IndicadorIe")
+                        .HasColumnType("integer")
+                        .HasColumnName("indicador_ie");
 
                     b.Property<string>("InscricaoEstadual")
                         .HasMaxLength(20)
@@ -166,6 +175,200 @@ namespace ImperialColors.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("clientes", (string)null);
+                });
+
+            modelBuilder.Entity("ImperialColors.Domain.Entities.ConfiguracaoFiscalEmpresa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("AliquotaCbsPadrao")
+                        .HasPrecision(6, 4)
+                        .HasColumnType("numeric(6,4)")
+                        .HasColumnName("aliquota_cbs_padrao");
+
+                    b.Property<decimal?>("AliquotaIbsMunicipioPadrao")
+                        .HasPrecision(6, 4)
+                        .HasColumnType("numeric(6,4)")
+                        .HasColumnName("aliquota_ibs_municipio_padrao");
+
+                    b.Property<decimal?>("AliquotaIbsUfPadrao")
+                        .HasPrecision(6, 4)
+                        .HasColumnType("numeric(6,4)")
+                        .HasColumnName("aliquota_ibs_uf_padrao");
+
+                    b.Property<int>("Ambiente")
+                        .HasColumnType("integer")
+                        .HasColumnName("ambiente");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizado_em");
+
+                    b.Property<string>("Bairro")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("bairro");
+
+                    b.Property<bool>("BloquearEdicaoNumeroNota")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("bloquear_edicao_numero_nota");
+
+                    b.Property<bool>("BloquearNotaComItensMenorQueVenda")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("bloquear_nota_itens_menor_venda");
+
+                    b.Property<string>("CClassTribPadrao")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasColumnName("c_class_trib_padrao");
+
+                    b.Property<bool>("CancelarNotaAutomaticoAoCancelarVenda")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("cancelar_nota_automatico_venda");
+
+                    b.Property<string>("Cep")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("cep");
+
+                    b.Property<string>("Cnae")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("cnae");
+
+                    b.Property<string>("CodigoMunicipioIbge")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)")
+                        .HasColumnName("codigo_municipio_ibge");
+
+                    b.Property<string>("Complemento")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("complemento");
+
+                    b.Property<string>("CscHomologacao")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("csc_homologacao");
+
+                    b.Property<string>("CscProducao")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("csc_producao");
+
+                    b.Property<string>("CstIbsCbsPadrao")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("cst_ibs_cbs_padrao");
+
+                    b.Property<bool>("DifalNaoContribuinte")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("difal_nao_contribuinte");
+
+                    b.Property<bool>("DifalStContribuinte")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("difal_st_contribuinte");
+
+                    b.Property<string>("EmailPadraoEnvioNotas")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("email_padrao_envio_notas");
+
+                    b.Property<int>("FretePorContaPadrao")
+                        .HasColumnType("integer")
+                        .HasColumnName("frete_por_conta_padrao");
+
+                    b.Property<bool>("GerarNotaAutomaticaAoFinalizarVenda")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("gerar_nota_automatica_venda");
+
+                    b.Property<string>("IdCscHomologacao")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("id_csc_homologacao");
+
+                    b.Property<string>("IdCscProducao")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("id_csc_producao");
+
+                    b.Property<bool>("IeIsenta")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("ie_isenta");
+
+                    b.Property<int>("IndicadorPresencaPadrao")
+                        .HasColumnType("integer")
+                        .HasColumnName("indicador_presenca_padrao");
+
+                    b.Property<string>("InscricaoMunicipal")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("inscricao_municipal");
+
+                    b.Property<string>("InscricaoSuframa")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("inscricao_suframa");
+
+                    b.Property<string>("Logradouro")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("logradouro");
+
+                    b.Property<string>("NomeMunicipio")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nome_municipio");
+
+                    b.Property<string>("Numero")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("numero");
+
+                    b.Property<string>("Serie")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("serie");
+
+                    b.Property<bool>("SimplesExcessoSublimite")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("simples_excesso_sublimite");
+
+                    b.Property<string>("Uf")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("uf");
+
+                    b.Property<bool>("ValidarNcmEmNotas")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("validar_ncm_em_notas");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("configuracao_fiscal_empresa", (string)null);
                 });
 
             modelBuilder.Entity("ImperialColors.Domain.Entities.Fornecedor", b =>
@@ -268,6 +471,39 @@ namespace ImperialColors.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("fornecedores", (string)null);
+                });
+
+            modelBuilder.Entity("ImperialColors.Domain.Entities.InscricaoEstadualSubstituto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ConfiguracaoFiscalEmpresaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("configuracao_fiscal_empresa_id");
+
+                    b.Property<string>("InscricaoEstadual")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("inscricao_estadual");
+
+                    b.Property<string>("Uf")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("uf");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConfiguracaoFiscalEmpresaId", "Uf")
+                        .IsUnique();
+
+                    b.ToTable("inscricoes_estaduais_substituto", (string)null);
                 });
 
             modelBuilder.Entity("ImperialColors.Domain.Entities.ItemListaCompra", b =>
@@ -694,6 +930,87 @@ namespace ImperialColors.Infrastructure.Migrations
                     b.ToTable("movimentacoes_estoque", (string)null);
                 });
 
+            modelBuilder.Entity("ImperialColors.Domain.Entities.NaturezaOperacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizado_em");
+
+                    b.Property<string>("CfopDentroEstado")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("cfop_dentro_estado");
+
+                    b.Property<string>("CfopForaEstado")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("cfop_fora_estado");
+
+                    b.Property<bool>("ConsumidorFinal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("consumidor_final");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("CsosnPadrao")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("csosn_padrao");
+
+                    b.Property<string>("CstIcmsPadrao")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("cst_icms_padrao");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("descricao");
+
+                    b.Property<bool?>("DifalNaoContribuinte")
+                        .HasColumnType("boolean")
+                        .HasColumnName("difal_nao_contribuinte");
+
+                    b.Property<int>("Finalidade")
+                        .HasColumnType("integer")
+                        .HasColumnName("finalidade");
+
+                    b.Property<string>("ObservacoesPadrao")
+                        .HasColumnType("text")
+                        .HasColumnName("observacoes_padrao");
+
+                    b.Property<string>("Serie")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("serie");
+
+                    b.Property<int>("TipoOperacao")
+                        .HasColumnType("integer")
+                        .HasColumnName("tipo_operacao");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Descricao");
+
+                    b.ToTable("naturezas_operacao", (string)null);
+                });
+
             modelBuilder.Entity("ImperialColors.Domain.Entities.ParametroSistema", b =>
                 {
                     b.Property<int>("Id")
@@ -850,6 +1167,311 @@ namespace ImperialColors.Infrastructure.Migrations
                     b.HasIndex("PromocaoAtiva");
 
                     b.ToTable("produtos", (string)null);
+                });
+
+            modelBuilder.Entity("ImperialColors.Domain.Entities.TributacaoCategoria", b =>
+                {
+                    b.Property<int>("CategoriaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("categoria_id");
+
+                    b.Property<decimal?>("AliquotaCofins")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_cofins");
+
+                    b.Property<decimal?>("AliquotaIS")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_is");
+
+                    b.Property<decimal?>("AliquotaIbsMunicipioDiferimento")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_ibs_municipio_diferimento");
+
+                    b.Property<decimal?>("AliquotaIbsMunicipioReducao")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_ibs_municipio_reducao");
+
+                    b.Property<decimal?>("AliquotaIcms")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_icms");
+
+                    b.Property<decimal?>("AliquotaIcmsSt")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_icms_st");
+
+                    b.Property<decimal?>("AliquotaIpi")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_ipi");
+
+                    b.Property<decimal?>("AliquotaPis")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_pis");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizado_em");
+
+                    b.Property<string>("CClassTrib")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasColumnName("c_class_trib");
+
+                    b.Property<string>("CClassTribIS")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasColumnName("c_class_trib_is");
+
+                    b.Property<string>("Cest")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)")
+                        .HasColumnName("cest");
+
+                    b.Property<string>("CfopDentroEstado")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("cfop_dentro_estado");
+
+                    b.Property<string>("CfopForaEstado")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("cfop_fora_estado");
+
+                    b.Property<string>("CodigoEnquadramentoIpi")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("codigo_enquadramento_ipi");
+
+                    b.Property<string>("CsosnIcms")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("csosn_icms");
+
+                    b.Property<string>("CstCofins")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("cst_cofins");
+
+                    b.Property<string>("CstIS")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("cst_is");
+
+                    b.Property<string>("CstIbsCbs")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("cst_ibs_cbs");
+
+                    b.Property<string>("CstIcms")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("cst_icms");
+
+                    b.Property<string>("CstIpi")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("cst_ipi");
+
+                    b.Property<string>("CstPis")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("cst_pis");
+
+                    b.Property<decimal?>("Mva")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)")
+                        .HasColumnName("mva");
+
+                    b.Property<string>("Ncm")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("ncm");
+
+                    b.Property<int?>("Origem")
+                        .HasColumnType("integer")
+                        .HasColumnName("origem");
+
+                    b.Property<decimal?>("ReducaoBaseCalculo")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("reducao_base_calculo");
+
+                    b.HasKey("CategoriaId");
+
+                    b.ToTable("tributacao_categorias", (string)null);
+                });
+
+            modelBuilder.Entity("ImperialColors.Domain.Entities.TributacaoProduto", b =>
+                {
+                    b.Property<int>("ProdutoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("produto_id");
+
+                    b.Property<decimal?>("AliquotaCofins")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_cofins");
+
+                    b.Property<decimal?>("AliquotaIS")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_is");
+
+                    b.Property<decimal?>("AliquotaIbsMunicipioDiferimento")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_ibs_municipio_diferimento");
+
+                    b.Property<decimal?>("AliquotaIbsMunicipioReducao")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_ibs_municipio_reducao");
+
+                    b.Property<decimal?>("AliquotaIcms")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_icms");
+
+                    b.Property<decimal?>("AliquotaIcmsSt")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_icms_st");
+
+                    b.Property<decimal?>("AliquotaIpi")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_ipi");
+
+                    b.Property<decimal?>("AliquotaPis")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("aliquota_pis");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizado_em");
+
+                    b.Property<string>("CClassTrib")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasColumnName("c_class_trib");
+
+                    b.Property<string>("CClassTribIS")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasColumnName("c_class_trib_is");
+
+                    b.Property<string>("Cest")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)")
+                        .HasColumnName("cest");
+
+                    b.Property<string>("CfopDentroEstado")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("cfop_dentro_estado");
+
+                    b.Property<string>("CfopForaEstado")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("cfop_fora_estado");
+
+                    b.Property<string>("CodigoEnquadramentoIpi")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("codigo_enquadramento_ipi");
+
+                    b.Property<string>("CsosnIcms")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("csosn_icms");
+
+                    b.Property<string>("CstCofins")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("cst_cofins");
+
+                    b.Property<string>("CstIS")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("cst_is");
+
+                    b.Property<string>("CstIbsCbs")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("cst_ibs_cbs");
+
+                    b.Property<string>("CstIcms")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("cst_icms");
+
+                    b.Property<string>("CstIpi")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("cst_ipi");
+
+                    b.Property<string>("CstPis")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("cst_pis");
+
+                    b.Property<string>("ExTipi")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ex_tipi");
+
+                    b.Property<decimal?>("FatorConversao")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("numeric(10,4)")
+                        .HasColumnName("fator_conversao");
+
+                    b.Property<string>("GtinTributavel")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)")
+                        .HasColumnName("gtin_tributavel");
+
+                    b.Property<decimal?>("Mva")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)")
+                        .HasColumnName("mva");
+
+                    b.Property<string>("Ncm")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("ncm");
+
+                    b.Property<int?>("Origem")
+                        .HasColumnType("integer")
+                        .HasColumnName("origem");
+
+                    b.Property<decimal?>("ReducaoBaseCalculo")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("reducao_base_calculo");
+
+                    b.Property<string>("UnidadeTributavel")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("unidade_tributavel");
+
+                    b.Property<decimal?>("ValorIpiFixo")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("valor_ipi_fixo");
+
+                    b.HasKey("ProdutoId");
+
+                    b.HasIndex("Ncm");
+
+                    b.ToTable("tributacao_produtos", (string)null);
                 });
 
             modelBuilder.Entity("ImperialColors.Domain.Entities.Troca", b =>
@@ -1242,6 +1864,17 @@ namespace ImperialColors.Infrastructure.Migrations
                     b.ToTable("venda_pagamentos", (string)null);
                 });
 
+            modelBuilder.Entity("ImperialColors.Domain.Entities.InscricaoEstadualSubstituto", b =>
+                {
+                    b.HasOne("ImperialColors.Domain.Entities.ConfiguracaoFiscalEmpresa", "ConfiguracaoFiscalEmpresa")
+                        .WithMany("InscricoesSubstitutoTributario")
+                        .HasForeignKey("ConfiguracaoFiscalEmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ConfiguracaoFiscalEmpresa");
+                });
+
             modelBuilder.Entity("ImperialColors.Domain.Entities.ItemListaCompra", b =>
                 {
                     b.HasOne("ImperialColors.Domain.Entities.ListaCompra", "ListaCompra")
@@ -1356,6 +1989,28 @@ namespace ImperialColors.Infrastructure.Migrations
                     b.Navigation("Marca");
                 });
 
+            modelBuilder.Entity("ImperialColors.Domain.Entities.TributacaoCategoria", b =>
+                {
+                    b.HasOne("ImperialColors.Domain.Entities.Categoria", "Categoria")
+                        .WithOne("TributacaoPadrao")
+                        .HasForeignKey("ImperialColors.Domain.Entities.TributacaoCategoria", "CategoriaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Categoria");
+                });
+
+            modelBuilder.Entity("ImperialColors.Domain.Entities.TributacaoProduto", b =>
+                {
+                    b.HasOne("ImperialColors.Domain.Entities.Produto", "Produto")
+                        .WithOne("Tributacao")
+                        .HasForeignKey("ImperialColors.Domain.Entities.TributacaoProduto", "ProdutoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Produto");
+                });
+
             modelBuilder.Entity("ImperialColors.Domain.Entities.Troca", b =>
                 {
                     b.HasOne("ImperialColors.Domain.Entities.Produto", "ProdutoDevolvido")
@@ -1413,11 +2068,18 @@ namespace ImperialColors.Infrastructure.Migrations
             modelBuilder.Entity("ImperialColors.Domain.Entities.Categoria", b =>
                 {
                     b.Navigation("Produtos");
+
+                    b.Navigation("TributacaoPadrao");
                 });
 
             modelBuilder.Entity("ImperialColors.Domain.Entities.Cliente", b =>
                 {
                     b.Navigation("Vendas");
+                });
+
+            modelBuilder.Entity("ImperialColors.Domain.Entities.ConfiguracaoFiscalEmpresa", b =>
+                {
+                    b.Navigation("InscricoesSubstitutoTributario");
                 });
 
             modelBuilder.Entity("ImperialColors.Domain.Entities.Fornecedor", b =>
@@ -1444,6 +2106,8 @@ namespace ImperialColors.Infrastructure.Migrations
                     b.Navigation("ItensVenda");
 
                     b.Navigation("Movimentacoes");
+
+                    b.Navigation("Tributacao");
                 });
 
             modelBuilder.Entity("ImperialColors.Domain.Entities.Venda", b =>

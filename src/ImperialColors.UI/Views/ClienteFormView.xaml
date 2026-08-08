@@ -162,6 +162,28 @@
                         </StackPanel>
                     </Grid>
 
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Cód. IBGE"
+                                       ToolTip="Preenchido automaticamente pela busca de CEP — obrigatório na NF-e, a cidade em texto livre não é aceita."/>
+                            <TextBox x:Name="TxtCodigoIbge" Style="{StaticResource TextBoxModerno}" MaxLength="7" IsReadOnly="True"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Indicador de IE (NF-e)"
+                                       ToolTip="Se o cliente é contribuinte de ICMS, isento ou não contribuinte. Só é exigido em NF-e (B2B) — na NFC-e do PDV não é obrigatório."/>
+                            <ComboBox x:Name="CmbIndicadorIe" Style="{StaticResource ComboBoxModerno}">
+                                <ComboBoxItem Content="Não contribuinte" Tag="NaoContribuinte" IsSelected="True"/>
+                                <ComboBoxItem Content="Contribuinte de ICMS" Tag="ContribuinteIcms"/>
+                                <ComboBoxItem Content="Isento de Inscrição Estadual" Tag="Isento"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
                     <StackPanel>
                         <TextBlock Style="{StaticResource LabelCampo}" Text="Observações"/>
                         <TextBox x:Name="TxtObservacoes" Style="{StaticResource TextBoxModerno}"

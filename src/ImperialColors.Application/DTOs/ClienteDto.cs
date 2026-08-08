@@ -20,6 +20,8 @@ public class ClienteDto
     public string? Bairro { get; set; }
     public string? Cidade { get; set; }
     public string? Estado { get; set; }
+    public string? CodigoMunicipioIbge { get; set; }
+    public IndicadorIeDestinatario? IndicadorIe { get; set; }
     public string? Observacoes { get; set; }
     public string DocumentoExibicao => TipoPessoa == TipoPessoa.Juridica
         ? (string.IsNullOrWhiteSpace(Cnpj) ? "CNPJ não informado" : $"CNPJ: {Cnpj}")

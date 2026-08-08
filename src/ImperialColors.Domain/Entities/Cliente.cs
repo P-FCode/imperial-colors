@@ -19,6 +19,15 @@ public class Cliente : BaseEntity
     public string? Bairro { get; set; }
     public string? Cidade { get; set; }
     public string? Estado { get; set; }
+
+    /// <summary>Código IBGE do município (7 dígitos) — obrigatório em enderDest da NF-e
+    /// (a SEFAZ não aceita "cidade em texto livre"). Preenchido junto com a busca de CEP.</summary>
+    public string? CodigoMunicipioIbge { get; set; }
+
+    /// <summary>indIEDest da NF-e — se o cliente é contribuinte de ICMS, isento ou não
+    /// contribuinte. Obrigatório em NF-e (não em NFC-e, onde o dest é opcional).</summary>
+    public IndicadorIeDestinatario? IndicadorIe { get; set; }
+
     public string? Observacoes { get; set; }
 
     public ICollection<Venda> Vendas { get; set; } = new List<Venda>();

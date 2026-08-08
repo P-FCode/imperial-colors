@@ -6,4 +6,6 @@ public interface IParametroSistemaRepository
 {
     Task<DateTime?> ObterDataAsync(string chave, CancellationToken cancellationToken = default);
     Task SalvarDataAsync(string chave, DateTime valor, CancellationToken cancellationToken = default);
+    Task<string?> ObterTextoAsync(string chave, CancellationToken cancellationToken = default);
+    Task SalvarTextoAsync(string chave, string valor, CancellationToken cancellationToken = default);
 }

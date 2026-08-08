@@ -5,5 +5,6 @@ public class Categoria : BaseEntity
     public string Nome { get; set; } = string.Empty;
     public string? Descricao { get; set; }
 
+    public TributacaoCategoria? TributacaoPadrao { get; set; }
     public ICollection<Produto> Produtos { get; set; } = new List<Produto>();
 }

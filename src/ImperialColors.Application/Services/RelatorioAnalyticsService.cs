@@ -76,7 +76,9 @@ public class RelatorioAnalyticsService : IRelatorioAnalyticsService
         DateTime inicio, DateTime fim, CancellationToken cancellationToken = default)
     {
         var vendasBalcao = await _vendaService.ObterPorPeriodoAsync(inicio, fim);
-        var vendasExternas = await _vendaExternaService.ObterTodosAsync(cancellationToken);
+        // Filtra no banco (não carrega o histórico inteiro de vendas externas em memória
+        // a cada relatório) — a mesma query já usada pela listagem paginada de vendas.
+        var vendasExternas = await _vendaExternaService.ObterPorPeriodoAsync(inicio, fim, cancellationToken);
 
         var linhas = new List<LinhaRelatorioVendaConsolidadaDto>();
 
@@ -96,7 +98,7 @@ public class RelatorioAnalyticsService : IRelatorioAnalyticsService
             });
         }
 
-        foreach (var venda in vendasExternas.Where(v => v.DataVenda >= inicio && v.DataVenda <= fim))
+        foreach (var venda in vendasExternas)
         {
             linhas.Add(new LinhaRelatorioVendaConsolidadaDto
             {

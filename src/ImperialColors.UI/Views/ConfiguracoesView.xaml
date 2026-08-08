@@ -194,6 +194,42 @@
 
                 </Button>
 
+                <Button x:Name="BtnCardFiscal" Style="{StaticResource SubmoduloCard}"
+                        Click="BtnCardFiscal_Click">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="🧾" FontSize="26" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Fiscal" FontSize="14" FontWeight="Bold"
+                                       Foreground="{StaticResource PretoPrimarioBrush}"/>
+                            <TextBlock Text="Regime tributário e preparação para a Reforma Tributária"
+                                       FontSize="11" Foreground="{StaticResource CinzaTextoBrush}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Button>
+
+                <Button x:Name="BtnCardNaturezasOperacao" Style="{StaticResource SubmoduloCard}"
+                        Click="BtnCardNaturezasOperacao_Click">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="🗂" FontSize="26" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Naturezas de Operação" FontSize="14" FontWeight="Bold"
+                                       Foreground="{StaticResource PretoPrimarioBrush}"/>
+                            <TextBlock Text="CFOP, CST/CSOSN e finalidade padrão por tipo de venda"
+                                       FontSize="11" Foreground="{StaticResource CinzaTextoBrush}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Button>
+
             </UniformGrid>
 
 
@@ -392,6 +428,10 @@
                     <ContentControl x:Name="PainelGestaoUsuarios" Margin="20" Visibility="Collapsed"/>
 
                     <ContentControl x:Name="PainelAuditoria" Margin="20" Visibility="Collapsed"/>
+
+                    <ContentControl x:Name="PainelFiscal" Margin="20" Visibility="Collapsed"/>
+
+                    <ContentControl x:Name="PainelNaturezasOperacao" Margin="20" Visibility="Collapsed"/>
 
                 </Grid>
 

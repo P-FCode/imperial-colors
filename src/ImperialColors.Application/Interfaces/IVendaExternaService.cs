@@ -5,6 +5,7 @@ namespace ImperialColors.Application.Interfaces;
 public interface IVendaExternaService
 {
     Task<IEnumerable<VendaExternaDto>> ObterTodosAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<VendaExternaDto>> ObterPorPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken cancellationToken = default);
     Task<VendaExternaDto?> ObterPorIdAsync(int id, CancellationToken cancellationToken = default);
     Task<VendaExternaDto> RegistrarAsync(RegistrarVendaExternaDto dto, CancellationToken cancellationToken = default);
     Task<VendaExternaDto> AtualizarAsync(AtualizarVendaExternaDto dto, CancellationToken cancellationToken = default);

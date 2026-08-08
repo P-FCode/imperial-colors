@@ -46,4 +46,39 @@ public class ParametroSistemaRepository : IParametroSistemaRepository
 
         await context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<string?> ObterTextoAsync(string chave, CancellationToken cancellationToken = default)
+    {
+        await using var context = _contextFactory.CreateDbContext();
+        var parametro = await context.Set<ParametroSistema>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Chave == chave, cancellationToken);
+
+        return parametro?.ValorTexto;
+    }
+
+    public async Task SalvarTextoAsync(string chave, string valor, CancellationToken cancellationToken = default)
+    {
+        await using var context = _contextFactory.CreateDbContext();
+        var parametro = await context.Set<ParametroSistema>()
+            .FirstOrDefaultAsync(p => p.Chave == chave, cancellationToken);
+
+        if (parametro is null)
+        {
+            parametro = new ParametroSistema
+            {
+                Chave = chave,
+                ValorTexto = valor,
+                CriadoEm = DateTime.UtcNow
+            };
+            await context.Set<ParametroSistema>().AddAsync(parametro, cancellationToken);
+        }
+        else
+        {
+            parametro.ValorTexto = valor;
+            parametro.AtualizadoEm = DateTime.UtcNow;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
 }

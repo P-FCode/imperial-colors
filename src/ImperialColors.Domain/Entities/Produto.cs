@@ -23,6 +23,7 @@ public class Produto : BaseEntity
     public Categoria? Categoria { get; set; }
     public Marca? Marca { get; set; }
     public Fornecedor? Fornecedor { get; set; }
+    public TributacaoProduto? Tributacao { get; set; }
     public ICollection<MovimentacaoEstoque> Movimentacoes { get; set; } = new List<MovimentacaoEstoque>();
     public ICollection<ItemVenda> ItensVenda { get; set; } = new List<ItemVenda>();
     public ICollection<ItemListaCompra> ItensListaCompra { get; set; } = new List<ItemListaCompra>();

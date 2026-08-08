@@ -151,7 +151,8 @@ public class TrocaIntegrationTests
             EstoqueMinimo = 1
         });
 
-        // Cria e finaliza uma venda do produto A por R$100
+        // CriarAsync já grava a venda finalizada (transação única, sem etapa "aberta"
+        // separada — ver EstoqueAtomicoHelper/CriarOnlineInternoAsync).
         var venda = await vendaService.CriarAsync(new CriarVendaDto
         {
             FormaPagamento = FormaPagamento.Dinheiro,
@@ -162,8 +163,7 @@ public class TrocaIntegrationTests
                 new() { ProdutoId = prodDevolvido.Id, Quantidade = 1, PrecoUnitario = 100m, Desconto = 0 }
             }
         });
-        var vendaFinalizada = await vendaService.FinalizarAsync(venda.Id);
-        Assert.Equal(StatusVenda.Finalizada, vendaFinalizada.Status);
+        Assert.Equal(StatusVenda.Finalizada, venda.Status);
 
         // Carrega venda com itens para obter o ItemVendaId
         var vendaComItens = await vendaService.ObterComItensAsync(venda.Id);

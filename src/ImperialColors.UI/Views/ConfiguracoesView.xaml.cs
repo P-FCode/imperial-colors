@@ -48,17 +48,19 @@ public partial class ConfiguracoesView : UserControl
 
         PainelPerifericos.Content = serviceProvider.GetRequiredService<PerifericosView>();
         PainelAuditoria.Content = serviceProvider.GetRequiredService<AuditoriaLogsView>();
+        PainelFiscal.Content = serviceProvider.GetRequiredService<FiscalConfigView>();
+        PainelNaturezasOperacao.Content = serviceProvider.GetRequiredService<NaturezaOperacaoView>();
 
         if (_sessaoService.EhAdmin)
         {
             BtnCardUsuarios.Visibility = Visibility.Visible;
-            GridSubmodulos.Columns = 4;
+            GridSubmodulos.Columns = 6;
             PainelGestaoUsuarios.Content = serviceProvider.GetRequiredService<GestaoUsuariosView>();
         }
         else
         {
             BtnCardUsuarios.Visibility = Visibility.Collapsed;
-            GridSubmodulos.Columns = 3;
+            GridSubmodulos.Columns = 5;
         }
 
 
@@ -95,6 +97,10 @@ public partial class ConfiguracoesView : UserControl
 
         PainelAuditoria.Visibility = Visibility.Collapsed;
 
+        PainelFiscal.Visibility = Visibility.Collapsed;
+
+        PainelNaturezasOperacao.Visibility = Visibility.Collapsed;
+
 
 
         painel.Visibility = Visibility.Visible;
@@ -124,6 +130,12 @@ public partial class ConfiguracoesView : UserControl
     private void BtnCardAuditoria_Click(object sender, RoutedEventArgs e)
 
         => SelecionarSubmodulo(BtnCardAuditoria, PainelAuditoria);
+
+    private void BtnCardFiscal_Click(object sender, RoutedEventArgs e)
+        => SelecionarSubmodulo(BtnCardFiscal, PainelFiscal);
+
+    private void BtnCardNaturezasOperacao_Click(object sender, RoutedEventArgs e)
+        => SelecionarSubmodulo(BtnCardNaturezasOperacao, PainelNaturezasOperacao);
 
 
 

@@ -24,6 +24,11 @@ public class AppDbContext : DbContext
     public DbSet<ItemVendaExterna> ItensVendaExterna { get; set; }
     public DbSet<ParametroSistema> ParametrosSistema { get; set; }
     public DbSet<LogAuditoria> LogsAuditoria { get; set; }
+    public DbSet<TributacaoProduto> TributacoesProduto { get; set; }
+    public DbSet<TributacaoCategoria> TributacoesCategoria { get; set; }
+    public DbSet<ConfiguracaoFiscalEmpresa> ConfiguracoesFiscalEmpresa { get; set; }
+    public DbSet<InscricaoEstadualSubstituto> InscricoesEstaduaisSubstituto { get; set; }
+    public DbSet<NaturezaOperacao> NaturezasOperacao { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

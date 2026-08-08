@@ -2,6 +2,7 @@ using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Data;
+using ImperialColors.Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -39,13 +40,18 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
 
         try
         {
-            // Recarrega os produtos dentro do mesmo contexto para tracking correto
-            var prodDev = await context.Set<Produto>()
-                .FirstOrDefaultAsync(p => p.Id == produtoDevolvido.Id, cancellationToken)
+            // Nomes apenas para validar existência e compor mensagens de erro amigáveis —
+            // a baixa/reposição real é feita atomicamente pelo EstoqueAtomicoHelper abaixo.
+            _ = await context.Set<Produto>()
+                .Where(p => p.Id == produtoDevolvido.Id)
+                .Select(p => p.Nome)
+                .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new Domain.Exceptions.DomainException($"Produto devolvido (Id={produtoDevolvido.Id}) não encontrado.");
 
-            var prodNovo = await context.Set<Produto>()
-                .FirstOrDefaultAsync(p => p.Id == produtoNovo.Id, cancellationToken)
+            var nomeProdNovo = await context.Set<Produto>()
+                .Where(p => p.Id == produtoNovo.Id)
+                .Select(p => p.Nome)
+                .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new Domain.Exceptions.DomainException($"Novo produto (Id={produtoNovo.Id}) não encontrado.");
 
             var venda = await context.Set<Venda>()
@@ -55,36 +61,32 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
             // Controle de estoque: entrada do devolvido (se checkbox ativo)
             if (retornarAoEstoque)
             {
-                var qtdAntesDev = prodDev.QuantidadeEstoque;
-                prodDev.QuantidadeEstoque += troca.QuantidadeDevolvida;
+                var (qtdAntesDev, qtdDepoisDev) = await EstoqueAtomicoHelper.ReporAsync(
+                    context, produtoDevolvido.Id, troca.QuantidadeDevolvida, cancellationToken);
 
                 context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
                 {
-                    ProdutoId = prodDev.Id,
+                    ProdutoId = produtoDevolvido.Id,
                     Tipo = TipoMovimentacao.Entrada,
                     Quantidade = troca.QuantidadeDevolvida,
                     QuantidadeAnterior = qtdAntesDev,
-                    QuantidadeAtual = prodDev.QuantidadeEstoque,
+                    QuantidadeAtual = qtdDepoisDev,
                     Motivo = $"Troca - item devolvido da venda #{venda.NumeroVenda}",
                     VendaId = troca.VendaOrigemId
                 });
             }
 
-            // Controle de estoque: saída do novo item
-            if (prodNovo.QuantidadeEstoque < troca.QuantidadeNova)
-                throw new Domain.Exceptions.DomainException(
-                    $"Estoque insuficiente para '{prodNovo.Nome}'. Disponível: {prodNovo.QuantidadeEstoque}.");
-
-            var qtdAntesNovo = prodNovo.QuantidadeEstoque;
-            prodNovo.QuantidadeEstoque -= troca.QuantidadeNova;
+            // Controle de estoque: saída do novo item (guardado atomicamente contra estoque negativo)
+            var (qtdAntesNovo, qtdDepoisNovo) = await EstoqueAtomicoHelper.BaixarAsync(
+                context, produtoNovo.Id, troca.QuantidadeNova, nomeProdNovo, cancellationToken);
 
             context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
             {
-                ProdutoId = prodNovo.Id,
+                ProdutoId = produtoNovo.Id,
                 Tipo = TipoMovimentacao.Saida,
                 Quantidade = troca.QuantidadeNova,
                 QuantidadeAnterior = qtdAntesNovo,
-                QuantidadeAtual = prodNovo.QuantidadeEstoque,
+                QuantidadeAtual = qtdDepoisNovo,
                 Motivo = $"Troca - novo item entregue - venda #{venda.NumeroVenda}",
                 VendaId = troca.VendaOrigemId
             });
@@ -117,12 +119,16 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
 
         try
         {
-            var prodDev = await context.Set<Produto>()
-                .FirstOrDefaultAsync(p => p.Id == produtoDevolvido.Id, cancellationToken)
+            _ = await context.Set<Produto>()
+                .Where(p => p.Id == produtoDevolvido.Id)
+                .Select(p => p.Nome)
+                .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new Domain.Exceptions.DomainException($"Produto devolvido (Id={produtoDevolvido.Id}) não encontrado.");
 
-            var prodNovo = await context.Set<Produto>()
-                .FirstOrDefaultAsync(p => p.Id == produtoNovo.Id, cancellationToken)
+            var nomeProdNovo = await context.Set<Produto>()
+                .Where(p => p.Id == produtoNovo.Id)
+                .Select(p => p.Nome)
+                .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new Domain.Exceptions.DomainException($"Novo produto (Id={produtoNovo.Id}) não encontrado.");
 
             var vendaExterna = await context.Set<VendaExterna>()
@@ -131,35 +137,31 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
 
             if (retornarAoEstoque)
             {
-                var qtdAntesDev = prodDev.QuantidadeEstoque;
-                prodDev.QuantidadeEstoque += troca.QuantidadeDevolvida;
+                var (qtdAntesDev, qtdDepoisDev) = await EstoqueAtomicoHelper.ReporAsync(
+                    context, produtoDevolvido.Id, troca.QuantidadeDevolvida, cancellationToken);
 
                 context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
                 {
-                    ProdutoId = prodDev.Id,
+                    ProdutoId = produtoDevolvido.Id,
                     Tipo = TipoMovimentacao.Entrada,
                     Quantidade = troca.QuantidadeDevolvida,
                     QuantidadeAnterior = qtdAntesDev,
-                    QuantidadeAtual = prodDev.QuantidadeEstoque,
+                    QuantidadeAtual = qtdDepoisDev,
                     Motivo = $"Troca - item devolvido da venda externa #{vendaExterna.NumeroVendaExterna}",
                     VendaExternaId = troca.VendaExternaOrigemId
                 });
             }
 
-            if (prodNovo.QuantidadeEstoque < troca.QuantidadeNova)
-                throw new Domain.Exceptions.DomainException(
-                    $"Estoque insuficiente para '{prodNovo.Nome}'. Disponível: {prodNovo.QuantidadeEstoque}.");
-
-            var qtdAntesNovo = prodNovo.QuantidadeEstoque;
-            prodNovo.QuantidadeEstoque -= troca.QuantidadeNova;
+            var (qtdAntesNovo, qtdDepoisNovo) = await EstoqueAtomicoHelper.BaixarAsync(
+                context, produtoNovo.Id, troca.QuantidadeNova, nomeProdNovo, cancellationToken);
 
             context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
             {
-                ProdutoId = prodNovo.Id,
+                ProdutoId = produtoNovo.Id,
                 Tipo = TipoMovimentacao.Saida,
                 Quantidade = troca.QuantidadeNova,
                 QuantidadeAnterior = qtdAntesNovo,
-                QuantidadeAtual = prodNovo.QuantidadeEstoque,
+                QuantidadeAtual = qtdDepoisNovo,
                 Motivo = $"Troca - novo item entregue - venda externa #{vendaExterna.NumeroVendaExterna}",
                 VendaExternaId = troca.VendaExternaOrigemId
             });

@@ -1,6 +1,7 @@
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Security;
+using ImperialColors.Application.Validation;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
@@ -44,6 +45,7 @@ public class ClienteService : IClienteService
 
     public async Task<ClienteDto> CriarAsync(ClienteDto dto)
     {
+        ClienteValidator.Validar(dto);
         var cliente = MapParaEntidade(dto);
         var criado = await _clienteRepository.AdicionarAsync(cliente);
         _logger.LogInformation("Cliente criado: {Nome}", dto.Nome);
@@ -52,6 +54,8 @@ public class ClienteService : IClienteService
 
     public async Task<ClienteDto> AtualizarAsync(int id, ClienteDto dto)
     {
+        ClienteValidator.Validar(dto);
+
         var cliente = await _clienteRepository.ObterPorIdAsync(id)
             ?? throw new DomainException($"Cliente com Id {id} não encontrado.");
 
@@ -70,6 +74,8 @@ public class ClienteService : IClienteService
         cliente.Bairro = dto.Bairro;
         cliente.Cidade = dto.Cidade;
         cliente.Estado = dto.Estado;
+        cliente.CodigoMunicipioIbge = dto.CodigoMunicipioIbge;
+        cliente.IndicadorIe = dto.IndicadorIe;
         cliente.Observacoes = dto.Observacoes;
 
         var atualizado = await _clienteRepository.AtualizarAsync(cliente);
@@ -114,7 +120,8 @@ public class ClienteService : IClienteService
         Cnpj = c.Cnpj, InscricaoEstadual = c.InscricaoEstadual, Telefone = c.Telefone, WhatsApp = c.WhatsApp,
         Email = c.Email, Cep = c.Cep, Logradouro = c.Logradouro, Numero = c.Numero,
         Complemento = c.Complemento, Bairro = c.Bairro, Cidade = c.Cidade,
-        Estado = c.Estado, Observacoes = c.Observacoes
+        Estado = c.Estado, CodigoMunicipioIbge = c.CodigoMunicipioIbge, IndicadorIe = c.IndicadorIe,
+        Observacoes = c.Observacoes
     };
 
     private static Cliente MapParaEntidade(ClienteDto dto) => new()
@@ -134,6 +141,8 @@ public class ClienteService : IClienteService
         Bairro = InputSanitizer.SanitizarTexto(dto.Bairro, 100),
         Cidade = InputSanitizer.SanitizarTexto(dto.Cidade, 100),
         Estado = InputSanitizer.SanitizarTexto(dto.Estado, 2),
+        CodigoMunicipioIbge = InputSanitizer.SanitizarTexto(dto.CodigoMunicipioIbge, 7),
+        IndicadorIe = dto.IndicadorIe,
         Observacoes = InputSanitizer.SanitizarTexto(dto.Observacoes, 500)
     };
 }

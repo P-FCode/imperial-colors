@@ -176,7 +176,8 @@ public class ProdutoFormViewTests
             CriarProdutoServiceMock().Object,
             CriarCategoriaServiceMock().Object,
             CriarMarcaServiceMock().Object,
-            CriarFornecedorServiceMock().Object);
+            CriarFornecedorServiceMock().Object,
+            Mock.Of<IConfiguracaoFiscalService>());
 
     private static ProdutoDto CriarProdutoExemplo() => new()
     {

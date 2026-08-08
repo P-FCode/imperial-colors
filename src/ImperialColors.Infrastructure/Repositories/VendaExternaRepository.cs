@@ -3,6 +3,7 @@ using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Data;
+using ImperialColors.Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -33,6 +34,18 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             .AsNoTracking()
             .Include(v => v.Itens)
             .FirstOrDefaultAsync(v => v.Id == id, cancellationToken);
+    }
+
+    public async Task<IEnumerable<VendaExterna>> ObterPorPeriodoAsync(
+        DateTime inicio, DateTime fim, CancellationToken cancellationToken = default)
+    {
+        await using var context = ContextFactory.CreateDbContext();
+        return await context.Set<VendaExterna>()
+            .AsNoTracking()
+            .Include(v => v.Itens)
+            .Where(v => v.DataVenda >= inicio && v.DataVenda <= fim)
+            .OrderByDescending(v => v.DataVenda)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<string> GerarNumeroVendaExternaAsync(CancellationToken cancellationToken = default)
@@ -85,24 +98,22 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
 
             foreach (var item in itens.Where(i => i.ProdutoId.HasValue))
             {
-                var produto = await context.Set<Produto>()
-                    .FirstOrDefaultAsync(p => p.Id == item.ProdutoId!.Value, cancellationToken)
+                var nomeProduto = await context.Set<Produto>()
+                    .Where(p => p.Id == item.ProdutoId!.Value)
+                    .Select(p => p.Nome)
+                    .FirstOrDefaultAsync(cancellationToken)
                     ?? throw new DomainException($"Produto (Id={item.ProdutoId}) não encontrado.");
 
-                if (produto.QuantidadeEstoque < item.Quantidade)
-                    throw new DomainException(
-                        $"Estoque insuficiente para '{produto.Nome}'. Disponível: {produto.QuantidadeEstoque}.");
-
-                var qtdAnterior = produto.QuantidadeEstoque;
-                produto.QuantidadeEstoque -= item.Quantidade;
+                var (qtdAnterior, qtdAtual) = await EstoqueAtomicoHelper.BaixarAsync(
+                    context, item.ProdutoId!.Value, item.Quantidade, nomeProduto, cancellationToken);
 
                 context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
                 {
-                    ProdutoId = produto.Id,
+                    ProdutoId = item.ProdutoId!.Value,
                     Tipo = TipoMovimentacao.Saida,
                     Quantidade = item.Quantidade,
                     QuantidadeAnterior = qtdAnterior,
-                    QuantidadeAtual = produto.QuantidadeEstoque,
+                    QuantidadeAtual = qtdAtual,
                     Motivo = $"Venda externa #{venda.NumeroVendaExterna}",
                     VendaExternaId = venda.Id,
                     Usuario = usuario
@@ -316,24 +327,22 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
         string? usuario,
         CancellationToken cancellationToken)
     {
-        var produto = await context.Set<Produto>()
-            .FirstOrDefaultAsync(p => p.Id == produtoId, cancellationToken)
+        var nomeProduto = await context.Set<Produto>()
+            .Where(p => p.Id == produtoId)
+            .Select(p => p.Nome)
+            .FirstOrDefaultAsync(cancellationToken)
             ?? throw new DomainException($"Produto (Id={produtoId}) não encontrado.");
 
-        if (produto.QuantidadeEstoque < quantidade)
-            throw new DomainException(
-                $"Estoque insuficiente para '{produto.Nome}'. Disponível: {produto.QuantidadeEstoque}.");
-
-        var qtdAnterior = produto.QuantidadeEstoque;
-        produto.QuantidadeEstoque -= quantidade;
+        var (qtdAnterior, qtdAtual) = await EstoqueAtomicoHelper.BaixarAsync(
+            context, produtoId, quantidade, nomeProduto, cancellationToken);
 
         context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
         {
-            ProdutoId = produto.Id,
+            ProdutoId = produtoId,
             Tipo = TipoMovimentacao.Saida,
             Quantidade = quantidade,
             QuantidadeAnterior = qtdAnterior,
-            QuantidadeAtual = produto.QuantidadeEstoque,
+            QuantidadeAtual = qtdAtual,
             Motivo = motivo,
             VendaExternaId = vendaExternaId,
             Usuario = usuario
@@ -349,20 +358,16 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
         string? usuario,
         CancellationToken cancellationToken)
     {
-        var produto = await context.Set<Produto>()
-            .FirstOrDefaultAsync(p => p.Id == produtoId, cancellationToken)
-            ?? throw new DomainException($"Produto (Id={produtoId}) não encontrado.");
-
-        var qtdAnterior = produto.QuantidadeEstoque;
-        produto.QuantidadeEstoque += quantidade;
+        var (qtdAnterior, qtdAtual) = await EstoqueAtomicoHelper.ReporAsync(
+            context, produtoId, quantidade, cancellationToken);
 
         context.Set<MovimentacaoEstoque>().Add(new MovimentacaoEstoque
         {
-            ProdutoId = produto.Id,
+            ProdutoId = produtoId,
             Tipo = TipoMovimentacao.Entrada,
             Quantidade = quantidade,
             QuantidadeAnterior = qtdAnterior,
-            QuantidadeAtual = produto.QuantidadeEstoque,
+            QuantidadeAtual = qtdAtual,
             Motivo = motivo,
             VendaExternaId = vendaExternaId,
             Usuario = usuario
