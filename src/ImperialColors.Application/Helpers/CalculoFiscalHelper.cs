@@ -20,9 +20,19 @@ namespace ImperialColors.Application.Helpers;
 /// </summary>
 public static class CalculoFiscalHelper
 {
-    private static readonly HashSet<string> CstIcmsTributacaoIntegral = ["00", "20", "51", "90"];
+    /// <summary>CST de ICMS cujo grupo no XML (ICMS00/ICMS20/ICMS51/ICMS90 do leiauteNFe_v4.00.xsd)
+    /// exige <c>vBC</c>/<c>pICMS</c>/<c>vICMS</c> — <c>internal</c> (não <c>private</c>) porque
+    /// <see cref="Validation.NotaFiscalValidator"/> precisa da mesma lista para bloquear a
+    /// emissão quando falta alíquota cadastrada, em vez de deixar a API rejeitar por XML
+    /// incompleto (cStat local "XSD_VALIDATION ... incomplete content ... expected 'pICMS'").</summary>
+    internal static readonly HashSet<string> CstIcmsTributacaoIntegral = ["00", "20", "51", "90"];
     private static readonly HashSet<string> CstIcmsSemDestaque = ["40", "41", "50"];
-    private static readonly HashSet<string> CstIcmsSubstituicaoTributaria = ["10", "60"];
+
+    /// <summary>CST de ICMS-ST (10/60) — <see cref="CalcularIcms"/> só emite um aviso e não
+    /// calcula nada (ver docstring da classe), então o item nunca ganha vBC/pICMS/vICMS/vBCST/
+    /// etc.; <see cref="Validation.NotaFiscalValidator"/> usa esta lista para bloquear a
+    /// emissão em vez de deixar ir pra API com o grupo ICMS10/ICMS60 vazio.</summary>
+    internal static readonly HashSet<string> CstIcmsSubstituicaoTributaria = ["10", "60"];
 
     private static readonly HashSet<string> CstPisCofinsTributado = ["01", "02"];
     private static readonly HashSet<string> CstPisCofinsNaoTributado = ["04", "05", "06", "07", "08", "09"];

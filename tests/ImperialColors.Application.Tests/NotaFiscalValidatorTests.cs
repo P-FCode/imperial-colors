@@ -131,6 +131,51 @@ public class NotaFiscalValidatorTests
         Assert.Contains("CST ou apenas CSOSN", ex.Message);
     }
 
+    // ===== ICMS 00/20/51/90 sem alíquota cadastrada — regressão do XSD_VALIDATION
+    // "incomplete content... expected 'pICMS'" (grupo ICMS00 sai sem vBC/pICMS/vICMS) =====
+
+    [Theory]
+    [InlineData("00")]
+    [InlineData("20")]
+    [InlineData("51")]
+    [InlineData("90")]
+    public void ValidarParaEmissao_CstTributacaoIntegralSemAliquotaCadastrada_LancaDomainException(string cst)
+    {
+        var nota = NotaValida();
+        nota.Itens[0].CsosnIcms = null;
+        nota.Itens[0].CstIcms = cst;
+        nota.Itens[0].AliquotaIcms = null;
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Contains("alíquota cadastrada", ex.Message);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_Cst00ComAliquotaCadastrada_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.Itens[0].CsosnIcms = null;
+        nota.Itens[0].CstIcms = "00";
+        nota.Itens[0].AliquotaIcms = 18m;
+
+        var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Null(ex);
+    }
+
+    [Theory]
+    [InlineData("10")]
+    [InlineData("60")]
+    public void ValidarParaEmissao_CstSubstituicaoTributaria_LancaDomainException(string cst)
+    {
+        var nota = NotaValida();
+        nota.Itens[0].CsosnIcms = null;
+        nota.Itens[0].CstIcms = cst;
+        nota.Itens[0].AliquotaIcms = 18m; // mesmo com alíquota, ST não é calculada — deve bloquear
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Contains("Substituição Tributária", ex.Message);
+    }
+
     [Fact]
     public void ValidarParaEmissao_ItemSemCstIbsCbs_LancaDomainException()
     {

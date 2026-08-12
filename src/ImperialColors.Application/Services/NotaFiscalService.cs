@@ -132,6 +132,7 @@ public class NotaFiscalService : INotaFiscalService
         // simplesmente pular essa validação). Só cai no padrão da empresa quando o produto
         // não define NENHUM dos dois — nunca mistura CST do produto com CSOSN da empresa.
         var temIcmsProduto = !string.IsNullOrWhiteSpace(tributacao?.CstIcms) || !string.IsNullOrWhiteSpace(tributacao?.CsosnIcms);
+        var cstIcmsResolvido = temIcmsProduto ? tributacao?.CstIcms : empresa.CstIcmsPadrao;
 
         var item = new ItemNotaFiscalDto
         {
@@ -147,10 +148,18 @@ public class NotaFiscalService : INotaFiscalService
             Ncm = tributacao?.Ncm,
             Cest = tributacao?.Cest,
             Origem = tributacao?.Origem is null ? "0" : ((int)tributacao.Origem).ToString(),
-            CstIcms = temIcmsProduto ? tributacao?.CstIcms : empresa.CstIcmsPadrao,
+            CstIcms = cstIcmsResolvido,
             CsosnIcms = temIcmsProduto ? tributacao?.CsosnIcms : empresa.CsosnIcmsPadrao,
             AliquotaIcms = tributacao?.AliquotaIcms,
-            BaseIcms = tributacao?.AliquotaIcms.HasValue == true ? Math.Round(quantidade * precoUnitario, 2, MidpointRounding.AwayFromZero) : null,
+            // vBC é obrigatório no XML sempre que o CST exige o grupo ICMS00/20/51/90 (leiaute
+            // NFe) — independente de a alíquota estar cadastrada ou não. Antes isso dependia de
+            // AliquotaIcms.HasValue, então um produto com CST '00' sem alíquota cadastrada saía
+            // sem vBC/pICMS/vICMS no JSON, e a API/SEFAZ rejeitava por XSD_VALIDATION
+            // ("incomplete content... expected 'pICMS'"). NotaFiscalValidator.ValidarIcmsItem
+            // bloqueia a emissão nesse cenário (falta alíquota) antes de chegar aqui de novo.
+            BaseIcms = !string.IsNullOrWhiteSpace(cstIcmsResolvido) && CalculoFiscalHelper.CstIcmsTributacaoIntegral.Contains(cstIcmsResolvido)
+                ? Math.Round(quantidade * precoUnitario, 2, MidpointRounding.AwayFromZero)
+                : null,
             CstPis = tributacao?.CstPis,
             AliquotaPis = tributacao?.AliquotaPis,
             CstCofins = tributacao?.CstCofins,

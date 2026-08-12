@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using ImperialColors.Application.DTOs;
+using ImperialColors.Application.Helpers;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 
@@ -83,6 +84,26 @@ public static class NotaFiscalValidator
 
         if (!temCst && !temCsosn)
             throw new DomainException($"{rotulo}: falta CST ou CSOSN do ICMS.");
+
+        if (!temCst)
+            return;
+
+        // CST 00/20/51/90 (ICMS00/20/51/90 do leiaute NFe) exigem vBC/pICMS/vICMS no XML —
+        // sem alíquota cadastrada esses campos saem nulos e a SEFAZ rejeita por
+        // XSD_VALIDATION ("incomplete content... expected 'pICMS'"). Bloquear aqui evita gastar
+        // uma chamada com a API pra descobrir isso — CalculoFiscalHelper só gera um aviso
+        // informativo (usado também no cálculo de venda, onde isso não é bloqueante).
+        if (CalculoFiscalHelper.CstIcmsTributacaoIntegral.Contains(item.CstIcms!) && item.AliquotaIcms is null)
+            throw new DomainException(
+                $"{rotulo}: CST de ICMS '{item.CstIcms}' exige alíquota cadastrada no produto — cadastre a alíquota (Estoque → editar produto → aba Tributação) antes de emitir, senão a SEFAZ rejeita a nota por XML incompleto.");
+
+        // ICMS-ST (CST 10/60) ainda não tem cálculo implementado (CalculoFiscalHelper só avisa
+        // "revisar manualmente" e não preenche vBC/pICMS/vICMS/vBCST/etc.) — emitir assim sempre
+        // resulta em rejeição por grupo ICMS10/ICMS60 incompleto, então bloqueia aqui em vez de
+        // deixar o operador descobrir isso na homologação.
+        if (CalculoFiscalHelper.CstIcmsSubstituicaoTributaria.Contains(item.CstIcms!))
+            throw new DomainException(
+                $"{rotulo}: CST de ICMS '{item.CstIcms}' é de Substituição Tributária — o cálculo de ICMS-ST ainda não é suportado neste sistema, então a nota sairia com o grupo de imposto incompleto e seria rejeitada. Use outro CST ou emita esta nota manualmente até a funcionalidade ser implementada.");
     }
 
     private static void ValidarCfop(string? cfop, bool interestadual, string rotulo)
