@@ -69,6 +69,8 @@ public class CalculoFiscalVendaService : ICalculoFiscalVendaService
                 tributacao.AliquotaPis,
                 tributacao.CstCofins,
                 tributacao.AliquotaCofins,
+                tributacao.CstIpi,
+                tributacao.AliquotaIpi,
                 aliquotaIbsUf,
                 aliquotaIbsMunicipio,
                 aliquotaCbs);

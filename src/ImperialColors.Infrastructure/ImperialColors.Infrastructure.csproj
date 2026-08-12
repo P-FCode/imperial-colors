@@ -29,4 +29,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Permite testar NotaFiscalPayloadBuilder (internal) diretamente, sem expor a classe
+         publicamente só por causa dos testes. -->
+    <InternalsVisibleTo Include="ImperialColors.Application.Tests" />
+  </ItemGroup>
+
 </Project>

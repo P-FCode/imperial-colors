@@ -21,6 +21,11 @@ public interface IProdutoService
         CancellationToken cancellationToken = default);
     Task<IEnumerable<ProdutoDto>> ObterComEstoqueBaixoAsync();
     Task<IEnumerable<ProdutoDto>> ObterSemEstoqueAsync();
+
+    /// <summary>Produtos com saldo em estoque cuja validade vence em até
+    /// <paramref name="diasLimite"/> dias (inclui já vencidos) — usado no relatório
+    /// "Produtos Próximos da Validade".</summary>
+    Task<IEnumerable<ProdutoDto>> ObterProximosDaValidadeAsync(int diasLimite = 15);
     Task RegistrarMovimentacaoAsync(MovimentacaoEstoqueDto dto);
     Task<string> GerarProximoCodigoInternoAsync();
     Task<string> GerarCodigoInternoPorNomeAsync(string nome, CancellationToken cancellationToken = default);

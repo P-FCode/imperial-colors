@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace ImperialColors.UI.Views;
 
@@ -15,6 +16,7 @@ public partial class FiscalConfigView : UserControl
     private readonly IConfiguracaoFiscalService _configuracaoFiscal;
     private readonly IViaCepService _viaCepService;
     private readonly ObservableCollection<InscricaoEstadualItem> _inscricoesSubstituto = new();
+    private readonly List<(Button Botao, StackPanel Painel)> _abas;
 
     public FiscalConfigView(IConfiguracaoFiscalService configuracaoFiscal, IViaCepService viaCepService)
     {
@@ -23,7 +25,35 @@ public partial class FiscalConfigView : UserControl
         _viaCepService = viaCepService;
         GridInscricoesSubstituto.ItemsSource = _inscricoesSubstituto;
 
+        _abas = new List<(Button, StackPanel)>
+        {
+            (BtnAbaEmitente, PainelEmitente),
+            (BtnAbaRegime, PainelRegime),
+            (BtnAbaNumeracao, PainelNumeracao),
+            (BtnAbaIntegracao, PainelIntegracao),
+            (BtnAbaDifal, PainelDifal),
+            (BtnAbaReforma, PainelReforma),
+            (BtnAbaComportamentos, PainelComportamentos)
+        };
+        AtivarAba(BtnAbaEmitente);
+
         _ = CarregarConfiguracaoAsync();
+    }
+
+    private void BtnAba_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button botao) AtivarAba(botao);
+    }
+
+    private void AtivarAba(Button botaoAtivo)
+    {
+        foreach (var (botao, painel) in _abas)
+        {
+            var ativo = ReferenceEquals(botao, botaoAtivo);
+            painel.Visibility = ativo ? Visibility.Visible : Visibility.Collapsed;
+            botao.Background = ativo ? (Brush)FindResource("AmareloPrimarioBrush") : Brushes.White;
+            botao.Foreground = (Brush)FindResource(ativo ? "PretoPrimarioBrush" : "CinzaTextoBrush");
+        }
     }
 
     private async Task CarregarConfiguracaoAsync()
@@ -45,9 +75,11 @@ public partial class FiscalConfigView : UserControl
         SelecionarItemPorTag(CmbRegime, regime.ToString());
         ChkSimplesExcessoSublimite.IsChecked = empresa.SimplesExcessoSublimite;
 
-        ChkIeIsenta.IsChecked = empresa.IeIsenta;
+        TxtCnpj.Text = empresa.Cnpj ?? string.Empty;
+        TxtRazaoSocial.Text = empresa.RazaoSocial ?? string.Empty;
+        TxtNomeFantasia.Text = empresa.NomeFantasia ?? string.Empty;
+        TxtInscricaoEstadual.Text = empresa.InscricaoEstadual ?? string.Empty;
         TxtInscricaoMunicipal.Text = empresa.InscricaoMunicipal ?? string.Empty;
-        TxtInscricaoSuframa.Text = empresa.InscricaoSuframa ?? string.Empty;
         TxtCnae.Text = empresa.Cnae ?? string.Empty;
 
         _inscricoesSubstituto.Clear();
@@ -69,10 +101,15 @@ public partial class FiscalConfigView : UserControl
         TxtSerie.Text = string.IsNullOrWhiteSpace(empresa.Serie) ? "1" : empresa.Serie;
         SelecionarItemPorTag(CmbAmbiente, empresa.Ambiente.ToString());
 
+        TxtApiKeyFiscal.Password = empresa.ApiKeyFiscal ?? string.Empty;
+
         TxtIdCscHomologacao.Text = empresa.IdCscHomologacao ?? string.Empty;
         TxtCscHomologacao.Password = empresa.CscHomologacao ?? string.Empty;
         TxtIdCscProducao.Text = empresa.IdCscProducao ?? string.Empty;
         TxtCscProducao.Password = empresa.CscProducao ?? string.Empty;
+
+        TxtCstIcmsPadrao.Text = empresa.CstIcmsPadrao ?? string.Empty;
+        TxtCsosnIcmsPadrao.Text = empresa.CsosnIcmsPadrao ?? string.Empty;
 
         TxtCstIbsCbsPadrao.Text = empresa.CstIbsCbsPadrao ?? string.Empty;
         TxtCClassTribPadrao.Text = empresa.CClassTribPadrao ?? string.Empty;
@@ -163,10 +200,20 @@ public partial class FiscalConfigView : UserControl
 
     private async void BtnSalvarConfiguracaoFiscal_Click(object sender, RoutedEventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(TxtCnpj.Text) || string.IsNullOrWhiteSpace(TxtRazaoSocial.Text) ||
+            string.IsNullOrWhiteSpace(TxtInscricaoEstadual.Text))
+        {
+            MessageBox.Show("Preencha CNPJ, Razão Social e Inscrição Estadual do emitente (aba Emitente).",
+                "Validação", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AtivarAba(BtnAbaEmitente);
+            return;
+        }
+
         if (CmbRegime.SelectedItem is not ComboBoxItem regimeItem || regimeItem.Tag is not string regimeTag ||
             !Enum.TryParse<RegimeTributario>(regimeTag, out var regime))
         {
             MessageBox.Show("Selecione um regime tributário.", "Validação", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AtivarAba(BtnAbaRegime);
             return;
         }
 
@@ -174,13 +221,14 @@ public partial class FiscalConfigView : UserControl
             !Enum.TryParse<AmbienteEmissaoFiscal>(ambienteTag, out var ambiente))
         {
             MessageBox.Show("Selecione o ambiente de emissão.", "Validação", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AtivarAba(BtnAbaNumeracao);
             return;
         }
 
         if (ambiente == AmbienteEmissaoFiscal.Producao)
         {
             var confirmar = MessageBox.Show(
-                "Você está definindo o ambiente de emissão como PRODUÇÃO. Quando a emissão de NF-e/NFC-e for implementada, notas emitidas nesse ambiente têm valor fiscal real. Confirma?",
+                "Você está definindo o ambiente de emissão como PRODUÇÃO. Notas emitidas nesse ambiente têm valor fiscal real. Confirma?",
                 "Confirmar ambiente de Produção", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (confirmar != MessageBoxResult.Yes)
                 return;
@@ -195,9 +243,11 @@ public partial class FiscalConfigView : UserControl
 
         var dto = new ConfiguracaoFiscalEmpresaDto
         {
-            IeIsenta = ChkIeIsenta.IsChecked == true,
+            Cnpj = NormalizarSomenteDigitos(TxtCnpj.Text),
+            RazaoSocial = TextoOuNulo(TxtRazaoSocial.Text),
+            NomeFantasia = TextoOuNulo(TxtNomeFantasia.Text),
+            InscricaoEstadual = TextoOuNulo(TxtInscricaoEstadual.Text),
             InscricaoMunicipal = TextoOuNulo(TxtInscricaoMunicipal.Text),
-            InscricaoSuframa = TextoOuNulo(TxtInscricaoSuframa.Text),
             Cnae = NormalizarSomenteDigitos(TxtCnae.Text),
             DifalNaoContribuinte = ChkDifalNaoContribuinte.IsChecked == true,
             DifalStContribuinte = ChkDifalStContribuinte.IsChecked == true,
@@ -211,11 +261,14 @@ public partial class FiscalConfigView : UserControl
             Uf = TextoOuNulo(TxtUf.Text),
             Serie = NormalizarSomenteDigitos(TxtSerie.Text),
             Ambiente = ambiente,
+            ApiKeyFiscal = TextoOuNulo(TxtApiKeyFiscal.Password),
             IdCscHomologacao = TextoOuNulo(TxtIdCscHomologacao.Text),
             CscHomologacao = TextoOuNulo(TxtCscHomologacao.Password),
             IdCscProducao = TextoOuNulo(TxtIdCscProducao.Text),
             CscProducao = TextoOuNulo(TxtCscProducao.Password),
             SimplesExcessoSublimite = ChkSimplesExcessoSublimite.IsChecked == true,
+            CstIcmsPadrao = NormalizarSomenteDigitos(TxtCstIcmsPadrao.Text),
+            CsosnIcmsPadrao = NormalizarSomenteDigitos(TxtCsosnIcmsPadrao.Text),
             AliquotaIbsUfPadrao = aliquotaIbsUf,
             AliquotaIbsMunicipioPadrao = aliquotaIbsMunicipio,
             AliquotaCbsPadrao = aliquotaCbs,
@@ -260,7 +313,7 @@ public partial class FiscalConfigView : UserControl
     private void ExibirStatus(string mensagem, bool sucesso)
     {
         TxtStatusConfiguracao.Text = mensagem;
-        TxtStatusConfiguracao.Foreground = (System.Windows.Media.Brush)FindResource(
+        TxtStatusConfiguracao.Foreground = (Brush)FindResource(
             sucesso ? "VerdeSucessoBrush" : "VermelhoErroBrush");
         TxtStatusConfiguracao.Visibility = Visibility.Visible;
     }

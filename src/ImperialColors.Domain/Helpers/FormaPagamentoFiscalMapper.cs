@@ -18,6 +18,7 @@ public static class FormaPagamentoFiscalMapper
         FormaPagamento.CartaoDebito => "04",
         FormaPagamento.Boleto => "15",
         FormaPagamento.Pix => "17",
+        FormaPagamento.SemPagamento => "90",
         _ => "99" // Outros — não deveria acontecer com o enum atual, guarda de segurança
     };
 }

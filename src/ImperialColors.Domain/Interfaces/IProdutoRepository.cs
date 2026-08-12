@@ -45,6 +45,13 @@ public interface IProdutoRepository : IRepository<Produto>
     Task<IEnumerable<Produto>> BuscarPorNomeAsync(string nome);
     Task<IEnumerable<Produto>> ObterComEstoqueBaixoAsync();
     Task<IEnumerable<Produto>> ObterSemEstoqueAsync();
+
+    /// <summary>Produtos ativos com saldo em estoque e <see cref="Produto.DataValidade"/>
+    /// preenchida cuja validade vence em até <paramref name="diasLimite"/> dias — inclui
+    /// também os já vencidos (sem limite inferior), porque um produto vencido no estoque é
+    /// ainda mais urgente de tratar do que um perto de vencer. Ordenado pela validade mais
+    /// próxima primeiro.</summary>
+    Task<IEnumerable<Produto>> ObterProximosDaValidadeAsync(int diasLimite = 15);
     Task<int> ContarComEstoqueCriticoAsync(decimal limiteUnidades = 5);
     Task<IEnumerable<Produto>> ObterComCategoriaEMarcaAsync();
     Task<bool> CodigoInternoExisteAsync(string codigoInterno, int? ignorarId = null);

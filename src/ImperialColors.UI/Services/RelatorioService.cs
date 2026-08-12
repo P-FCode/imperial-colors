@@ -888,6 +888,105 @@ public class RelatorioService : IRelatorioService
         });
     }
 
+    public Task GerarRelatorioValidadePdfAsync(IEnumerable<ProdutoDto> produtos, int diasLimite, string caminhoArquivo)
+    {
+        return Task.Run(() =>
+        {
+            using var writer = new PdfWriter(caminhoArquivo);
+            using var pdf = new PdfDocument(writer);
+            using var document = new Document(pdf, iText.Kernel.Geom.PageSize.A4);
+            document.SetMargins(30, 30, 30, 30);
+
+            AdicionarCabecalhoRelatorio(document, "Produtos Próximos da Validade",
+                $"Vencimento em até {diasLimite} dias (ou já vencidos) — Gerado em: {DateTime.Now:dd/MM/yyyy HH:mm}");
+
+            var tabela = new ITextTable(new float[] { 1.5f, 3.5f, 1.5f, 1.5f, 1.5f }).UseAllAvailableWidth();
+            AdicionarCabecalhoTabela(tabela, "Codigo", "Nome", "Estoque", "Validade", "Situacao");
+
+            var lista = produtos.ToList();
+            foreach (var produto in lista)
+            {
+                tabela.AddCell(CelulaTabela(produto.CodigoInterno));
+                tabela.AddCell(CelulaTabela(produto.NomeExibicao));
+                tabela.AddCell(CelulaTabela($"{produto.QuantidadeEstoque:G} {produto.Unidade}", TextAlignment.RIGHT));
+                tabela.AddCell(CelulaTabela(produto.DataValidade?.ToString("dd/MM/yyyy") ?? "-", TextAlignment.CENTER));
+
+                var celSituacao = CelulaTabela(DescreverSituacaoValidade(produto.DataValidade), TextAlignment.CENTER);
+                var dias = DiasParaVencer(produto.DataValidade);
+                if (dias is < 0) celSituacao.SetFontColor(new DeviceRgb(220, 53, 69));
+                else if (dias is <= 5) celSituacao.SetFontColor(new DeviceRgb(253, 126, 20));
+                tabela.AddCell(celSituacao);
+            }
+
+            document.Add(tabela);
+            document.Add(new ITextParagraph($"\nTotal de produtos: {lista.Count}")
+                .SetFont(ObterFonte()).SetFontSize(11));
+        });
+    }
+
+    public Task GerarRelatorioValidadeExcelAsync(IEnumerable<ProdutoDto> produtos, int diasLimite, string caminhoArquivo)
+    {
+        return Task.Run(() =>
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.AddWorksheet("Validade Proxima");
+
+            ws.Cell(1, 1).Value = $"{_config.EmpresaNome} - Produtos Proximos da Validade";
+            ws.Cell(1, 1).Style.Font.Bold = true;
+            ws.Cell(1, 1).Style.Font.FontSize = 14;
+            ws.Range(1, 1, 1, 5).Merge();
+
+            ws.Cell(2, 1).Value = $"Vencimento em ate {diasLimite} dias (ou ja vencidos) - Gerado em: {DateTime.Now:dd/MM/yyyy HH:mm}";
+            ws.Range(2, 1, 2, 5).Merge();
+
+            var headers = new[] { "Codigo", "Nome", "Estoque", "Validade", "Situacao" };
+            for (var i = 0; i < headers.Length; i++)
+            {
+                var cell = ws.Cell(4, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Fill.BackgroundColor = XLColor.FromArgb(245, 194, 0);
+                cell.Style.Font.Bold = true;
+            }
+
+            var row = 5;
+            foreach (var produto in produtos)
+            {
+                ws.Cell(row, 1).Value = produto.CodigoInterno;
+                ws.Cell(row, 2).Value = produto.NomeExibicao;
+                ws.Cell(row, 3).Value = $"{produto.QuantidadeEstoque:G} {produto.Unidade}";
+                ws.Cell(row, 4).Value = produto.DataValidade?.ToString("dd/MM/yyyy") ?? "-";
+                ws.Cell(row, 5).Value = DescreverSituacaoValidade(produto.DataValidade);
+
+                var dias = DiasParaVencer(produto.DataValidade);
+                if (dias is < 0) ws.Cell(row, 5).Style.Font.FontColor = XLColor.Red;
+                else if (dias is <= 5) ws.Cell(row, 5).Style.Font.FontColor = XLColor.Orange;
+
+                if (row % 2 == 0)
+                    ws.Row(row).Style.Fill.BackgroundColor = XLColor.FromArgb(248, 249, 250);
+                row++;
+            }
+
+            ws.Columns().AdjustToContents();
+            workbook.SaveAs(caminhoArquivo);
+        });
+    }
+
+    private static int? DiasParaVencer(DateTime? dataValidade)
+        => dataValidade.HasValue ? (dataValidade.Value.Date - DateTime.Today).Days : null;
+
+    private static string DescreverSituacaoValidade(DateTime? dataValidade)
+    {
+        var dias = DiasParaVencer(dataValidade);
+        return dias switch
+        {
+            null => "-",
+            < 0 => $"Vencido há {-dias.Value} dia(s)",
+            0 => "Vence hoje",
+            1 => "Vence amanhã",
+            _ => $"Vence em {dias} dias"
+        };
+    }
+
     private void AdicionarCabecalhoRelatorio(Document document, string titulo, string subtitulo)
     {
         document.Add(new ITextParagraph(_config.EmpresaNome.ToUpperInvariant()).SetFont(ObterFonte(true)).SetFontSize(18)

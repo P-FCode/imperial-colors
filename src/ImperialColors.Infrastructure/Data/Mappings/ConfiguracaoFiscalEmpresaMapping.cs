@@ -12,9 +12,11 @@ public class ConfiguracaoFiscalEmpresaMapping : IEntityTypeConfiguration<Configu
         builder.HasKey(c => c.Id);
         builder.Property(c => c.Id).HasColumnName("id").UseIdentityAlwaysColumn();
 
-        builder.Property(c => c.IeIsenta).HasColumnName("ie_isenta").HasDefaultValue(false);
+        builder.Property(c => c.Cnpj).HasColumnName("cnpj").HasMaxLength(14);
+        builder.Property(c => c.RazaoSocial).HasColumnName("razao_social").HasMaxLength(200);
+        builder.Property(c => c.NomeFantasia).HasColumnName("nome_fantasia").HasMaxLength(200);
+        builder.Property(c => c.InscricaoEstadual).HasColumnName("inscricao_estadual").HasMaxLength(20);
         builder.Property(c => c.InscricaoMunicipal).HasColumnName("inscricao_municipal").HasMaxLength(20);
-        builder.Property(c => c.InscricaoSuframa).HasColumnName("inscricao_suframa").HasMaxLength(20);
         builder.Property(c => c.Cnae).HasColumnName("cnae").HasMaxLength(10);
 
         builder.Property(c => c.DifalNaoContribuinte).HasColumnName("difal_nao_contribuinte").HasDefaultValue(false);
@@ -38,7 +40,12 @@ public class ConfiguracaoFiscalEmpresaMapping : IEntityTypeConfiguration<Configu
         builder.Property(c => c.IdCscProducao).HasColumnName("id_csc_producao").HasMaxLength(20);
         builder.Property(c => c.CscProducao).HasColumnName("csc_producao").HasMaxLength(64);
 
+        builder.Property(c => c.ApiKeyFiscal).HasColumnName("api_key_fiscal").HasMaxLength(200);
+
         builder.Property(c => c.SimplesExcessoSublimite).HasColumnName("simples_excesso_sublimite").HasDefaultValue(false);
+
+        builder.Property(c => c.CstIcmsPadrao).HasColumnName("cst_icms_padrao").HasMaxLength(2);
+        builder.Property(c => c.CsosnIcmsPadrao).HasColumnName("csosn_icms_padrao").HasMaxLength(3);
 
         builder.Property(c => c.AliquotaIbsUfPadrao).HasColumnName("aliquota_ibs_uf_padrao").HasPrecision(6, 4);
         builder.Property(c => c.AliquotaIbsMunicipioPadrao).HasColumnName("aliquota_ibs_municipio_padrao").HasPrecision(6, 4);

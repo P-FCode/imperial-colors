@@ -21,6 +21,7 @@ public class CalculoFiscalHelperTests
             cstIcms: null, csosnIcms: "102", aliquotaIcms: null,
             cstPis: "07", aliquotaPis: null,
             cstCofins: "07", aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
             AliqIbsUf, AliqIbsMunicipio, AliqCbs);
 
         Assert.Equal(0m, resultado.VIcms);
@@ -35,6 +36,7 @@ public class CalculoFiscalHelperTests
             cstIcms: "00", csosnIcms: null, aliquotaIcms: 18m,
             cstPis: null, aliquotaPis: null,
             cstCofins: null, aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
             0, 0, 0);
 
         Assert.Equal(18m, resultado.VIcms);
@@ -49,6 +51,7 @@ public class CalculoFiscalHelperTests
             cstIcms: "00", csosnIcms: null, aliquotaIcms: null,
             cstPis: null, aliquotaPis: null,
             cstCofins: null, aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
             0, 0, 0);
 
         Assert.Equal(0m, resultado.VIcms);
@@ -66,6 +69,7 @@ public class CalculoFiscalHelperTests
             cstIcms: cst, csosnIcms: null, aliquotaIcms: null,
             cstPis: null, aliquotaPis: null,
             cstCofins: null, aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
             0, 0, 0);
 
         Assert.Equal(0m, resultado.VIcms);
@@ -82,6 +86,7 @@ public class CalculoFiscalHelperTests
             cstIcms: cst, csosnIcms: null, aliquotaIcms: 18m,
             cstPis: null, aliquotaPis: null,
             cstCofins: null, aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
             0, 0, 0);
 
         Assert.Equal(0m, resultado.VIcms);
@@ -96,6 +101,7 @@ public class CalculoFiscalHelperTests
             cstIcms: null, csosnIcms: null, aliquotaIcms: null,
             cstPis: null, aliquotaPis: null,
             cstCofins: null, aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
             0, 0, 0);
 
         Assert.Contains(resultado.Avisos, a => a.Contains("CST/CSOSN"));
@@ -109,6 +115,7 @@ public class CalculoFiscalHelperTests
             cstIcms: null, csosnIcms: "102", aliquotaIcms: null,
             cstPis: "01", aliquotaPis: 1.65m,
             cstCofins: "01", aliquotaCofins: 7.60m,
+            cstIpi: null, aliquotaIpi: null,
             0, 0, 0);
 
         Assert.Equal(1.65m, resultado.VPis);
@@ -126,6 +133,7 @@ public class CalculoFiscalHelperTests
             cstIcms: null, csosnIcms: "102", aliquotaIcms: null,
             cstPis: cst, aliquotaPis: null,
             cstCofins: cst, aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
             0, 0, 0);
 
         Assert.Equal(0m, resultado.VPis);
@@ -143,6 +151,7 @@ public class CalculoFiscalHelperTests
             cstIcms: null, csosnIcms: "102", aliquotaIcms: null,
             cstPis: "07", aliquotaPis: null,
             cstCofins: "07", aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
             AliqIbsUf, AliqIbsMunicipio, AliqCbs);
 
         Assert.Equal(0.01m, resultado.VIbsUf);
@@ -158,10 +167,77 @@ public class CalculoFiscalHelperTests
             cstIcms: null, csosnIcms: "102", aliquotaIcms: null,
             cstPis: "07", aliquotaPis: null,
             cstCofins: "07", aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
             0, 0, 0);
 
         Assert.Equal(0m, resultado.VIbsUf);
         Assert.Equal(0m, resultado.VIbsMunicipio);
         Assert.Equal(0m, resultado.VCbs);
+    }
+
+    // ===== IPI =====
+
+    [Fact]
+    public void CalcularItem_SemCstIpi_NaoCalculaSemAviso()
+    {
+        // Diferente de ICMS/PIS/COFINS, IPI é opcional — a maioria dos produtos não tem CST
+        // de IPI cadastrado, e isso não deveria gerar aviso de "pendência de cadastro".
+        var resultado = CalculoFiscalHelper.CalcularItem(
+            1, "Tinta Coral", 100m,
+            cstIcms: null, csosnIcms: "102", aliquotaIcms: null,
+            cstPis: "07", aliquotaPis: null,
+            cstCofins: "07", aliquotaCofins: null,
+            cstIpi: null, aliquotaIpi: null,
+            0, 0, 0);
+
+        Assert.Null(resultado.VIpi);
+        Assert.DoesNotContain(resultado.Avisos, a => a.Contains("IPI"));
+    }
+
+    [Fact]
+    public void CalcularItem_CstIpi50ComAliquota_CalculaIpiCorretamente()
+    {
+        var resultado = CalculoFiscalHelper.CalcularItem(
+            1, "Produto", 100m,
+            cstIcms: null, csosnIcms: "102", aliquotaIcms: null,
+            cstPis: "07", aliquotaPis: null,
+            cstCofins: "07", aliquotaCofins: null,
+            cstIpi: "50", aliquotaIpi: 5m,
+            0, 0, 0);
+
+        Assert.Equal(5m, resultado.VIpi);
+        Assert.DoesNotContain(resultado.Avisos, a => a.Contains("IPI"));
+    }
+
+    [Fact]
+    public void CalcularItem_CstIpiTributadoSemAliquotaCadastrada_GeraAvisoENaoCalcula()
+    {
+        var resultado = CalculoFiscalHelper.CalcularItem(
+            1, "Produto", 100m,
+            cstIcms: null, csosnIcms: "102", aliquotaIcms: null,
+            cstPis: "07", aliquotaPis: null,
+            cstCofins: "07", aliquotaCofins: null,
+            cstIpi: "50", aliquotaIpi: null,
+            0, 0, 0);
+
+        Assert.Null(resultado.VIpi);
+        Assert.Contains(resultado.Avisos, a => a.Contains("IPI") && a.Contains("alíquota"));
+    }
+
+    [Theory]
+    [InlineData("01")]
+    [InlineData("53")]
+    public void CalcularItem_CstIpiNaoTributado_NaoCalculaSemAviso(string cst)
+    {
+        var resultado = CalculoFiscalHelper.CalcularItem(
+            1, "Produto", 100m,
+            cstIcms: null, csosnIcms: "102", aliquotaIcms: null,
+            cstPis: "07", aliquotaPis: null,
+            cstCofins: "07", aliquotaCofins: null,
+            cstIpi: cst, aliquotaIpi: null,
+            0, 0, 0);
+
+        Assert.Null(resultado.VIpi);
+        Assert.DoesNotContain(resultado.Avisos, a => a.Contains("IPI"));
     }
 }

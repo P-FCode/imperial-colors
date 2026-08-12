@@ -15,6 +15,7 @@ public static class PagamentoHelper
             FormaPagamento.CartaoCredito => "Cartão de Crédito",
             FormaPagamento.Pix => "Pix",
             FormaPagamento.Boleto => "Boleto",
+            FormaPagamento.SemPagamento => "Sem Pagamento",
             _ => forma.ToString()
         };
 

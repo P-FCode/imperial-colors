@@ -37,4 +37,13 @@ public static class DatabaseExceptionHelper
                || (detalhe.Contains("23505", StringComparison.OrdinalIgnoreCase)
                    && detalhe.Contains("codigo_interno", StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>Violação da constraint única (Tipo, Serie, Numero) de <c>notas_fiscais</c> —
+    /// sinal de que duas emissões concorrentes tentaram usar o mesmo número (a numeração
+    /// não tinha lock antes, só passou a ter essa rede de segurança no banco).</summary>
+    public static bool EhViolacaoUnicidadeNumeracaoNotaFiscal(Exception exception)
+    {
+        var detalhe = ObterMensagemDetalhada(exception);
+        return detalhe.Contains("IX_notas_fiscais_tipo_serie_numero", StringComparison.OrdinalIgnoreCase);
+    }
 }

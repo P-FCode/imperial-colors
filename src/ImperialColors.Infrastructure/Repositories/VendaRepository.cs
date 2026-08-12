@@ -172,7 +172,11 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
             var termo = termoBusca.Trim();
             query = query.Where(v =>
                 EF.Functions.ILike(v.NumeroVenda, $"%{termo}%") ||
-                (v.Cliente != null && EF.Functions.ILike(v.Cliente.Nome, $"%{termo}%")));
+                (v.Cliente != null && EF.Functions.ILike(v.Cliente.Nome, $"%{termo}%")) ||
+                // Venda de balcão sem cadastro de cliente (cupom com nome digitado na hora,
+                // sem CPF/CNPJ vinculado) — sem isso, buscar pelo nome só achava vendas de
+                // clientes cadastrados, não as de cupom avulso.
+                (v.NomeCompradorCupom != null && EF.Functions.ILike(v.NomeCompradorCupom, $"%{termo}%")));
         }
 
         var total = await query.CountAsync(cancellationToken);

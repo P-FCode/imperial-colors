@@ -6,6 +6,11 @@ public interface IVendaExternaRepository : IRepository<VendaExterna>
 {
     Task<IEnumerable<VendaExterna>> ObterTodosComItensAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<VendaExterna>> ObterPorPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken cancellationToken = default);
+
+    /// <summary>Paginação real no banco (Skip/Take) — diferente de <see cref="ObterTodosComItensAsync"/>,
+    /// que carrega a tabela inteira com Include(Itens) sempre que a tela abre.</summary>
+    Task<(IReadOnlyList<VendaExterna> Itens, int Total)> ObterPaginadoAsync(
+        int pagina, int itensPorPagina, string? termoBusca = null, CancellationToken cancellationToken = default);
     Task<VendaExterna?> ObterComItensAsync(int id, CancellationToken cancellationToken = default);
     Task<string> GerarNumeroVendaExternaAsync(CancellationToken cancellationToken = default);
     Task<VendaExterna> RegistrarTransacionalAsync(

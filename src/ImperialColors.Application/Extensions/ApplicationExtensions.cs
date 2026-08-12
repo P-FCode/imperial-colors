@@ -25,6 +25,7 @@ public static class ApplicationExtensions
         services.AddSingleton<IConfiguracaoFiscalService, ConfiguracaoFiscalService>();
         services.AddSingleton<ICalculoFiscalVendaService, CalculoFiscalVendaService>();
         services.AddSingleton<INaturezaOperacaoService, NaturezaOperacaoService>();
+        services.AddSingleton<INotaFiscalService, NotaFiscalService>();
         return services;
     }
 }

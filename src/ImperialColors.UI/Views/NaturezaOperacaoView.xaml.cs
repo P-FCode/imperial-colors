@@ -34,6 +34,12 @@ public partial class NaturezaOperacaoView : UserControl
                     true => 1,
                     false => 2
                 };
+            // "+ Nova Natureza" chama Novo(), que sempre desliga o ModoEdicao — dar foco
+            // no campo Descrição garante feedback visível mesmo quando o formulário já
+            // estava vazio (nesse caso os campos não mudam de valor, então nenhum outro
+            // binding dispara e o clique parecia não fazer nada).
+            if (e.PropertyName is nameof(NaturezaOperacaoViewModel.ModoEdicao) && !_viewModel.ModoEdicao)
+                TxtDescricao.Focus();
         };
 
         CmbTipoOperacao.SelectedItem = _viewModel.TipoOperacao;

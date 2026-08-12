@@ -1,13 +1,16 @@
+using ImperialColors.Application.Configuration;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Configuration;
 using ImperialColors.Infrastructure.Contingency;
 using ImperialColors.Infrastructure.Data;
+using ImperialColors.Infrastructure.Fiscal;
 using ImperialColors.Infrastructure.Repositories;
 using ImperialColors.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace ImperialColors.Infrastructure.Extensions;
 
@@ -50,6 +53,7 @@ public static class InfrastructureExtensions
         services.AddSingleton<ITributacaoCategoriaRepository, TributacaoCategoriaRepository>();
         services.AddSingleton<IConfiguracaoFiscalEmpresaRepository, ConfiguracaoFiscalEmpresaRepository>();
         services.AddSingleton<IRepository<NaturezaOperacao>, RepositoryBase<NaturezaOperacao>>();
+        services.AddSingleton<INotaFiscalRepository, NotaFiscalRepository>();
 
         services.AddSingleton<IContingencyVendaService, ContingencyVendaService>();
 
@@ -88,6 +92,22 @@ public static class InfrastructureExtensions
         });
 
         services.AddTransient<ICnpjConsultaService, CnpjConsultaCompostaService>();
+
+        // API Fiscal (PFCode) — dois HttpClients nomeados (NF-e :5001 / NFC-e :5002),
+        // ver comentário em FiscalApiClient sobre por que não é o AddHttpClient<T> típico.
+        services.AddHttpClient(FiscalApiClient.ClienteNFe, (sp, client) =>
+        {
+            var config = sp.GetRequiredService<IOptions<FiscalApiConfig>>().Value;
+            client.BaseAddress = new Uri(config.NFeBaseUrl.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddHttpClient(FiscalApiClient.ClienteNFCe, (sp, client) =>
+        {
+            var config = sp.GetRequiredService<IOptions<FiscalApiConfig>>().Value;
+            client.BaseAddress = new Uri(config.NFCeBaseUrl.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddTransient<IFiscalApiClient, FiscalApiClient>();
 
         return services;
     }

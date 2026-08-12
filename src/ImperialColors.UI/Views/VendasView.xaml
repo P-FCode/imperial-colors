@@ -62,7 +62,7 @@
                             SelectedDate="{Binding DataFim, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                 <TextBox Grid.Column="4" Style="{StaticResource TextBoxFiltro}" Margin="15,0,15,0"
                          VerticalAlignment="Center"
-                         helpers:PlaceholderHelper.Text="Buscar por número da venda..."
+                         helpers:PlaceholderHelper.Text="Buscar por número da venda ou nome do cliente..."
                          Text="{Binding TermoBusca, UpdateSourceTrigger=PropertyChanged}"/>
                 <Button Grid.Column="5" Style="{StaticResource BotaoPrimario}" VerticalAlignment="Center"
                         Command="{Binding FiltrarCommand}" Content="🔍  Filtrar" Padding="15,8"/>
@@ -76,6 +76,7 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Nº Venda" Binding="{Binding NumeroVenda}" Width="130"/>
                     <DataGridTextColumn Header="Data" Binding="{Binding DataVenda, Converter={StaticResource DataHoraConverter}}" Width="150"/>
+                    <DataGridTextColumn Header="Cliente" Binding="{Binding NomeCompradorExibicao}" Width="*"/>
                     <DataGridTextColumn Header="Pagamento" Binding="{Binding FormaPagamentoDescricao}" Width="140"/>
                     <DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, Converter={StaticResource MoedaConverter}}" Width="100"/>
                     <DataGridTextColumn Header="Desconto" Binding="{Binding Desconto, Converter={StaticResource MoedaConverter}}" Width="100"/>

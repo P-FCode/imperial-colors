@@ -33,6 +33,20 @@ public class VendaExternaService : IVendaExternaService
         return vendas.Select(MapearParaDto);
     }
 
+    public async Task<PaginacaoResultadoDto<VendaExternaDto>> ObterPaginadoAsync(
+        int pagina, int itensPorPagina, string? termoBusca = null, CancellationToken cancellationToken = default)
+    {
+        var (itens, total) = await _vendaExternaRepository.ObterPaginadoAsync(pagina, itensPorPagina, termoBusca, cancellationToken);
+
+        return new PaginacaoResultadoDto<VendaExternaDto>
+        {
+            Itens = itens.Select(MapearParaDto).ToList(),
+            PaginaAtual = pagina,
+            ItensPorPagina = itensPorPagina,
+            TotalItens = total
+        };
+    }
+
     public async Task<VendaExternaDto?> ObterPorIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var venda = await _vendaExternaRepository.ObterComItensAsync(id, cancellationToken);

@@ -8,364 +8,455 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" helpers:ScrollViewerMouseWheelHelper.Habilitar="True">
-    <StackPanel MaxWidth="720" HorizontalAlignment="Left" Margin="0,0,20,20">
+    <StackPanel MaxWidth="900" HorizontalAlignment="Left" Margin="0,0,20,20">
 
-        <!-- Regime Tributário -->
-        <TextBlock Text="Regime Tributário" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
-        <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
-                   Foreground="{StaticResource CinzaTextoBrush}"
-                   Text="Define se o cadastro de Tributação dos produtos pede CSOSN (Simples Nacional/MEI) ou CST (Lucro Presumido/Real) para o ICMS, e o CRT enviado na NF-e. Confirme com seu contador antes de alterar."/>
+        <!-- Navegação por sub-abas -->
+        <WrapPanel Margin="0,0,0,16">
+            <Button x:Name="BtnAbaEmitente" Content="Emitente" Style="{StaticResource BotaoSecundario}"
+                    Padding="14,8" Margin="0,0,8,8" Click="BtnAba_Click"/>
+            <Button x:Name="BtnAbaRegime" Content="Regime Tributário" Style="{StaticResource BotaoSecundario}"
+                    Padding="14,8" Margin="0,0,8,8" Click="BtnAba_Click"/>
+            <Button x:Name="BtnAbaNumeracao" Content="Numeração e Ambiente" Style="{StaticResource BotaoSecundario}"
+                    Padding="14,8" Margin="0,0,8,8" Click="BtnAba_Click"/>
+            <Button x:Name="BtnAbaIntegracao" Content="Integração e CSC" Style="{StaticResource BotaoSecundario}"
+                    Padding="14,8" Margin="0,0,8,8" Click="BtnAba_Click"/>
+            <Button x:Name="BtnAbaDifal" Content="DIFAL e Substituição" Style="{StaticResource BotaoSecundario}"
+                    Padding="14,8" Margin="0,0,8,8" Click="BtnAba_Click"/>
+            <Button x:Name="BtnAbaReforma" Content="Reforma Tributária" Style="{StaticResource BotaoSecundario}"
+                    Padding="14,8" Margin="0,0,8,8" Click="BtnAba_Click"/>
+            <Button x:Name="BtnAbaComportamentos" Content="Comportamentos de Emissão" Style="{StaticResource BotaoSecundario}"
+                    Padding="14,8" Margin="0,0,8,8" Click="BtnAba_Click"/>
+        </WrapPanel>
 
-        <StackPanel Margin="0,0,0,10">
-            <TextBlock Style="{StaticResource LabelCampo}" Text="Regime da empresa *"/>
-            <ComboBox x:Name="CmbRegime" Style="{StaticResource ComboBoxModerno}" HorizontalAlignment="Left" MinWidth="320">
-                <ComboBoxItem Content="Simples Nacional (CRT 1 ou 2)" Tag="SimplesNacional"/>
-                <ComboBoxItem Content="Lucro Presumido (CRT 3)" Tag="LucroPresumido"/>
-                <ComboBoxItem Content="Lucro Real (CRT 3)" Tag="LucroReal"/>
-                <ComboBoxItem Content="MEI (CRT 4)" Tag="Mei"/>
-            </ComboBox>
+        <!-- ============ EMITENTE ============ -->
+        <StackPanel x:Name="PainelEmitente" Visibility="Visible">
+            <Border Style="{StaticResource Card}" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="Emitente" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Dados da empresa emitente das notas fiscais — obrigatórios para NF-e/NFC-e. Diferente dos dados de Configurações → Geral (usados no cupom não fiscal): aqui é o que vai de fato no XML enviado à SEFAZ."/>
 
-            <CheckBox x:Name="ChkSimplesExcessoSublimite" Margin="0,10,0,0"
-                      Content="Empresa excedeu o sublimite de receita bruta do Simples Nacional (CRT vira 2)"
-                      ToolTip="Só marque se a empresa está no Simples Nacional mas ultrapassou o sublimite estadual de faturamento — muda o CRT enviado na NF-e de 1 para 2. Confirme com o contador."/>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="1.6*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="CNPJ *"/>
+                            <TextBox x:Name="TxtCnpj" Style="{StaticResource TextBoxModerno}" MaxLength="18"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Razão Social *"/>
+                            <TextBox x:Name="TxtRazaoSocial" Style="{StaticResource TextBoxModerno}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.6*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Nome Fantasia"/>
+                            <TextBox x:Name="TxtNomeFantasia" Style="{StaticResource TextBoxModerno}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Inscrição Estadual *"/>
+                            <TextBox x:Name="TxtInscricaoEstadual" Style="{StaticResource TextBoxModerno}"
+                                     ToolTip="Digite ISENTO se a empresa não tiver IE"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Inscrição Municipal"/>
+                            <TextBox x:Name="TxtInscricaoMunicipal" Style="{StaticResource TextBoxModerno}" MaxLength="20"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="CNAE"/>
+                            <TextBox x:Name="TxtCnae" Style="{StaticResource TextBoxModerno}" MaxLength="10"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Height="1" Background="{StaticResource CinzaMedioBrush}" Margin="0,4,0,16"/>
+
+                    <TextBlock Text="Endereço Fiscal do Emitente" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,12"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="A NF-e exige o Código IBGE do município, não aceita 'cidade em texto livre' — por isso o CEP busca e preenche automaticamente."/>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="CEP"/>
+                            <TextBox x:Name="TxtCep" Style="{StaticResource TextBoxModerno}" MaxLength="9"/>
+                        </StackPanel>
+                        <Button Grid.Column="2" Content="Buscar" Style="{StaticResource BotaoSecundario}"
+                                VerticalAlignment="Bottom" Height="36" Padding="14,0"
+                                Click="BtnBuscarCep_Click"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.8*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Logradouro"/>
+                            <TextBox x:Name="TxtLogradouro" Style="{StaticResource TextBoxModerno}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Número"/>
+                            <TextBox x:Name="TxtNumero" Style="{StaticResource TextBoxModerno}"
+                                     ToolTip="Use 'S/N' se o endereço não tiver número"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Complemento"/>
+                            <TextBox x:Name="TxtComplemento" Style="{StaticResource TextBoxModerno}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Bairro"/>
+                            <TextBox x:Name="TxtBairro" Style="{StaticResource TextBoxModerno}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="1.4*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="0.6*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Código IBGE do Município"/>
+                            <TextBox x:Name="TxtCodigoIbge" Style="{StaticResource TextBoxModerno}" MaxLength="7" IsReadOnly="True"
+                                     ToolTip="Preenchido automaticamente pela busca de CEP"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Município"/>
+                            <TextBox x:Name="TxtNomeMunicipio" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="UF"/>
+                            <TextBox x:Name="TxtUf" Style="{StaticResource TextBoxModerno}" MaxLength="2" IsReadOnly="True"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
-        <!-- Dados cadastrais fiscais adicionais -->
-        <Border Padding="0,0,0,12" Margin="0,26,0,0"
-                BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Margin="0,16,0,0">
-                <TextBlock Text="Dados Cadastrais Fiscais Adicionais" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
-                           Foreground="{StaticResource CinzaTextoBrush}"
-                           Text="Razão social, CNPJ e Inscrição Estadual já vêm de Configurações → Geral (.env). Aqui ficam os complementares exigidos em cenários específicos de emissão."/>
-
-                <CheckBox x:Name="ChkIeIsenta" Content="IE Isento (empresa não tem Inscrição Estadual)" Margin="0,0,0,12"/>
-
-                <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Inscrição Municipal"/>
-                        <TextBox x:Name="TxtInscricaoMunicipal" Style="{StaticResource TextBoxModerno}" MaxLength="20"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Inscrição Suframa"/>
-                        <TextBox x:Name="TxtInscricaoSuframa" Style="{StaticResource TextBoxModerno}" MaxLength="20"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="4">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="CNAE"/>
-                        <TextBox x:Name="TxtCnae" Style="{StaticResource TextBoxModerno}" MaxLength="10"/>
-                    </StackPanel>
-                </Grid>
-
-                <TextBlock Text="Inscrições Estaduais de Substituto Tributário por UF" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,4"/>
-                <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,10"
-                           Foreground="{StaticResource CinzaTextoBrush}"
-                           Text="Só preencha se a empresa é Substituta Tributária em mais de um estado — cada UF pode exigir uma IE-ST própria, diferente da IE do estado sede."/>
-
-                <DataGrid x:Name="GridInscricoesSubstituto" AutoGenerateColumns="False" CanUserAddRows="False"
-                          HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeight="34"
-                          MaxHeight="180" Margin="0,0,0,8">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="UF" Binding="{Binding Uf, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
-                        <DataGridTextColumn Header="Inscrição Estadual" Binding="{Binding InscricaoEstadual, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                        <DataGridTemplateColumn Header="" Width="90">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button Content="Remover" Style="{StaticResource BotaoSecundario}" FontSize="11"
-                                            Padding="6,2" Click="BtnRemoverInscricaoSubstituto_Click"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
-                <Button Content="+ Adicionar UF" Style="{StaticResource BotaoSecundario}" FontSize="12"
-                        HorizontalAlignment="Left" Padding="10,4" Click="BtnAdicionarInscricaoSubstituto_Click"/>
-            </StackPanel>
-        </Border>
-
-        <!-- DIFAL -->
-        <Border Padding="0,0,0,12" Margin="0,26,0,0"
-                BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Margin="0,16,0,0">
-                <TextBlock Text="DIFAL (Diferencial de Alíquota do ICMS)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,12"
-                           Foreground="{StaticResource CinzaTextoBrush}"
-                           Text="Relevante para vendas interestaduais — a loja vendendo pra fora do Paraná precisa calcular a partilha do ICMS entre os dois estados."/>
-
-                <CheckBox x:Name="ChkDifalNaoContribuinte" Margin="0,0,0,10"
-                          Content="ICMS DIFAL para não contribuinte em operações interestaduais (EC 87/2015)"
-                          ToolTip="Vendas interestaduais para consumidor final que NÃO é contribuinte de ICMS (o caso comum de venda direta ao consumidor de outro estado)."/>
-                <CheckBox x:Name="ChkDifalStContribuinte"
-                          Content="Cálculo diferenciado de ST para consumidores contribuintes"
-                          ToolTip="Vendas interestaduais sujeitas a Substituição Tributária quando o destinatário É contribuinte do ICMS (regra distinta da anterior)."/>
-            </StackPanel>
-        </Border>
-
-        <!-- Endereço fiscal do emitente -->
-        <Border Padding="0,0,0,12" Margin="0,26,0,0"
-                BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Margin="0,16,0,0">
-                <TextBlock Text="Endereço Fiscal do Emitente (NF-e/NFC-e)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
-                           Foreground="{StaticResource CinzaTextoBrush}"
-                           Text="Separado do endereço exibido no cupom (Configurações → Geral, vem do .env). A NF-e exige o Código IBGE do município, não aceita 'cidade em texto livre' — por isso o CEP busca e preenche automaticamente."/>
-
-                <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="CEP"/>
-                        <TextBox x:Name="TxtCep" Style="{StaticResource TextBoxModerno}" MaxLength="9"/>
-                    </StackPanel>
-                    <Button Grid.Column="2" Content="Buscar" Style="{StaticResource BotaoSecundario}"
-                            VerticalAlignment="Bottom" Height="36" Padding="14,0"
-                            Click="BtnBuscarCep_Click"/>
-                </Grid>
-
-                <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.8*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Logradouro"/>
-                        <TextBox x:Name="TxtLogradouro" Style="{StaticResource TextBoxModerno}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Número"/>
-                        <TextBox x:Name="TxtNumero" Style="{StaticResource TextBoxModerno}"
-                                 ToolTip="Use 'S/N' se o endereço não tiver número"/>
-                    </StackPanel>
-                </Grid>
-
-                <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Complemento"/>
-                        <TextBox x:Name="TxtComplemento" Style="{StaticResource TextBoxModerno}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Bairro"/>
-                        <TextBox x:Name="TxtBairro" Style="{StaticResource TextBoxModerno}"/>
-                    </StackPanel>
-                </Grid>
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="1.4*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="0.6*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Código IBGE do Município"/>
-                        <TextBox x:Name="TxtCodigoIbge" Style="{StaticResource TextBoxModerno}" MaxLength="7" IsReadOnly="True"
-                                 ToolTip="Preenchido automaticamente pela busca de CEP"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Município"/>
-                        <TextBox x:Name="TxtNomeMunicipio" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="4">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="UF"/>
-                        <TextBox x:Name="TxtUf" Style="{StaticResource TextBoxModerno}" MaxLength="2" IsReadOnly="True"/>
-                    </StackPanel>
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <!-- Numeração e ambiente -->
-        <Border Padding="0,0,0,12" Margin="0,26,0,0"
-                BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Margin="0,16,0,0">
-                <TextBlock Text="Numeração Fiscal e Ambiente de Emissão" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
-                           Foreground="{StaticResource CinzaTextoBrush}"
-                           Text="A Série é o canal de numeração da NF-e/NFC-e (não confundir com o número de venda interno, que reinicia todo dia). O Ambiente decide se a nota emitida vale como documento fiscal real ou é só teste — sempre homologue antes de trocar para Produção."/>
-
-                <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="140"/>
-                        <ColumnDefinition Width="25"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Série"/>
-                        <TextBox x:Name="TxtSerie" Style="{StaticResource TextBoxModerno}" MaxLength="3" Text="1"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Ambiente de Emissão *"/>
-                        <ComboBox x:Name="CmbAmbiente" Style="{StaticResource ComboBoxModerno}" HorizontalAlignment="Left" MinWidth="260"
-                                  SelectionChanged="CmbAmbiente_SelectionChanged">
-                            <ComboBoxItem Content="🟡 Homologação (testes, sem valor fiscal)" Tag="Homologacao" IsSelected="True"/>
-                            <ComboBoxItem Content="🔴 Produção (nota fiscal real)" Tag="Producao"/>
-                        </ComboBox>
-                    </StackPanel>
-                </Grid>
-
-                <Border x:Name="AvisoProducao" Background="#FFF3E0" CornerRadius="6" Padding="10" Visibility="Collapsed">
-                    <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#B45309"
-                               Text="⚠ Ambiente de Produção selecionado — quando a emissão for implementada, notas emitidas aqui têm valor fiscal real. Homologue todos os cenários antes de usar Produção."/>
-                </Border>
-            </StackPanel>
-        </Border>
-
-        <!-- CSC / idCSC -->
-        <Border Padding="0,0,0,12" Margin="0,26,0,0"
-                BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Margin="0,16,0,0">
-                <TextBlock Text="CSC / idCSC (QR Code da NFC-e)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
-                           Foreground="{StaticResource CinzaTextoBrush}"
-                           Text="Código de Segurança do Contribuinte — sem ele o QR Code impresso no cupom NFC-e não valida. Cadastrado por ambiente na SEFAZ da sua UF; homologação e produção usam pares diferentes, nunca misture os dois."/>
-
-                <Grid Margin="0,0,0,15">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Homologação" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="idCSC"/>
-                        <TextBox x:Name="TxtIdCscHomologacao" Style="{StaticResource TextBoxModerno}" MaxLength="20" Margin="0,0,0,8"/>
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="CSC"/>
-                        <PasswordBox x:Name="TxtCscHomologacao" Style="{StaticResource PasswordBoxModerno}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Produção" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="idCSC"/>
-                        <TextBox x:Name="TxtIdCscProducao" Style="{StaticResource TextBoxModerno}" MaxLength="20" Margin="0,0,0,8"/>
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="CSC"/>
-                        <PasswordBox x:Name="TxtCscProducao" Style="{StaticResource PasswordBoxModerno}"/>
-                    </StackPanel>
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <!-- Reforma Tributária -->
-        <Border Padding="0,0,0,12" Margin="0,26,0,0"
-                BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Margin="0,16,0,0">
-                <TextBlock Text="Reforma Tributária (IBS/CBS) — LC 214/2025" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource CinzaTextoBrush}" Margin="0,0,0,10"
-                           Text="O cadastro de produtos já aceita CST do IBS/CBS e cClassTrib, preparando os dados para quando a emissão de NF-e/NFC-e for implementada. Isso NÃO emite nota fiscal — é só armazenamento e validação de formato dos códigos."/>
-                <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,10"
-                           Foreground="{StaticResource CinzaTextoBrush}"
-                           Text="Cronograma oficial: obrigatório em NF-e/NFC-e desde 03/08/2026 para Lucro Presumido/Real; adiado para janeiro/2027 para Simples Nacional, MEI e regime monofásico (art. 348 da LC 214/2025). Consulte seu contador para confirmar o prazo aplicável."/>
-                <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,12"
-                           Foreground="{StaticResource CinzaTextoBrush}"
-                           Text="Alíquotas do ano-piloto (2026): fixas e nacionais (0,1% IBS + 0,9% CBS) — não são digitadas por produto. Preencha aqui uma vez; o padrão de mercado é alocar 100% do IBS à UF (Município = 0%) neste ano de teste."/>
-
-                <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="1.4*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="CST IBS/CBS — Regra Geral"
-                                   ToolTip="Fallback usado quando um produto/categoria não define o próprio CST — equivalente à 'Regra Geral' do Olist."/>
-                        <TextBox x:Name="TxtCstIbsCbsPadrao" Style="{StaticResource TextBoxModerno}" MaxLength="3"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="cClassTrib — Regra Geral"/>
-                        <TextBox x:Name="TxtCClassTribPadrao" Style="{StaticResource TextBoxModerno}" MaxLength="6"/>
-                    </StackPanel>
-                </Grid>
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Alíquota IBS — UF (%)"/>
-                        <TextBox x:Name="TxtAliquotaIbsUf" Style="{StaticResource TextBoxNumerico}" Text="0,10"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Alíquota IBS — Município (%)"/>
-                        <TextBox x:Name="TxtAliquotaIbsMunicipio" Style="{StaticResource TextBoxNumerico}" Text="0,00"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="4">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Alíquota CBS (%)"/>
-                        <TextBox x:Name="TxtAliquotaCbs" Style="{StaticResource TextBoxNumerico}" Text="0,90"/>
-                    </StackPanel>
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <!-- Comportamentos gerais de emissão -->
-        <Border Padding="0,0,0,12" Margin="0,26,0,0"
-                BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Margin="0,16,0,0">
-                <TextBlock Text="Comportamentos Gerais de Emissão (NF-e/NFC-e)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,12"
-                           Foreground="{StaticResource CinzaTextoBrush}"
-                           Text="Preferências que a futura integração de emissão vai respeitar. Hoje só ficam salvas — não emitem nada sozinhas."/>
-
-                <CheckBox x:Name="ChkValidarNcmEmNotas" Content="Validar campo NCM em notas fiscais" Margin="0,0,0,8"/>
-                <CheckBox x:Name="ChkBloquearEdicaoNumeroNota" Content="Bloquear edição do número da nota fiscal" Margin="0,0,0,8"/>
-                <CheckBox x:Name="ChkBloquearNotaItensMenorVenda" Content="Bloquear geração de nota com quantidade de itens menor que a da venda" Margin="0,0,0,8"/>
-                <CheckBox x:Name="ChkGerarNotaAutomatica" Content="Gerar nota fiscal automaticamente ao finalizar a venda" Margin="0,0,0,8"
-                          ToolTip="Preparado para quando a emissão real existir — hoje não dispara nenhuma chamada de emissão."/>
-                <CheckBox x:Name="ChkCancelarNotaAutomatico" Content="Cancelar nota fiscal automaticamente ao cancelar a venda vinculada" Margin="0,0,0,15"/>
-
-                <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="15"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Frete por Conta — Padrão"/>
-                        <ComboBox x:Name="CmbFretePorConta" Style="{StaticResource ComboBoxModerno}">
-                            <ComboBoxItem Content="Sem Ocorrência de Transporte" Tag="SemOcorrenciaTransporte" IsSelected="True"/>
-                            <ComboBoxItem Content="Remetente (CIF)" Tag="ContratacaoRemetenteCif"/>
-                            <ComboBoxItem Content="Destinatário (FOB)" Tag="ContratacaoDestinatarioFob"/>
-                            <ComboBoxItem Content="Terceiros" Tag="ContratacaoTerceiros"/>
-                            <ComboBoxItem Content="Transporte Próprio — Remetente" Tag="TransporteProprioRemetente"/>
-                            <ComboBoxItem Content="Transporte Próprio — Destinatário" Tag="TransporteProprioDestinatario"/>
-                        </ComboBox>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Indicador de Presença — Padrão"/>
-                        <ComboBox x:Name="CmbIndicadorPresenca" Style="{StaticResource ComboBoxModerno}">
-                            <ComboBoxItem Content="Operação presencial" Tag="Presencial" IsSelected="True"/>
-                            <ComboBoxItem Content="Não presencial, pela Internet" Tag="NaoPresencialInternet"/>
-                            <ComboBoxItem Content="Não presencial, Teleatendimento" Tag="NaoPresencialTeleatendimento"/>
-                            <ComboBoxItem Content="NFC-e com entrega a domicílio" Tag="NfcePresencialEntregaDomicilio"/>
-                            <ComboBoxItem Content="Presencial, fora do estabelecimento" Tag="PresencialForaDoEstabelecimento"/>
-                            <ComboBoxItem Content="Não presencial, outros" Tag="NaoPresencialOutros"/>
-                            <ComboBoxItem Content="Não se aplica" Tag="NaoSeAplica"/>
-                        </ComboBox>
-                    </StackPanel>
-                </Grid>
-
+        <!-- ============ REGIME TRIBUTÁRIO ============ -->
+        <StackPanel x:Name="PainelRegime" Visibility="Collapsed">
+            <Border Style="{StaticResource Card}" Padding="20">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource LabelCampo}" Text="E-mail Padrão de Envio das Notas"/>
-                    <TextBox x:Name="TxtEmailPadraoEnvioNotas" Style="{StaticResource TextBoxModerno}" MaxWidth="360" HorizontalAlignment="Left"/>
+                    <TextBlock Text="Regime Tributário" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Define se o cadastro de Tributação dos produtos pede CSOSN (Simples Nacional/MEI) ou CST (Lucro Presumido/Real) para o ICMS, e o CRT enviado na NF-e. Confirme com seu contador antes de alterar."/>
+
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Regime da empresa *"/>
+                        <ComboBox x:Name="CmbRegime" Style="{StaticResource ComboBoxModerno}" HorizontalAlignment="Left" MinWidth="320">
+                            <ComboBoxItem Content="Simples Nacional (CRT 1 ou 2)" Tag="SimplesNacional"/>
+                            <ComboBoxItem Content="Lucro Presumido (CRT 3)" Tag="LucroPresumido"/>
+                            <ComboBoxItem Content="Lucro Real (CRT 3)" Tag="LucroReal"/>
+                            <ComboBoxItem Content="MEI (CRT 4)" Tag="Mei"/>
+                        </ComboBox>
+
+                        <CheckBox x:Name="ChkSimplesExcessoSublimite" Margin="0,10,0,0"
+                                  Content="Empresa excedeu o sublimite de receita bruta do Simples Nacional (CRT vira 2)"
+                                  ToolTip="Só marque se a empresa está no Simples Nacional mas ultrapassou o sublimite estadual de faturamento — muda o CRT enviado na NF-e de 1 para 2. Confirme com o contador."/>
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
-        </Border>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Padding="20" Margin="0,15,0,0">
+                <StackPanel>
+                    <TextBlock Text="ICMS — Regra Geral (padrão da empresa)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Fallback usado quando um produto/categoria não tem CST/CSOSN de ICMS cadastrado — CST/CSOSN é obrigatório em todo item da NF-e, então sem essa 'Regra Geral' a emissão fica bloqueada até cadastrar a tributação de cada produto. Preencha só o campo que corresponde ao regime acima (CSOSN para Simples Nacional/MEI, CST para Lucro Presumido/Real) — nunca os dois."/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="CST ICMS Padrão"
+                                       ToolTip="Regime Normal (Lucro Presumido/Real) — ex.: 00, 40, 41, 90."/>
+                            <TextBox x:Name="TxtCstIcmsPadrao" Style="{StaticResource TextBoxModerno}" MaxLength="2"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="CSOSN Padrão"
+                                       ToolTip="Simples Nacional/MEI — ex.: 102 (o mais comum), 103, 900."/>
+                            <TextBox x:Name="TxtCsosnIcmsPadrao" Style="{StaticResource TextBoxModerno}" MaxLength="3"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ============ NUMERAÇÃO E AMBIENTE ============ -->
+        <StackPanel x:Name="PainelNumeracao" Visibility="Collapsed">
+            <Border Style="{StaticResource Card}" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="Numeração Fiscal e Ambiente de Emissão" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="A Série é o canal de numeração da NF-e/NFC-e (não confundir com o número de venda interno, que reinicia todo dia). O Ambiente decide se a nota emitida vale como documento fiscal real ou é só teste — sempre homologue antes de trocar para Produção."/>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="25"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Série"/>
+                            <TextBox x:Name="TxtSerie" Style="{StaticResource TextBoxModerno}" MaxLength="3" Text="1"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Ambiente de Emissão *"/>
+                            <ComboBox x:Name="CmbAmbiente" Style="{StaticResource ComboBoxModerno}" HorizontalAlignment="Left" MinWidth="260"
+                                      SelectionChanged="CmbAmbiente_SelectionChanged">
+                                <ComboBoxItem Content="🟡 Homologação (testes, sem valor fiscal)" Tag="Homologacao" IsSelected="True"/>
+                                <ComboBoxItem Content="🔴 Produção (nota fiscal real)" Tag="Producao"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border x:Name="AvisoProducao" Background="#FFF3E0" CornerRadius="6" Padding="10" Visibility="Collapsed">
+                        <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#B45309"
+                                   Text="⚠ Ambiente de Produção selecionado — notas emitidas aqui têm valor fiscal real. Homologue todos os cenários antes de usar Produção."/>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ============ INTEGRAÇÃO E CSC ============ -->
+        <StackPanel x:Name="PainelIntegracao" Visibility="Collapsed">
+            <Border Style="{StaticResource Card}" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="Integração API Fiscal (PFCode)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,12"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Chave de autenticação (X-API-Key) gerada no Portal Administrativo da PFCode, usada para emitir NF-e/NFC-e por esta API. A mesma chave serve para Homologação e Produção — o ambiente é decidido pelo campo 'Ambiente de Emissão'."/>
+                    <StackPanel MaxWidth="360" HorizontalAlignment="Left" Margin="0,0,0,16">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="API Key"/>
+                        <PasswordBox x:Name="TxtApiKeyFiscal" Style="{StaticResource PasswordBoxModerno}"/>
+                    </StackPanel>
+
+                    <Border Height="1" Background="{StaticResource CinzaMedioBrush}" Margin="0,0,0,16"/>
+
+                    <TextBlock Text="CSC / idCSC (QR Code da NFC-e)" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,15"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Código de Segurança do Contribuinte — sem ele o QR Code impresso no cupom NFC-e não valida. Cadastrado por ambiente na SEFAZ da sua UF; homologação e produção usam pares diferentes, nunca misture os dois."/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Homologação" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="idCSC"/>
+                            <TextBox x:Name="TxtIdCscHomologacao" Style="{StaticResource TextBoxModerno}" MaxLength="20" Margin="0,0,0,8"/>
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="CSC"/>
+                            <PasswordBox x:Name="TxtCscHomologacao" Style="{StaticResource PasswordBoxModerno}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Produção" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="idCSC"/>
+                            <TextBox x:Name="TxtIdCscProducao" Style="{StaticResource TextBoxModerno}" MaxLength="20" Margin="0,0,0,8"/>
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="CSC"/>
+                            <PasswordBox x:Name="TxtCscProducao" Style="{StaticResource PasswordBoxModerno}"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ============ DIFAL E SUBSTITUIÇÃO TRIBUTÁRIA ============ -->
+        <StackPanel x:Name="PainelDifal" Visibility="Collapsed">
+            <Border Style="{StaticResource Card}" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="DIFAL (Diferencial de Alíquota do ICMS)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,12"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Relevante para vendas interestaduais — a loja vendendo pra fora do estado precisa calcular a partilha do ICMS entre os dois estados."/>
+
+                    <CheckBox x:Name="ChkDifalNaoContribuinte" Margin="0,0,0,10"
+                              Content="ICMS DIFAL para não contribuinte em operações interestaduais (EC 87/2015)"
+                              ToolTip="Vendas interestaduais para consumidor final que NÃO é contribuinte de ICMS (o caso comum de venda direta ao consumidor de outro estado)."/>
+                    <CheckBox x:Name="ChkDifalStContribuinte" Margin="0,0,0,16"
+                              Content="Cálculo diferenciado de ST para consumidores contribuintes"
+                              ToolTip="Vendas interestaduais sujeitas a Substituição Tributária quando o destinatário É contribuinte do ICMS (regra distinta da anterior)."/>
+
+                    <Border Height="1" Background="{StaticResource CinzaMedioBrush}" Margin="0,0,0,16"/>
+
+                    <TextBlock Text="Inscrições Estaduais de Substituto Tributário por UF" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,10"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Só preencha se a empresa é Substituta Tributária em mais de um estado — cada UF pode exigir uma IE-ST própria, diferente da IE do estado sede."/>
+
+                    <DataGrid x:Name="GridInscricoesSubstituto" AutoGenerateColumns="False" CanUserAddRows="False"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeight="34"
+                              MaxHeight="180" Margin="0,0,0,8">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="UF" Binding="{Binding Uf, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+                            <DataGridTextColumn Header="Inscrição Estadual" Binding="{Binding InscricaoEstadual, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                            <DataGridTemplateColumn Header="" Width="90">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Remover" Style="{StaticResource BotaoSecundario}" FontSize="11"
+                                                Padding="6,2" Click="BtnRemoverInscricaoSubstituto_Click"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Button Content="+ Adicionar UF" Style="{StaticResource BotaoSecundario}" FontSize="12"
+                            HorizontalAlignment="Left" Padding="10,4" Click="BtnAdicionarInscricaoSubstituto_Click"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ============ REFORMA TRIBUTÁRIA ============ -->
+        <StackPanel x:Name="PainelReforma" Visibility="Collapsed">
+            <Border Style="{StaticResource Card}" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="Reforma Tributária (IBS/CBS) — LC 214/2025" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource CinzaTextoBrush}" Margin="0,0,0,10"
+                               Text="O cadastro de produtos já aceita CST do IBS/CBS e cClassTrib, usados na emissão de NF-e/NFC-e."/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,10"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Cronograma oficial: obrigatório em NF-e/NFC-e desde 03/08/2026 para Lucro Presumido/Real; adiado para janeiro/2027 para Simples Nacional, MEI e regime monofásico (art. 348 da LC 214/2025). Consulte seu contador para confirmar o prazo aplicável."/>
+                    <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,12"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Alíquotas do ano-piloto (2026): fixas e nacionais (0,1% IBS + 0,9% CBS) — não são digitadas por produto. Preencha aqui uma vez; o padrão de mercado é alocar 100% do IBS à UF (Município = 0%) neste ano de teste."/>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="1.4*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="CST IBS/CBS — Regra Geral"
+                                       ToolTip="Fallback usado quando um produto/categoria não define o próprio CST — equivalente à 'Regra Geral' do Olist."/>
+                            <TextBox x:Name="TxtCstIbsCbsPadrao" Style="{StaticResource TextBoxModerno}" MaxLength="3"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="cClassTrib — Regra Geral"/>
+                            <TextBox x:Name="TxtCClassTribPadrao" Style="{StaticResource TextBoxModerno}" MaxLength="6"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Alíquota IBS — UF (%)"/>
+                            <TextBox x:Name="TxtAliquotaIbsUf" Style="{StaticResource TextBoxNumerico}" Text="0,10"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Alíquota IBS — Município (%)"/>
+                            <TextBox x:Name="TxtAliquotaIbsMunicipio" Style="{StaticResource TextBoxNumerico}" Text="0,00"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Alíquota CBS (%)"/>
+                            <TextBox x:Name="TxtAliquotaCbs" Style="{StaticResource TextBoxNumerico}" Text="0,90"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ============ COMPORTAMENTOS DE EMISSÃO ============ -->
+        <StackPanel x:Name="PainelComportamentos" Visibility="Collapsed">
+            <Border Style="{StaticResource Card}" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="Comportamentos Gerais de Emissão (NF-e/NFC-e)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,12"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Preferências respeitadas pela emissão de NF-e/NFC-e."/>
+
+                    <CheckBox x:Name="ChkValidarNcmEmNotas" Content="Validar campo NCM em notas fiscais" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="ChkBloquearEdicaoNumeroNota" Content="Bloquear edição do número da nota fiscal" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="ChkBloquearNotaItensMenorVenda" Content="Bloquear geração de nota com quantidade de itens menor que a da venda" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="ChkGerarNotaAutomatica" Content="Gerar nota fiscal automaticamente ao finalizar a venda" Margin="0,0,0,8"
+                              ToolTip="Preparado para quando o vínculo automático venda→nota existir — hoje não dispara nenhuma chamada de emissão."/>
+                    <CheckBox x:Name="ChkCancelarNotaAutomatico" Content="Cancelar nota fiscal automaticamente ao cancelar a venda vinculada" Margin="0,0,0,15"/>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Frete por Conta — Padrão"/>
+                            <ComboBox x:Name="CmbFretePorConta" Style="{StaticResource ComboBoxModerno}">
+                                <ComboBoxItem Content="Sem Ocorrência de Transporte" Tag="SemOcorrenciaTransporte" IsSelected="True"/>
+                                <ComboBoxItem Content="Remetente (CIF)" Tag="ContratacaoRemetenteCif"/>
+                                <ComboBoxItem Content="Destinatário (FOB)" Tag="ContratacaoDestinatarioFob"/>
+                                <ComboBoxItem Content="Terceiros" Tag="ContratacaoTerceiros"/>
+                                <ComboBoxItem Content="Transporte Próprio — Remetente" Tag="TransporteProprioRemetente"/>
+                                <ComboBoxItem Content="Transporte Próprio — Destinatário" Tag="TransporteProprioDestinatario"/>
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Indicador de Presença — Padrão"/>
+                            <ComboBox x:Name="CmbIndicadorPresenca" Style="{StaticResource ComboBoxModerno}">
+                                <ComboBoxItem Content="Operação presencial" Tag="Presencial" IsSelected="True"/>
+                                <ComboBoxItem Content="Não presencial, pela Internet" Tag="NaoPresencialInternet"/>
+                                <ComboBoxItem Content="Não presencial, Teleatendimento" Tag="NaoPresencialTeleatendimento"/>
+                                <ComboBoxItem Content="NFC-e com entrega a domicílio" Tag="NfcePresencialEntregaDomicilio"/>
+                                <ComboBoxItem Content="Presencial, fora do estabelecimento" Tag="PresencialForaDoEstabelecimento"/>
+                                <ComboBoxItem Content="Não presencial, outros" Tag="NaoPresencialOutros"/>
+                                <ComboBoxItem Content="Não se aplica" Tag="NaoSeAplica"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="E-mail Padrão de Envio das Notas"/>
+                        <TextBox x:Name="TxtEmailPadraoEnvioNotas" Style="{StaticResource TextBoxModerno}" MaxWidth="360" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
 
         <Button x:Name="BtnSalvarConfiguracaoFiscal" Content="Salvar Configuração Fiscal"
                 Style="{StaticResource BotaoPrimario}" HorizontalAlignment="Left"

@@ -11,12 +11,23 @@ namespace ImperialColors.UI.ViewModels;
 
 public class VendaExternaViewModel : BaseViewModel
 {
+    // Antes a tela sempre carregava a tabela inteira (ObterTodosAsync, com Include(Itens))
+    // ao abrir — sem limite, diferente de Produtos/Vendas/Clientes/Logs, que já são
+    // paginados no banco. Agora carrega em páginas de 100 registros, com "Carregar mais"
+    // buscando a próxima página sob demanda.
+    private const int ItensPorPagina = 100;
+
     private readonly IVendaExternaService _vendaExternaService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ISessaoService _sessaoService;
 
+    private int _paginaAtual = 1;
+    private int _totalRegistros;
+
     private ObservableCollection<VendaExternaDto> _vendas = new();
     public ObservableCollection<VendaExternaDto> Vendas { get => _vendas; set => SetProperty(ref _vendas, value); }
+
+    public bool TemMaisRegistros => Vendas.Count < _totalRegistros;
 
     private VendaExternaDto? _vendaSelecionada;
     public VendaExternaDto? VendaSelecionada
@@ -33,6 +44,7 @@ public class VendaExternaViewModel : BaseViewModel
     public bool TemSelecao => VendaSelecionada is not null;
 
     public AsyncRelayCommand CarregarCommand { get; }
+    public AsyncRelayCommand CarregarMaisCommand { get; }
     public AsyncRelayCommand RegistrarVendaCommand { get; }
     public AsyncRelayCommand EditarVendaCommand { get; }
     public AsyncRelayCommand ExcluirVendaCommand { get; }
@@ -48,6 +60,7 @@ public class VendaExternaViewModel : BaseViewModel
         _sessaoService = sessaoService;
 
         CarregarCommand = new AsyncRelayCommand(CarregarAsync);
+        CarregarMaisCommand = new AsyncRelayCommand(CarregarMaisAsync, () => TemMaisRegistros && !Carregando);
         RegistrarVendaCommand = new AsyncRelayCommand(AbrirRegistro);
         EditarVendaCommand = new AsyncRelayCommand(AbrirEdicao, () => TemSelecao && !Carregando);
         ExcluirVendaCommand = new AsyncRelayCommand(ExcluirVenda, () => TemSelecao && !Carregando);
@@ -59,12 +72,39 @@ public class VendaExternaViewModel : BaseViewModel
         try
         {
             Carregando = true;
-            var vendas = await _vendaExternaService.ObterTodosAsync();
-            Vendas = new ObservableCollection<VendaExternaDto>(vendas);
+            _paginaAtual = 1;
+            var resultado = await _vendaExternaService.ObterPaginadoAsync(_paginaAtual, ItensPorPagina);
+            _totalRegistros = resultado.TotalItens;
+            Vendas = new ObservableCollection<VendaExternaDto>(resultado.Itens);
+            OnPropertyChanged(nameof(TemMaisRegistros));
         }
         catch (Exception ex)
         {
             MostrarErro($"Erro ao carregar vendas externas:\n\n{ex.Message}");
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
+    private async Task CarregarMaisAsync()
+    {
+        if (!TemMaisRegistros) return;
+
+        try
+        {
+            Carregando = true;
+            var resultado = await _vendaExternaService.ObterPaginadoAsync(_paginaAtual + 1, ItensPorPagina);
+            _paginaAtual++;
+            _totalRegistros = resultado.TotalItens;
+            foreach (var venda in resultado.Itens)
+                Vendas.Add(venda);
+            OnPropertyChanged(nameof(TemMaisRegistros));
+        }
+        catch (Exception ex)
+        {
+            MostrarErro($"Erro ao carregar mais vendas externas:\n\n{ex.Message}");
         }
         finally
         {

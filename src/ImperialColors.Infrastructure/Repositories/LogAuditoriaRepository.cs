@@ -83,4 +83,15 @@ public class LogAuditoriaRepository : ILogAuditoriaRepository
 
         return (itens, total);
     }
+
+    public async Task<int> ExpurgarAntigosAsync(DateTime antesDe, CancellationToken cancellationToken = default)
+    {
+        await using var ctx = await _factory.CreateDbContextAsync(cancellationToken);
+        // ExecuteDeleteAsync gera um DELETE direto no banco (sem carregar linhas em memória
+        // nem passar pelo change tracker) — barato mesmo quando não há nada a apagar, graças
+        // ao índice em DataHora.
+        return await ctx.LogsAuditoria
+            .Where(l => l.DataHora < antesDe)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }

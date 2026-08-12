@@ -128,4 +128,59 @@ public class ConfiguracaoFiscalEmpresaValidatorTests
         var ex = Record.Exception(() => ConfiguracaoFiscalEmpresaValidator.Validar(dto));
         Assert.Null(ex);
     }
+
+    // ===== ICMS — Regra Geral (CST/CSOSN padrão da empresa) =====
+
+    [Fact]
+    public void Validar_CstECsosnIcmsPadraoPreenchidosJuntos_LancaDomainException()
+    {
+        var dto = DtoVazio();
+        dto.CstIcmsPadrao = "00";
+        dto.CsosnIcmsPadrao = "102";
+
+        var ex = Assert.Throws<DomainException>(() => ConfiguracaoFiscalEmpresaValidator.Validar(dto));
+        Assert.Contains("mutuamente exclusivos", ex.Message);
+    }
+
+    [Fact]
+    public void Validar_CstIcmsPadraoInvalido_LancaDomainException()
+    {
+        var dto = DtoVazio();
+        dto.CstIcmsPadrao = "77"; // não existe na tabela oficial
+
+        var ex = Assert.Throws<DomainException>(() => ConfiguracaoFiscalEmpresaValidator.Validar(dto));
+        Assert.Contains("CST de ICMS", ex.Message);
+    }
+
+    [Fact]
+    public void Validar_CsosnIcmsPadraoInvalido_LancaDomainException()
+    {
+        var dto = DtoVazio();
+        dto.CsosnIcmsPadrao = "999"; // não existe na tabela oficial
+
+        var ex = Assert.Throws<DomainException>(() => ConfiguracaoFiscalEmpresaValidator.Validar(dto));
+        Assert.Contains("CSOSN", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("102")] // CSOSN — Simples Nacional
+    [InlineData(null)]  // vazio — não obrigatório
+    public void Validar_CsosnIcmsPadraoValido_NaoLancaExcecao(string? csosn)
+    {
+        var dto = DtoVazio();
+        dto.CsosnIcmsPadrao = csosn;
+
+        var ex = Record.Exception(() => ConfiguracaoFiscalEmpresaValidator.Validar(dto));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Validar_CstIcmsPadraoValido_NaoLancaExcecao()
+    {
+        var dto = DtoVazio();
+        dto.CstIcmsPadrao = "00"; // CST — Regime Normal
+
+        var ex = Record.Exception(() => ConfiguracaoFiscalEmpresaValidator.Validar(dto));
+        Assert.Null(ex);
+    }
 }

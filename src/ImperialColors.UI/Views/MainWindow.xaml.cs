@@ -332,6 +332,20 @@ public partial class MainWindow : Window
 
 
 
+    private void BtnNotaFiscal_Click(object sender, RoutedEventArgs e)
+
+    {
+
+        DefinirMenuAtivo(BtnNotaFiscal);
+
+        TxtTituloPagina.Text = "Nota Fiscal";
+
+        ConteudoPrincipal.Content = ObterServicosPagina().GetRequiredService<NotaFiscalHubView>();
+
+    }
+
+
+
     private void BtnRelatorios_Click(object sender, RoutedEventArgs e)
 
     {

@@ -48,6 +48,34 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<(IReadOnlyList<VendaExterna> Itens, int Total)> ObterPaginadoAsync(
+        int pagina, int itensPorPagina, string? termoBusca = null, CancellationToken cancellationToken = default)
+    {
+        pagina = Math.Max(1, pagina);
+        itensPorPagina = Math.Clamp(itensPorPagina, 1, 200);
+
+        await using var context = ContextFactory.CreateDbContext();
+        var query = context.Set<VendaExterna>().AsNoTracking().Include(v => v.Itens).AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(termoBusca))
+        {
+            var termo = termoBusca.Trim();
+            query = query.Where(v =>
+                EF.Functions.ILike(v.NumeroVendaExterna, $"%{termo}%") ||
+                (v.Observacoes != null && EF.Functions.ILike(v.Observacoes, $"%{termo}%")));
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var itens = await query
+            .OrderByDescending(v => v.DataVenda)
+            .ThenByDescending(v => v.Id)
+            .Skip((pagina - 1) * itensPorPagina)
+            .Take(itensPorPagina)
+            .ToListAsync(cancellationToken);
+
+        return (itens, total);
+    }
+
     public async Task<string> GerarNumeroVendaExternaAsync(CancellationToken cancellationToken = default)
     {
         await using var context = ContextFactory.CreateDbContext();

@@ -48,6 +48,11 @@ public partial class RelatoriosView : UserControl
             "Produtos ativos com quantidade zerada — itens que precisam de reposição.",
             "Código, nome, categoria e preço de venda.",
             false, false),
+        ["ValidadeProxima"] = (
+            "Próximos da Validade",
+            "Produtos com saldo em estoque cuja validade vence em até 15 dias (inclui os já vencidos).",
+            "Código, nome, estoque atual, data de validade e situação (dias para vencer).",
+            false, false),
         ["TabelaLoja"] = (
             "Tabela de Vendas da Loja",
             "Catálogo de preços de balcão para consulta ou impressão.",
@@ -172,6 +177,7 @@ public partial class RelatoriosView : UserControl
                 case "EstoqueCompleto": await GerarEstoqueAsync(p => p.ObterTodosAsync()); break;
                 case "EstoqueBaixo": await GerarEstoqueAsync(p => p.ObterComEstoqueBaixoAsync()); break;
                 case "SemEstoque": await GerarEstoqueAsync(p => p.ObterSemEstoqueAsync()); break;
+                case "ValidadeProxima": await GerarValidadeProximaAsync(); break;
                 case "TabelaLoja": await GerarTabelaPrecosAsync(0m, "TabelaVendasLoja", "Tabela de Vendas da Loja", "Catalogo de precos de balcao"); break;
                 case "TabelaPintor": await GerarTabelaPrecosAsync(TabelaPrecosHelper.AcrescimoTabelaPintorPercentual, "TabelaPintor", "Tabela do Pintor", $"Precos com acrescimo de {TabelaPrecosHelper.AcrescimoTabelaPintorPercentual:N0}%"); break;
                 case "AnaliseGiro": await GerarAnaliseGiroAsync(); break;
@@ -219,6 +225,28 @@ public partial class RelatoriosView : UserControl
             await relatorio.GerarRelatorioEstoqueExcelAsync(produtos, caminho);
         else
             await relatorio.GerarRelatorioEstoquePdfAsync(produtos, caminho);
+
+        NotificarSucesso(caminho);
+    }
+
+    /// <summary>Janela de "vencendo em breve" para o relatório "Próximos da Validade" —
+    /// mesmo prazo usado em vários mercados/farmácias como alerta padrão de giro.</summary>
+    private const int DiasLimiteValidadeProxima = 15;
+
+    private async Task GerarValidadeProximaAsync()
+    {
+        var excel = ExportarExcel;
+        if (!TentarObterCaminhoSalvar($"ValidadeProxima_{DateTime.Today:yyyyMMdd}", excel, out var caminho))
+            return;
+
+        var produtos = await _serviceProvider.GetRequiredService<IProdutoService>()
+            .ObterProximosDaValidadeAsync(DiasLimiteValidadeProxima);
+        var relatorio = _serviceProvider.GetRequiredService<IRelatorioService>();
+
+        if (excel)
+            await relatorio.GerarRelatorioValidadeExcelAsync(produtos, DiasLimiteValidadeProxima, caminho);
+        else
+            await relatorio.GerarRelatorioValidadePdfAsync(produtos, DiasLimiteValidadeProxima, caminho);
 
         NotificarSucesso(caminho);
     }

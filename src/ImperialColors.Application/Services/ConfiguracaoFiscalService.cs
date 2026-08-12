@@ -67,9 +67,11 @@ public class ConfiguracaoFiscalService : IConfiguracaoFiscalService
 
         var entidade = new ConfiguracaoFiscalEmpresa
         {
-            IeIsenta = dto.IeIsenta,
+            Cnpj = NormalizarDigitos(dto.Cnpj),
+            RazaoSocial = TextoOuNulo(dto.RazaoSocial),
+            NomeFantasia = TextoOuNulo(dto.NomeFantasia),
+            InscricaoEstadual = TextoOuNulo(dto.InscricaoEstadual),
             InscricaoMunicipal = TextoOuNulo(dto.InscricaoMunicipal),
-            InscricaoSuframa = TextoOuNulo(dto.InscricaoSuframa),
             Cnae = NormalizarDigitos(dto.Cnae),
             DifalNaoContribuinte = dto.DifalNaoContribuinte,
             DifalStContribuinte = dto.DifalStContribuinte,
@@ -87,7 +89,10 @@ public class ConfiguracaoFiscalService : IConfiguracaoFiscalService
             CscHomologacao = TextoOuNulo(dto.CscHomologacao),
             IdCscProducao = TextoOuNulo(dto.IdCscProducao),
             CscProducao = TextoOuNulo(dto.CscProducao),
+            ApiKeyFiscal = TextoOuNulo(dto.ApiKeyFiscal),
             SimplesExcessoSublimite = dto.SimplesExcessoSublimite,
+            CstIcmsPadrao = NormalizarDigitos(dto.CstIcmsPadrao),
+            CsosnIcmsPadrao = NormalizarDigitos(dto.CsosnIcmsPadrao),
             AliquotaIbsUfPadrao = dto.AliquotaIbsUfPadrao,
             AliquotaIbsMunicipioPadrao = dto.AliquotaIbsMunicipioPadrao,
             AliquotaCbsPadrao = dto.AliquotaCbsPadrao,
@@ -122,9 +127,11 @@ public class ConfiguracaoFiscalService : IConfiguracaoFiscalService
 
     private static ConfiguracaoFiscalEmpresaDto MapParaDto(ConfiguracaoFiscalEmpresa c) => new()
     {
-        IeIsenta = c.IeIsenta,
+        Cnpj = c.Cnpj,
+        RazaoSocial = c.RazaoSocial,
+        NomeFantasia = c.NomeFantasia,
+        InscricaoEstadual = c.InscricaoEstadual,
         InscricaoMunicipal = c.InscricaoMunicipal,
-        InscricaoSuframa = c.InscricaoSuframa,
         Cnae = c.Cnae,
         DifalNaoContribuinte = c.DifalNaoContribuinte,
         DifalStContribuinte = c.DifalStContribuinte,
@@ -142,7 +149,10 @@ public class ConfiguracaoFiscalService : IConfiguracaoFiscalService
         CscHomologacao = c.CscHomologacao,
         IdCscProducao = c.IdCscProducao,
         CscProducao = c.CscProducao,
+        ApiKeyFiscal = c.ApiKeyFiscal,
         SimplesExcessoSublimite = c.SimplesExcessoSublimite,
+        CstIcmsPadrao = c.CstIcmsPadrao,
+        CsosnIcmsPadrao = c.CsosnIcmsPadrao,
         AliquotaIbsUfPadrao = c.AliquotaIbsUfPadrao,
         AliquotaIbsMunicipioPadrao = c.AliquotaIbsMunicipioPadrao,
         AliquotaCbsPadrao = c.AliquotaCbsPadrao,

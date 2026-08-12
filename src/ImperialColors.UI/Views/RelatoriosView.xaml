@@ -63,6 +63,10 @@
                                     Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
                                 <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Sem Estoque"/>
                             </Button>
+                            <Button x:Name="BtnNavValidadeProxima" Tag="ValidadeProxima"
+                                    Style="{StaticResource RelatorioNavItem}" Click="BtnNavRelatorio_Click">
+                                <TextBlock Style="{StaticResource RelatorioNavTitulo}" Text="Próximos da Validade"/>
+                            </Button>
 
                             <TextBlock Style="{StaticResource RelatorioCategoriaHeader}" Text="PREÇOS"/>
                             <Button x:Name="BtnNavTabelaLoja" Tag="TabelaLoja"

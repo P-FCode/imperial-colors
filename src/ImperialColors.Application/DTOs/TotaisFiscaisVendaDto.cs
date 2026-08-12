@@ -57,6 +57,7 @@ public class ItemCalculoFiscalDto
     public decimal VIcms { get; set; }
     public decimal VPis { get; set; }
     public decimal VCofins { get; set; }
+    public decimal? VIpi { get; set; }
     public decimal VIbsUf { get; set; }
     public decimal VIbsMunicipio { get; set; }
     public decimal VCbs { get; set; }

@@ -27,6 +27,11 @@ public static class CalculoFiscalHelper
     private static readonly HashSet<string> CstPisCofinsTributado = ["01", "02"];
     private static readonly HashSet<string> CstPisCofinsNaoTributado = ["04", "05", "06", "07", "08", "09"];
 
+    /// <summary>CST de IPI que não geram vIPI/vBC/pIPI na nota — só o CST é enviado ("saída
+    /// não-tributada", "imune", "suspensão" etc.). Mesma classificação usada pela API Fiscal
+    /// real para decidir entre TIpiTrib e TIpiNT (Fiscal.Shared.Services.JsonToXsdResolverService).</summary>
+    internal static readonly HashSet<string> CstIpiNaoTributado = ["01", "02", "03", "04", "05", "51", "52", "53", "54", "55"];
+
     public static ItemCalculoFiscalDto CalcularItem(
         int produtoId,
         string nomeProduto,
@@ -38,6 +43,8 @@ public static class CalculoFiscalHelper
         decimal? aliquotaPis,
         string? cstCofins,
         decimal? aliquotaCofins,
+        string? cstIpi,
+        decimal? aliquotaIpi,
         decimal aliquotaIbsUf,
         decimal aliquotaIbsMunicipio,
         decimal aliquotaCbs)
@@ -52,6 +59,7 @@ public static class CalculoFiscalHelper
         CalcularIcms(resultado, cstIcms, csosnIcms, aliquotaIcms, valorItem);
         CalcularPisCofins(resultado, "PIS", cstPis, aliquotaPis, valorItem, (r, v) => r.VPis = v);
         CalcularPisCofins(resultado, "COFINS", cstCofins, aliquotaCofins, valorItem, (r, v) => r.VCofins = v);
+        CalcularIpi(resultado, cstIpi, aliquotaIpi, valorItem);
 
         // IBS/CBS — ano-piloto 2026: alíquotas fixas e nacionais, aplicadas sobre a
         // mesma base do item, independente do regime de ICMS.
@@ -102,6 +110,27 @@ public static class CalculoFiscalHelper
             resultado.Avisos.Add(
                 $"'{resultado.NomeProduto}': CST ICMS '{cstIcms}' não tem regra de cálculo automática cadastrada — revisar manualmente.");
         }
+    }
+
+    /// <summary>
+    /// Ao contrário de ICMS/PIS/COFINS (obrigatórios em todo item da NF-e), IPI é
+    /// genuinamente opcional — a maioria dos produtos de uma loja de varejo não é sujeita a
+    /// IPI, então <paramref name="cstIpi"/> vazio não gera aviso (é o caso comum, não uma
+    /// pendência de cadastro). Só avisa quando o CST está preenchido, indica tributação, e
+    /// falta a alíquota para calcular.
+    /// </summary>
+    private static void CalcularIpi(ItemCalculoFiscalDto resultado, string? cstIpi, decimal? aliquotaIpi, decimal valorItem)
+    {
+        if (string.IsNullOrWhiteSpace(cstIpi) || CstIpiNaoTributado.Contains(cstIpi))
+            return;
+
+        if (!aliquotaIpi.HasValue)
+        {
+            resultado.Avisos.Add($"'{resultado.NomeProduto}': CST IPI '{cstIpi}' exige alíquota, mas ela não está cadastrada.");
+            return;
+        }
+
+        resultado.VIpi = Arredondar(valorItem * aliquotaIpi.Value / 100m);
     }
 
     private static void CalcularPisCofins(

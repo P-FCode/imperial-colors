@@ -35,23 +35,29 @@
     </None>
   </ItemGroup>
 
-  <!-- Copia o .env da raiz da solução para a pasta de saída, se existir -->
-  <Target Name="CopyEnvFile" AfterTargets="Build">
+  <!-- Copia o .env da raiz da solução para a pasta de saída (Build) e para a pasta de
+       publish (dotnet publish) — sem isso o .env nunca chega em ./publish, já que $(OutDir)
+       e $(PublishDir) são pastas diferentes e o app procura o .env ao lado do executável. -->
+  <Target Name="CopyEnvFile" AfterTargets="Build;Publish">
     <PropertyGroup>
       <EnvFileSource>$(MSBuildProjectDirectory)\..\..\.env</EnvFileSource>
+      <_DestinoEnv Condition="'$(PublishDir)' != ''">$(PublishDir)</_DestinoEnv>
+      <_DestinoEnv Condition="'$(PublishDir)' == ''">$(OutDir)</_DestinoEnv>
     </PropertyGroup>
-    <Copy SourceFiles="$(EnvFileSource)" DestinationFolder="$(OutDir)" Condition="Exists('$(EnvFileSource)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(EnvFileSource)" DestinationFolder="$(_DestinoEnv)" Condition="Exists('$(EnvFileSource)')" SkipUnchangedFiles="true" />
   </Target>
 
-  <!-- Copia a pasta icons para a pasta de saída -->
-  <Target Name="CopyIconsFolder" AfterTargets="Build">
+  <!-- Copia a pasta icons para a pasta de saída (Build) e para a pasta de publish (mesmo motivo acima) -->
+  <Target Name="CopyIconsFolder" AfterTargets="Build;Publish">
     <PropertyGroup>
       <IconsSource>$(MSBuildProjectDirectory)\..\..\icons</IconsSource>
+      <_DestinoIcons Condition="'$(PublishDir)' != ''">$(PublishDir)</_DestinoIcons>
+      <_DestinoIcons Condition="'$(PublishDir)' == ''">$(OutDir)</_DestinoIcons>
     </PropertyGroup>
     <ItemGroup>
       <IconFiles Include="$(IconsSource)\**\*.*" Condition="Exists('$(IconsSource)')" />
     </ItemGroup>
-    <Copy SourceFiles="@(IconFiles)" DestinationFiles="@(IconFiles->'$(OutDir)icons\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="Exists('$(IconsSource)')" />
+    <Copy SourceFiles="@(IconFiles)" DestinationFiles="@(IconFiles->'$(_DestinoIcons)icons\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="Exists('$(IconsSource)')" />
   </Target>
 
 </Project>

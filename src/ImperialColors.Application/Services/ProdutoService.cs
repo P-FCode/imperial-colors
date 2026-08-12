@@ -254,6 +254,12 @@ public class ProdutoService : IProdutoService
         return produtos.Select(MapParaDto);
     }
 
+    public async Task<IEnumerable<ProdutoDto>> ObterProximosDaValidadeAsync(int diasLimite = 15)
+    {
+        var produtos = await _produtoRepository.ObterProximosDaValidadeAsync(diasLimite);
+        return produtos.Select(MapParaDto);
+    }
+
     public async Task RegistrarMovimentacaoAsync(MovimentacaoEstoqueDto dto)
     {
         if (dto.Quantidade < 0)

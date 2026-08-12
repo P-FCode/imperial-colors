@@ -16,12 +16,17 @@ public class ConfiguracaoFiscalEmpresa
 {
     public int Id { get; set; }
 
-    // --- Identificação fiscal adicional (além de CNPJ/Razão Social/IE, que já vêm
-    // do .env/appsettings — ver EmpresaConfig) ---
-    /// <summary>Checkbox "IE Isento" — quando marcado, a IE não é enviada/validada na NF-e.</summary>
-    public bool IeIsenta { get; set; }
+    // --- Emitente — usado na montagem do payload de emissão (emit.CNPJ/xNome/xFant/IE),
+    // fonte de verdade separada do EmpresaConfig (.env), que continua alimentando só o
+    // cupom não fiscal e a identidade visual do sistema. ---
+    public string? Cnpj { get; set; }
+    public string? RazaoSocial { get; set; }
+    public string? NomeFantasia { get; set; }
+
+    /// <summary>Digite "ISENTO" quando a empresa não tiver Inscrição Estadual — o schema
+    /// da NF-e aceita esse literal (seção 4.4 do GUIA_INTEGRACAO.md).</summary>
+    public string? InscricaoEstadual { get; set; }
     public string? InscricaoMunicipal { get; set; }
-    public string? InscricaoSuframa { get; set; }
     public string? Cnae { get; set; }
 
     // --- DIFAL (Diferencial de Alíquota do ICMS em operações interestaduais) ---
@@ -60,10 +65,27 @@ public class ConfiguracaoFiscalEmpresa
     public string? IdCscProducao { get; set; }
     public string? CscProducao { get; set; }
 
+    /// <summary>Chave de autenticação (header X-API-Key) da API Fiscal externa (PFCode).
+    /// Gerada no Portal Administrativo da PFCode e colada aqui — a mesma chave serve
+    /// para homologação e produção, o ambiente é decidido pelo campo <see cref="Ambiente"/>
+    /// (via ide.tpAmb/?tpAmb= a cada requisição), não pela chave usada.</summary>
+    public string? ApiKeyFiscal { get; set; }
+
     /// <summary>Só relevante quando o regime tributário (ConfiguracaoFiscalService) é
     /// Simples Nacional — decide se o CRT enviado é "1" (normal) ou "2" (excesso de
     /// sublimite de receita bruta).</summary>
     public bool SimplesExcessoSublimite { get; set; }
+
+    /// <summary>
+    /// Fallback de ICMS (CST ou CSOSN, mutuamente exclusivos — preencha só o que corresponde
+    /// ao regime tributário da empresa) usado quando um produto/categoria não define a
+    /// própria tributação de ICMS (ver TributacaoProduto/TributacaoCategoria, que têm
+    /// prioridade sobre este padrão). Sem isso, todo produto sem tributação cadastrada
+    /// bloqueia a emissão com "falta CST ou CSOSN do ICMS" — mesmo papel que
+    /// <see cref="CstIbsCbsPadrao"/> já cumpre para o IBS/CBS.
+    /// </summary>
+    public string? CstIcmsPadrao { get; set; }
+    public string? CsosnIcmsPadrao { get; set; }
 
     // --- Reforma Tributária — alíquotas padrão do ano-piloto (2026) ---
     // Fixas e nacionais neste ano (0,1% IBS + 0,9% CBS, todo IBS alocado à UF por

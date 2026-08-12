@@ -10,6 +10,7 @@
             </ResourceDictionary.MergedDictionaries>
             <conv:MoedaConverter x:Key="MoedaConverter"/>
             <conv:DataHoraConverter x:Key="DataHoraConverter"/>
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -18,6 +19,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="15"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0">
@@ -54,5 +56,11 @@
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0"
+                    Visibility="{Binding TemMaisRegistros, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Button Style="{StaticResource BotaoSecundario}" Content="Carregar mais"
+                    Command="{Binding CarregarMaisCommand}"/>
+        </StackPanel>
     </Grid>
 </UserControl>

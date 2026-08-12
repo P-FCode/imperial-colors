@@ -39,40 +39,16 @@ public class ConfiguracaoFiscalEmpresaRepository : IConfiguracaoFiscalEmpresaRep
         }
         else
         {
-            existente.IeIsenta = configuracao.IeIsenta;
-            existente.InscricaoMunicipal = configuracao.InscricaoMunicipal;
-            existente.InscricaoSuframa = configuracao.InscricaoSuframa;
-            existente.Cnae = configuracao.Cnae;
-            existente.DifalNaoContribuinte = configuracao.DifalNaoContribuinte;
-            existente.DifalStContribuinte = configuracao.DifalStContribuinte;
-            existente.Cep = configuracao.Cep;
-            existente.Logradouro = configuracao.Logradouro;
-            existente.Numero = configuracao.Numero;
-            existente.Complemento = configuracao.Complemento;
-            existente.Bairro = configuracao.Bairro;
-            existente.CodigoMunicipioIbge = configuracao.CodigoMunicipioIbge;
-            existente.NomeMunicipio = configuracao.NomeMunicipio;
-            existente.Uf = configuracao.Uf;
-            existente.Serie = configuracao.Serie;
-            existente.Ambiente = configuracao.Ambiente;
-            existente.IdCscHomologacao = configuracao.IdCscHomologacao;
-            existente.CscHomologacao = configuracao.CscHomologacao;
-            existente.IdCscProducao = configuracao.IdCscProducao;
-            existente.CscProducao = configuracao.CscProducao;
-            existente.SimplesExcessoSublimite = configuracao.SimplesExcessoSublimite;
-            existente.AliquotaIbsUfPadrao = configuracao.AliquotaIbsUfPadrao;
-            existente.AliquotaIbsMunicipioPadrao = configuracao.AliquotaIbsMunicipioPadrao;
-            existente.AliquotaCbsPadrao = configuracao.AliquotaCbsPadrao;
-            existente.CstIbsCbsPadrao = configuracao.CstIbsCbsPadrao;
-            existente.CClassTribPadrao = configuracao.CClassTribPadrao;
-            existente.ValidarNcmEmNotas = configuracao.ValidarNcmEmNotas;
-            existente.BloquearEdicaoNumeroNota = configuracao.BloquearEdicaoNumeroNota;
-            existente.BloquearNotaComItensMenorQueVenda = configuracao.BloquearNotaComItensMenorQueVenda;
-            existente.FretePorContaPadrao = configuracao.FretePorContaPadrao;
-            existente.EmailPadraoEnvioNotas = configuracao.EmailPadraoEnvioNotas;
-            existente.IndicadorPresencaPadrao = configuracao.IndicadorPresencaPadrao;
-            existente.GerarNotaAutomaticaAoFinalizarVenda = configuracao.GerarNotaAutomaticaAoFinalizarVenda;
-            existente.CancelarNotaAutomaticoAoCancelarVenda = configuracao.CancelarNotaAutomaticoAoCancelarVenda;
+            // A entidade recém-montada pelo Service sempre chega com Id=0 (não veio do
+            // banco) — sem igualar ao Id real antes do SetValues, o EF tenta "modificar"
+            // a chave primária da entidade rastreada e lança InvalidOperationException
+            // ("Id is part of a key and so cannot be modified").
+            configuracao.Id = existente.Id;
+
+            // Copia todos os campos escalares de uma vez (em vez de listar propriedade
+            // por propriedade) — evita o tipo de bug em que um campo novo é esquecido
+            // aqui e nunca persiste ao atualizar uma configuração já existente.
+            context.Entry(existente).CurrentValues.SetValues(configuracao);
             existente.AtualizadoEm = DateTime.UtcNow;
 
             // Lista dinâmica (add/remove pela tela) — substitui tudo em vez de tentar

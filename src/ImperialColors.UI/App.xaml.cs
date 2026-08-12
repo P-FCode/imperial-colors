@@ -1,6 +1,7 @@
 ﻿using DotNetEnv;
 using ImperialColors.Application.Configuration;
 using ImperialColors.Application.Extensions;
+using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Contingency;
 using ImperialColors.Infrastructure.Data;
 using ImperialColors.Infrastructure.Extensions;
@@ -21,6 +22,10 @@ namespace ImperialColors.UI;
 
 public partial class App : System.Windows.Application
 {
+    /// <summary>Quantos meses de logs de auditoria são mantidos antes do expurgo automático
+    /// no startup — ajustável aqui se a política de retenção mudar.</summary>
+    private const int RetencaoLogsAuditoriaMeses = 12;
+
     private IHost? _host;
 
     protected override async void OnStartup(System.Windows.StartupEventArgs e)
@@ -74,6 +79,9 @@ public partial class App : System.Windows.Application
                 services.Configure<EmpresaConfig>(ctx.Configuration.GetSection(EmpresaConfig.Secao));
                 services.PostConfigure<EmpresaConfig>(EmpresaConfigEnvironmentOverrides.Aplicar);
 
+                services.Configure<FiscalApiConfig>(ctx.Configuration.GetSection(FiscalApiConfig.Secao));
+                services.PostConfigure<FiscalApiConfig>(FiscalApiConfigEnvironmentOverrides.Aplicar);
+
                 var connectionString = AppConfigService.MontarConnectionString();
                 services.AddInfrastructure(connectionString);
                 services.AddApplication();
@@ -111,6 +119,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<PerifericosView>();
                 services.AddTransient<FiscalConfigView>();
                 services.AddTransient<NaturezaOperacaoView>();
+                services.AddTransient<NotaFiscalHubView>();
 
                 services.AddLogging(logging =>
                 {
@@ -130,6 +139,24 @@ public partial class App : System.Windows.Application
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<App>>();
             await dbContext.Database.MigrateAsync();
             await UsuarioDatabaseSeeder.SeedAdminAsync(dbContext, logger);
+
+            // Retenção de logs de auditoria — sem isso a tabela cresce sem limite. Roda uma
+            // vez por abertura do app; é um DELETE indexado e barato quando não há nada a
+            // apagar, não precisa de scheduler dedicado.
+            try
+            {
+                var logAuditoriaRepository = scope.ServiceProvider.GetRequiredService<ILogAuditoriaRepository>();
+                var apagados = await logAuditoriaRepository.ExpurgarAntigosAsync(
+                    DateTime.UtcNow.AddMonths(-RetencaoLogsAuditoriaMeses));
+                if (apagados > 0)
+                    logger.LogInformation("Expurgo de logs de auditoria: {Quantidade} registro(s) com mais de {Meses} meses removido(s).",
+                        apagados, RetencaoLogsAuditoriaMeses);
+            }
+            catch (Exception ex)
+            {
+                // Falha no expurgo não pode impedir o app de abrir — só registra e segue.
+                logger.LogWarning(ex, "Falha ao expurgar logs de auditoria antigos.");
+            }
 
             var contingencyFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ContingencyDbContext>>();
             await using var contingencyDb = await contingencyFactory.CreateDbContextAsync();

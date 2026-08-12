@@ -204,6 +204,17 @@ public class ProdutoRepository : RepositoryBase<Produto>, IProdutoRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Produto>> ObterProximosDaValidadeAsync(int diasLimite = 15)
+    {
+        var limite = DateTime.Today.AddDays(diasLimite);
+
+        await using var context = ContextFactory.CreateDbContext();
+        return await ConsultaLeituraComIncludes(context)
+            .Where(p => p.QuantidadeEstoque > 0 && p.DataValidade != null && p.DataValidade <= limite)
+            .OrderBy(p => p.DataValidade)
+            .ToListAsync();
+    }
+
     public async Task<int> ContarComEstoqueCriticoAsync(decimal limiteUnidades = 5)
     {
         await using var context = ContextFactory.CreateDbContext();

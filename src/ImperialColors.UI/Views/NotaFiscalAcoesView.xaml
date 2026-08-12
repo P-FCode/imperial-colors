@@ -1,0 +1,157 @@
+<Window x:Class="ImperialColors.UI.Views.NotaFiscalAcoesView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Ações da Nota" Width="640" Height="760" MinHeight="500"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" ShowInTaskbar="False">
+
+    <Window.Resources>
+        <ResourceDictionary Source="/Resources/AppTheme.xaml"/>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource CinzaClaroBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{StaticResource PretoPrimarioBrush}" Padding="20,14">
+            <StackPanel>
+                <TextBlock x:Name="TxtCabecalho" Text="Nota Fiscal" FontSize="16" FontWeight="Bold" Foreground="White"/>
+                <TextBlock x:Name="TxtSubCabecalho" FontSize="12" Foreground="#CCCCCC" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Style="{StaticResource ScrollViewerComMargem}" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20">
+
+                <!-- Emitir -->
+                <Border x:Name="PainelEmitir" Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14"
+                        BorderBrush="{StaticResource AmareloPrimarioBrush}" BorderThickness="2">
+                    <StackPanel>
+                        <TextBlock Text="Emissão" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,12" Foreground="{StaticResource CinzaTextoBrush}"
+                                   Text="A nota ainda é um rascunho — nada foi transmitido à SEFAZ. O horário de emissão enviado é sempre o momento exato deste clique (não o da digitação), respeitando a tolerância de horário da SEFAZ."/>
+                        <Button x:Name="BtnEmitirNota" Content="Emitir Nota" Style="{StaticResource BotaoPrimario}"
+                                HorizontalAlignment="Left" Click="BtnEmitirNota_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Consultar Status -->
+                <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Text="Status na SEFAZ" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Left"/>
+                            <Button x:Name="BtnConsultarStatus" Content="Consultar Status" Style="{StaticResource BotaoSecundario}"
+                                    HorizontalAlignment="Right" Click="BtnConsultarStatus_Click"/>
+                        </Grid>
+                        <TextBlock x:Name="TxtSituacao" Text="—" FontSize="13" FontWeight="Bold" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="TxtMotivoStatus" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,10" Foreground="{StaticResource CinzaTextoBrush}"/>
+
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Chave de Acesso"/>
+                        <TextBox x:Name="TxtChaveAcesso" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"
+                                 Text="—" ToolTip="Selecione e copie (Ctrl+C) — é o identificador único da nota nas consultas à SEFAZ."/>
+                    </StackPanel>
+                </Border>
+
+                <!-- XML / DANFE -->
+                <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Text="Documentos" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="BtnVerXml" Content="Ver XML" Style="{StaticResource BotaoSecundario}" Margin="0,0,10,0" Click="BtnVerXml_Click"/>
+                            <Button x:Name="BtnBaixarXml" Content="Baixar XML" Style="{StaticResource BotaoSecundario}" Margin="0,0,10,0" Click="BtnBaixarXml_Click"/>
+                            <Button x:Name="BtnBaixarDanfe" Content="Baixar DANFE (PDF)" Style="{StaticResource BotaoSecundario}" Margin="0,0,10,0" Click="BtnBaixarDanfe_Click"/>
+                            <Button x:Name="BtnImprimirDanfe" Content="Imprimir DANFE" Style="{StaticResource BotaoPrimario}"
+                                    Click="BtnImprimirDanfe_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Carta de Correção -->
+                <Border x:Name="PainelCartaCorrecao" Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Text="Carta de Correção (CC-e)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,10" Foreground="{StaticResource CinzaTextoBrush}"
+                                   Text="Só NF-e. Mínimo 15 caracteres. Não pode alterar valor, destinatário, imposto ou preço — use cancelamento nesses casos."/>
+                        <TextBox x:Name="TxtCorrecao" Style="{StaticResource TextBoxMultilinha}" Height="70" Margin="0,0,0,10"/>
+                        <Button Content="Enviar Carta de Correção" Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Left"
+                                Click="BtnEnviarCorrecao_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Cancelamento -->
+                <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Text="Cancelamento" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="TxtAvisoCancelamento" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,10"
+                                   Foreground="{StaticResource CinzaTextoBrush}"/>
+                        <TextBox x:Name="TxtJustificativaCancelamento" Style="{StaticResource TextBoxMultilinha}" Height="60" Margin="0,0,0,10"/>
+                        <Button x:Name="BtnCancelarNota" Content="Cancelar Nota" Style="{StaticResource BotaoPerigo}" HorizontalAlignment="Left"
+                                Click="BtnCancelarNota_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Inutilização -->
+                <Border x:Name="PainelInutilizacao" Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Text="Inutilização de Faixa de Numeração" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,10" Foreground="{StaticResource CinzaTextoBrush}"
+                                   Text="Só NF-e. Não depende desta nota específica — inutiliza números que nunca chegaram a ser emitidos (ex.: falha no sistema pulou a numeração)."/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Série"/>
+                                <TextBox x:Name="TxtInutSerie" Style="{StaticResource TextBoxModerno}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Número Inicial"/>
+                                <TextBox x:Name="TxtInutNumeroInicial" Style="{StaticResource TextBoxModerno}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Número Final"/>
+                                <TextBox x:Name="TxtInutNumeroFinal" Style="{StaticResource TextBoxModerno}"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBox x:Name="TxtInutJustificativa" Style="{StaticResource TextBoxMultilinha}" Height="50" Margin="0,0,0,10"/>
+                        <Button Content="Inutilizar Faixa" Style="{StaticResource BotaoPerigo}" HorizontalAlignment="Left"
+                                Click="BtnInutilizar_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Histórico -->
+                <Border Style="{StaticResource Card}" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Histórico de Eventos" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <DataGrid x:Name="GridEventos" AutoGenerateColumns="False" IsReadOnly="True"
+                                  Style="{StaticResource DataGridModerno}" MaxHeight="220">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Data/Hora" Binding="{Binding DataHoraFormatada}" Width="140"/>
+                                <DataGridTextColumn Header="Evento" Binding="{Binding TipoDescricao}" Width="120"/>
+                                <DataGridTextColumn Header="Resultado" Binding="{Binding ResultadoDescricao}" Width="90"/>
+                                <DataGridTextColumn Header="Detalhe" Binding="{Binding Detalhe}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Background="White" Padding="20,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtMensagem" TextWrapping="Wrap" MaxWidth="420" FontSize="12" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="Fechar" Style="{StaticResource BotaoSecundario}" Click="BtnFechar_Click"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

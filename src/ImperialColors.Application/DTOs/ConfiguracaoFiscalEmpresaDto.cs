@@ -9,9 +9,11 @@ namespace ImperialColors.Application.DTOs;
 /// </summary>
 public class ConfiguracaoFiscalEmpresaDto
 {
-    public bool IeIsenta { get; set; }
+    public string? Cnpj { get; set; }
+    public string? RazaoSocial { get; set; }
+    public string? NomeFantasia { get; set; }
+    public string? InscricaoEstadual { get; set; }
     public string? InscricaoMunicipal { get; set; }
-    public string? InscricaoSuframa { get; set; }
     public string? Cnae { get; set; }
 
     public bool DifalNaoContribuinte { get; set; }
@@ -35,7 +37,14 @@ public class ConfiguracaoFiscalEmpresaDto
     public string? IdCscProducao { get; set; }
     public string? CscProducao { get; set; }
 
+    public string? ApiKeyFiscal { get; set; }
+
     public bool SimplesExcessoSublimite { get; set; }
+
+    /// <summary>Fallback de ICMS (mutuamente exclusivos) para produtos sem tributação
+    /// própria cadastrada.</summary>
+    public string? CstIcmsPadrao { get; set; }
+    public string? CsosnIcmsPadrao { get; set; }
 
     public decimal? AliquotaIbsUfPadrao { get; set; }
     public decimal? AliquotaIbsMunicipioPadrao { get; set; }

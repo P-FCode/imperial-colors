@@ -37,6 +37,9 @@ public class ProdutoMapping : IEntityTypeConfiguration<Produto>
         builder.HasIndex(p => p.Nome);
         builder.HasIndex(p => p.FornecedorId);
         builder.HasIndex(p => p.PromocaoAtiva);
+        // Usado por ObterProximosDaValidadeAsync (WHERE data_validade <= @limite ORDER BY
+        // data_validade) — sem índice desde que a coluna foi criada.
+        builder.HasIndex(p => p.DataValidade);
 
         builder.HasOne(p => p.Categoria).WithMany(c => c.Produtos).HasForeignKey(p => p.CategoriaId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(p => p.Marca).WithMany(m => m.Produtos).HasForeignKey(p => p.MarcaId).OnDelete(DeleteBehavior.SetNull);

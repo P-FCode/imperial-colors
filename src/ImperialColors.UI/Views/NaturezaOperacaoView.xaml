@@ -57,7 +57,7 @@
                 <TextBlock Text="{Binding TituloFormulario}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,16"/>
 
                 <TextBlock Style="{StaticResource LabelCampo}" Text="Descrição"/>
-                <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}"
+                <TextBox x:Name="TxtDescricao" Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}"
                          Style="{StaticResource TextBoxModerno}" Margin="0,0,0,10"/>
 
                 <TextBlock Style="{StaticResource LabelCampo}" Text="Tipo de Operação"/>

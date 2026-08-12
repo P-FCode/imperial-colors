@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using ImperialColors.Application.DTOs;
+using ImperialColors.Domain.Constants;
 using ImperialColors.Domain.Exceptions;
 
 namespace ImperialColors.Application.Validation;
@@ -21,6 +22,10 @@ public static class ConfiguracaoFiscalEmpresaValidator
 
     public static void Validar(ConfiguracaoFiscalEmpresaDto dto)
     {
+        if (!string.IsNullOrWhiteSpace(dto.Cnpj) &&
+            (dto.Cnpj.Length != 14 || !ApenasDigitos.IsMatch(dto.Cnpj)))
+            throw new DomainException("CNPJ do emitente deve conter exatamente 14 dígitos numéricos.");
+
         if (!string.IsNullOrWhiteSpace(dto.Cep) &&
             (dto.Cep.Length != 8 || !ApenasDigitos.IsMatch(dto.Cep)))
             throw new DomainException("CEP deve conter exatamente 8 dígitos numéricos, sem hífen.");
@@ -48,6 +53,7 @@ public static class ConfiguracaoFiscalEmpresaValidator
         ValidarPercentual(dto.AliquotaIbsMunicipioPadrao, "Alíquota padrão do IBS (Município)");
         ValidarPercentual(dto.AliquotaCbsPadrao, "Alíquota padrão da CBS");
         ValidarCstCClassTrib(dto.CstIbsCbsPadrao, dto.CClassTribPadrao);
+        ValidarCstCsosnIcmsPadrao(dto.CstIcmsPadrao, dto.CsosnIcmsPadrao);
 
         if (!string.IsNullOrWhiteSpace(dto.EmailPadraoEnvioNotas) && !dto.EmailPadraoEnvioNotas.Contains('@'))
             throw new DomainException("E-mail padrão de envio de notas inválido.");
@@ -72,6 +78,27 @@ public static class ConfiguracaoFiscalEmpresaValidator
         if (!cClassTrib.StartsWith(cst, StringComparison.Ordinal))
             throw new DomainException(
                 $"cClassTrib da Regra Geral inconsistente: os 3 primeiros dígitos ('{cClassTrib[..3]}') devem ser iguais ao CST informado ('{cst}').");
+    }
+
+    /// <summary>CST e CSOSN do ICMS são mutuamente exclusivos — mesma regra aplicada por
+    /// item em <c>NotaFiscalValidator</c> e por produto em <c>TributacaoProdutoValidator</c>,
+    /// agora também no fallback "Regra Geral" da empresa.</summary>
+    private static void ValidarCstCsosnIcmsPadrao(string? cst, string? csosn)
+    {
+        var temCst = !string.IsNullOrWhiteSpace(cst);
+        var temCsosn = !string.IsNullOrWhiteSpace(csosn);
+
+        if (temCst && temCsosn)
+            throw new DomainException(
+                "Preencha apenas CST ou apenas CSOSN do ICMS (Regra Geral), nunca os dois — eles são mutuamente exclusivos.");
+
+        if (temCst && !CodigosFiscais.CstIcmsValidos.Contains(cst!))
+            throw new DomainException(
+                $"CST de ICMS (Regra Geral) '{cst}' inválido. Códigos aceitos: {string.Join(", ", CodigosFiscais.CstIcmsValidos.OrderBy(c => c))}.");
+
+        if (temCsosn && !CodigosFiscais.CsosnValidos.Contains(csosn!))
+            throw new DomainException(
+                $"CSOSN (Regra Geral) '{csosn}' inválido. Códigos aceitos: {string.Join(", ", CodigosFiscais.CsosnValidos.OrderBy(c => c))}.");
     }
 
     private static void ValidarInscricoesSubstituto(List<InscricaoEstadualSubstitutoDto> inscricoes)

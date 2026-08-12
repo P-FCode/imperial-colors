@@ -29,6 +29,10 @@ public class AppDbContext : DbContext
     public DbSet<ConfiguracaoFiscalEmpresa> ConfiguracoesFiscalEmpresa { get; set; }
     public DbSet<InscricaoEstadualSubstituto> InscricoesEstaduaisSubstituto { get; set; }
     public DbSet<NaturezaOperacao> NaturezasOperacao { get; set; }
+    public DbSet<NotaFiscal> NotasFiscais { get; set; }
+    public DbSet<ItemNotaFiscal> ItensNotaFiscal { get; set; }
+    public DbSet<NotaFiscalPagamento> NotaFiscalPagamentos { get; set; }
+    public DbSet<NotaFiscalEvento> NotaFiscalEventos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

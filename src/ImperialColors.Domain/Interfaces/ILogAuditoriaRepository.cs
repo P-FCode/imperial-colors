@@ -18,4 +18,9 @@ public interface ILogAuditoriaRepository
         CancellationToken cancellationToken = default);
 
     Task<LogAuditoria?> ObterPorIdAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>Apaga (bulk delete, sem carregar linhas em memória) todo log com
+    /// <c>DataHora</c> anterior a <paramref name="antesDe"/> — retenção de logs de
+    /// auditoria, que sem isso crescem sem limite. Retorna quantas linhas foram removidas.</summary>
+    Task<int> ExpurgarAntigosAsync(DateTime antesDe, CancellationToken cancellationToken = default);
 }
