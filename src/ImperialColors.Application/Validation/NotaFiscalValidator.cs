@@ -37,11 +37,20 @@ public static class NotaFiscalValidator
             indice++;
             var rotulo = $"Item {indice} ('{item.Descricao}')";
 
-            if (validarNcm && string.IsNullOrWhiteSpace(item.Ncm))
-                throw new DomainException($"{rotulo}: NCM é obrigatório (Configurações → Fiscal → Validar NCM em notas está ligado).");
+            // NCM é obrigatório no leiaute da NF-e/NFC-e em qualquer cenário — a opção
+            // "Validar NCM em notas" controla a conferência do FORMATO (8 dígitos), não a
+            // existência do campo. Antes, com a opção desligada, o item seguia sem NCM e o
+            // XML saía com <NCM></NCM>, rejeitado pelo XSD.
+            if (string.IsNullOrWhiteSpace(item.Ncm))
+                throw new DomainException(
+                    $"{rotulo}: NCM é obrigatório no XML — cadastre o NCM do produto (Estoque → editar produto → aba Tributação) antes de emitir.");
+
+            if (validarNcm && (item.Ncm.Trim().Length != 8 || !ApenasDigitos.IsMatch(item.Ncm.Trim())))
+                throw new DomainException(
+                    $"{rotulo}: NCM '{item.Ncm}' inválido — deve ter exatamente 8 dígitos numéricos (Configurações → Fiscal → Validar NCM em notas está ligado).");
 
             ValidarCfop(item.Cfop, interestadual, rotulo);
-            ValidarIcmsItem(item, rotulo);
+            ValidarIcmsItem(item, nota.Crt, rotulo);
 
             if (string.IsNullOrWhiteSpace(item.CstIbsCbs) || string.IsNullOrWhiteSpace(item.CClassTrib))
                 throw new DomainException(
@@ -74,7 +83,7 @@ public static class NotaFiscalValidator
                 $"A soma dos pagamentos (R$ {somaPagamentos:0.00}) não bate com o total da nota (R$ {nota.VNf:0.00}).");
     }
 
-    private static void ValidarIcmsItem(ItemNotaFiscalDto item, string rotulo)
+    private static void ValidarIcmsItem(ItemNotaFiscalDto item, string? crt, string rotulo)
     {
         var temCst = !string.IsNullOrWhiteSpace(item.CstIcms);
         var temCsosn = !string.IsNullOrWhiteSpace(item.CsosnIcms);
@@ -85,25 +94,58 @@ public static class NotaFiscalValidator
         if (!temCst && !temCsosn)
             throw new DomainException($"{rotulo}: falta CST ou CSOSN do ICMS.");
 
+        // CRT 1 (Simples Nacional) e 4 (MEI) usam CSOSN; CRT 2 (Simples com excesso de
+        // sublimite) e 3 (Regime Normal) usam CST. Mandar o par errado é rejeição certa da
+        // SEFAZ (ela espera o grupo ICMSSN quando o CRT é do Simples) — e acontecia sozinho
+        // quando a Regra Geral da empresa tinha CST cadastrado com a empresa no Simples.
+        if (crt is "1" or "4" && temCst)
+            throw new DomainException(
+                $"{rotulo}: a empresa está no Simples Nacional/MEI (CRT {crt}), que exige CSOSN — este item está com CST de ICMS '{item.CstIcms}'. Corrija a tributação do produto ou a Regra Geral em Configurações → Fiscal.");
+
+        if (crt is "2" or "3" && temCsosn)
+            throw new DomainException(
+                $"{rotulo}: a empresa está no Regime Normal (CRT {crt}), que exige CST — este item está com CSOSN '{item.CsosnIcms}'. Corrija a tributação do produto ou a Regra Geral em Configurações → Fiscal.");
+
         if (!temCst)
+        {
+            // CSOSN 201/202/203 (ICMSSN201/202/203 — ST "para frente") e 500 (ICMSSN500 — ST
+            // retida anteriormente) EXIGEM campos extras que só existem se o cadastro do
+            // produto os tiver — o cálculo real está em CalculoFiscalHelper desde a correção
+            // da rejeição "Nao informada vBCSTRet, pST e vICMSSTRet". Valida aqui a PRESENÇA
+            // dos campos, não mais um bloqueio cego do código inteiro.
+            if (CalculoFiscalHelper.CsosnStParaFrente.Contains(item.CsosnIcms!) &&
+                (item.Mva is null || item.AliquotaIcmsSt is null))
+                throw new DomainException(
+                    $"{rotulo}: CSOSN '{item.CsosnIcms}' é de Substituição Tributária — exige MVA/IVA-ST e Alíquota de ICMS-ST cadastrados no produto (Estoque → editar produto → aba Tributação) para calcular vBCST/vICMSST.");
+
+            if (CalculoFiscalHelper.CsosnStRetido.Contains(item.CsosnIcms!) && item.AliquotaIcmsStRetido is null)
+                throw new DomainException(
+                    $"{rotulo}: CSOSN '{item.CsosnIcms}' é de Substituição Tributária retida — exige a Alíquota de ICMS-ST Retido (pST) cadastrada no produto (Estoque → editar produto → aba Tributação).");
+
             return;
+        }
 
-        // CST 00/20/51/90 (ICMS00/20/51/90 do leiaute NFe) exigem vBC/pICMS/vICMS no XML —
-        // sem alíquota cadastrada esses campos saem nulos e a SEFAZ rejeita por
-        // XSD_VALIDATION ("incomplete content... expected 'pICMS'"). Bloquear aqui evita gastar
-        // uma chamada com a API pra descobrir isso — CalculoFiscalHelper só gera um aviso
-        // informativo (usado também no cálculo de venda, onde isso não é bloqueante).
-        if (CalculoFiscalHelper.CstIcmsTributacaoIntegral.Contains(item.CstIcms!) && item.AliquotaIcms is null)
+        // CST 00/20/51/90 (ICMS00/20/51/90 do leiaute NFe) e CST 10 (que também tem grupo
+        // próprio) exigem vBC/pICMS/vICMS no XML — sem alíquota cadastrada esses campos saem
+        // nulos e a SEFAZ rejeita por XSD_VALIDATION ("incomplete content... expected
+        // 'pICMS'"). Bloquear aqui evita gastar uma chamada com a API pra descobrir isso.
+        if ((CalculoFiscalHelper.CstIcmsTributacaoIntegral.Contains(item.CstIcms!) ||
+             CalculoFiscalHelper.CstIcmsStParaFrente.Contains(item.CstIcms!)) && item.AliquotaIcms is null)
             throw new DomainException(
-                $"{rotulo}: CST de ICMS '{item.CstIcms}' exige alíquota cadastrada no produto — cadastre a alíquota (Estoque → editar produto → aba Tributação) antes de emitir, senão a SEFAZ rejeita a nota por XML incompleto.");
+                $"{rotulo}: CST de ICMS '{item.CstIcms}' exige alíquota — cadastre em Estoque → editar produto → aba Tributação (ou, se este produto usa a Regra Geral da empresa, em Configurações → Fiscal → Alíquota de ICMS padrão). Depois clique em 'Atualizar' na linha do item: a nota guarda uma cópia dos dados fiscais do momento em que o item foi adicionado e não acompanha sozinha as mudanças no cadastro.");
 
-        // ICMS-ST (CST 10/60) ainda não tem cálculo implementado (CalculoFiscalHelper só avisa
-        // "revisar manualmente" e não preenche vBC/pICMS/vICMS/vBCST/etc.) — emitir assim sempre
-        // resulta em rejeição por grupo ICMS10/ICMS60 incompleto, então bloqueia aqui em vez de
-        // deixar o operador descobrir isso na homologação.
-        if (CalculoFiscalHelper.CstIcmsSubstituicaoTributaria.Contains(item.CstIcms!))
+        // CST 10 — Substituição Tributária "para frente": além da alíquota própria (conferida
+        // acima), exige MVA e Alíquota de ICMS-ST para montar o grupo vBCST/pICMSST/vICMSST.
+        if (CalculoFiscalHelper.CstIcmsStParaFrente.Contains(item.CstIcms!) &&
+            (item.Mva is null || item.AliquotaIcmsSt is null))
             throw new DomainException(
-                $"{rotulo}: CST de ICMS '{item.CstIcms}' é de Substituição Tributária — o cálculo de ICMS-ST ainda não é suportado neste sistema, então a nota sairia com o grupo de imposto incompleto e seria rejeitada. Use outro CST ou emita esta nota manualmente até a funcionalidade ser implementada.");
+                $"{rotulo}: CST de ICMS '{item.CstIcms}' é de Substituição Tributária — exige MVA/IVA-ST e Alíquota de ICMS-ST cadastrados no produto (Estoque → editar produto → aba Tributação) para calcular vBCST/vICMSST.");
+
+        // CST 60 — ICMS-ST retido anteriormente: exige a alíquota retida (pST) informada no
+        // cadastro; não há fórmula a calcular, é um valor declarado.
+        if (CalculoFiscalHelper.CstIcmsStRetido.Contains(item.CstIcms!) && item.AliquotaIcmsStRetido is null)
+            throw new DomainException(
+                $"{rotulo}: CST de ICMS '{item.CstIcms}' é de Substituição Tributária retida — exige a Alíquota de ICMS-ST Retido (pST) cadastrada no produto (Estoque → editar produto → aba Tributação).");
     }
 
     private static void ValidarCfop(string? cfop, bool interestadual, string rotulo)

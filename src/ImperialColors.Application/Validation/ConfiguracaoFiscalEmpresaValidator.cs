@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Domain.Constants;
+using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 
 namespace ImperialColors.Application.Validation;
@@ -20,7 +21,12 @@ public static class ConfiguracaoFiscalEmpresaValidator
         "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
     };
 
-    public static void Validar(ConfiguracaoFiscalEmpresaDto dto)
+    /// <param name="regime">Regime tributário atual da empresa. Quando informado, a Regra
+    /// Geral de ICMS é conferida contra ele (CST × CSOSN) — sem isso era possível salvar
+    /// "CST 00" com a empresa no Simples Nacional, e como o cadastro do produto proíbe CST
+    /// nesse regime, todo produto sem tributação própria herdava um CST que não podia existir
+    /// e travava a emissão sem caminho de correção pela interface.</param>
+    public static void Validar(ConfiguracaoFiscalEmpresaDto dto, RegimeTributario? regime = null)
     {
         if (!string.IsNullOrWhiteSpace(dto.Cnpj) &&
             (dto.Cnpj.Length != 14 || !ApenasDigitos.IsMatch(dto.Cnpj)))
@@ -53,7 +59,8 @@ public static class ConfiguracaoFiscalEmpresaValidator
         ValidarPercentual(dto.AliquotaIbsMunicipioPadrao, "Alíquota padrão do IBS (Município)");
         ValidarPercentual(dto.AliquotaCbsPadrao, "Alíquota padrão da CBS");
         ValidarCstCClassTrib(dto.CstIbsCbsPadrao, dto.CClassTribPadrao);
-        ValidarCstCsosnIcmsPadrao(dto.CstIcmsPadrao, dto.CsosnIcmsPadrao);
+        ValidarCstCsosnIcmsPadrao(dto.CstIcmsPadrao, dto.CsosnIcmsPadrao, regime);
+        ValidarPercentual(dto.AliquotaIcmsPadrao, "Alíquota de ICMS (Regra Geral)");
 
         if (!string.IsNullOrWhiteSpace(dto.EmailPadraoEnvioNotas) && !dto.EmailPadraoEnvioNotas.Contains('@'))
             throw new DomainException("E-mail padrão de envio de notas inválido.");
@@ -83,7 +90,7 @@ public static class ConfiguracaoFiscalEmpresaValidator
     /// <summary>CST e CSOSN do ICMS são mutuamente exclusivos — mesma regra aplicada por
     /// item em <c>NotaFiscalValidator</c> e por produto em <c>TributacaoProdutoValidator</c>,
     /// agora também no fallback "Regra Geral" da empresa.</summary>
-    private static void ValidarCstCsosnIcmsPadrao(string? cst, string? csosn)
+    private static void ValidarCstCsosnIcmsPadrao(string? cst, string? csosn, RegimeTributario? regime)
     {
         var temCst = !string.IsNullOrWhiteSpace(cst);
         var temCsosn = !string.IsNullOrWhiteSpace(csosn);
@@ -91,6 +98,19 @@ public static class ConfiguracaoFiscalEmpresaValidator
         if (temCst && temCsosn)
             throw new DomainException(
                 "Preencha apenas CST ou apenas CSOSN do ICMS (Regra Geral), nunca os dois — eles são mutuamente exclusivos.");
+
+        // Mesma regra que TributacaoProdutoValidator aplica ao cadastro do produto — a Regra
+        // Geral não pode contradizer o regime, senão gera itens que a SEFAZ rejeita e que o
+        // cadastro do produto não consegue corrigir.
+        var usaCsosn = regime is RegimeTributario.SimplesNacional or RegimeTributario.Mei;
+
+        if (regime is not null && usaCsosn && temCst)
+            throw new DomainException(
+                "A empresa está no regime Simples Nacional/MEI: a Regra Geral de ICMS deve usar CSOSN, não CST. Limpe o CST padrão e informe o CSOSN.");
+
+        if (regime is not null && !usaCsosn && temCsosn)
+            throw new DomainException(
+                "A empresa está no regime Lucro Presumido/Real: a Regra Geral de ICMS deve usar CST, não CSOSN. Limpe o CSOSN padrão e informe o CST.");
 
         if (temCst && !CodigosFiscais.CstIcmsValidos.Contains(cst!))
             throw new DomainException(

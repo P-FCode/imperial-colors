@@ -97,6 +97,7 @@ public static class TributacaoProdutoValidator
         ValidarPercentual(dto.AliquotaIcmsSt, "Alíquota de ICMS-ST", 0, 100);
         ValidarPercentual(dto.Mva, "MVA/IVA-ST", 0, 999);
         ValidarPercentual(dto.ReducaoBaseCalculo, "Redução de base de cálculo", 0, 100);
+        ValidarPercentual(dto.AliquotaIcmsStRetido, "Alíquota de ICMS-ST Retido (pST)", 0, 100);
     }
 
     private static void ValidarPis(TributacaoProdutoDto dto)

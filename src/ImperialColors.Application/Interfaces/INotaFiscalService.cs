@@ -19,6 +19,14 @@ public interface INotaFiscalService
     /// chamado pela UI a cada mudança de item quando "Cálculo ligado" está ativo.</summary>
     NotaFiscalDto RecalcularTotais(NotaFiscalDto nota);
 
+    /// <summary>Sincroniza CRT e a tributação de cada item (CST/CSOSN/alíquotas/NCM/CFOP)
+    /// com o cadastro ATUAL do produto/categoria/Regra Geral e com o regime tributário
+    /// vigente — sem mexer em descrição/código/quantidade/valor (dado comercial, não
+    /// fiscal). Use ao abrir um rascunho para edição e antes de emitir, para que uma
+    /// correção feita no Estoque ou em Configurações → Fiscal depois que o item foi
+    /// adicionado chegue à nota sem precisar clicar "Atualizar" item por item.</summary>
+    Task<NotaFiscalDto> SincronizarTributacaoComCadastroAtualAsync(NotaFiscalDto nota, CancellationToken cancellationToken = default);
+
     Task<NotaFiscalDto> CriarRascunhoAsync(NotaFiscalDto nota, CancellationToken cancellationToken = default);
     Task<NotaFiscalDto> AtualizarRascunhoAsync(NotaFiscalDto nota, CancellationToken cancellationToken = default);
 

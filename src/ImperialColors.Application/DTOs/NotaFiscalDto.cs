@@ -147,12 +147,30 @@ public class ItemNotaFiscalDto
     public string? Origem { get; set; }
     public string? CstIcms { get; set; }
     public string? CsosnIcms { get; set; }
+
+    /// <summary>CST ou CSOSN — o que estiver preenchido. Só para exibição: a grade de itens
+    /// da nota não mostrava nenhum dado de ICMS, então o operador não tinha como ver (nem
+    /// conferir) o código e a alíquota que estavam bloqueando a emissão.</summary>
+    public string? CodigoIcms => string.IsNullOrWhiteSpace(CstIcms) ? CsosnIcms : CstIcms;
     public decimal? BaseIcms { get; set; }
+
+    /// <summary>pRedBC — percentual de redução da base (CST 20/70). <see cref="BaseIcms"/>
+    /// já vem com a redução aplicada.</summary>
+    public decimal? ReducaoBaseCalculo { get; set; }
     public decimal? AliquotaIcms { get; set; }
     public decimal? ValorIcms { get; set; }
+    /// <summary>pMVAST — MVA/IVA-ST usado no cálculo do ICMS-ST "para frente" (CST 10 /
+    /// CSOSN 201/202/203).</summary>
+    public decimal? Mva { get; set; }
     public decimal? BaseIcmsSt { get; set; }
     public decimal? AliquotaIcmsSt { get; set; }
     public decimal? ValorIcmsSt { get; set; }
+
+    /// <summary>ICMS-ST retido anteriormente (CST 60 / CSOSN 500) — vBCSTRet/pST/vICMSSTRet,
+    /// grupo distinto do "para frente" acima.</summary>
+    public decimal? BaseIcmsStRetido { get; set; }
+    public decimal? AliquotaIcmsStRetido { get; set; }
+    public decimal? ValorIcmsStRetido { get; set; }
 
     public string? CstPis { get; set; }
     public decimal? BasePis { get; set; }

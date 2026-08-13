@@ -8,6 +8,7 @@ using ImperialColors.UI.Helpers;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace ImperialColors.UI.Views;
 
@@ -18,6 +19,7 @@ public partial class ProdutoFormView : Window
     private readonly IMarcaService _marcaService;
     private readonly IFornecedorService _fornecedorService;
     private readonly IConfiguracaoFiscalService _configuracaoFiscal;
+    private readonly INcmService _ncmService;
     private int? _produtoId;
     private decimal? _quantidadeEstoqueCarregadaNaEdicao;
     private bool _codigoDefinidoManualmente;
@@ -27,6 +29,9 @@ public partial class ProdutoFormView : Window
     private bool _modoCustoTotal;
     private bool _suprimirAtualizacaoCusto;
     private bool _suprimirEventosUi;
+    private bool _preenchendoNcmProgramaticamente;
+    private DispatcherTimer? _ncmDebounceTimer;
+    private CancellationTokenSource? _ncmCts;
     private RegimeTributario _regimeAtual = RegimeTributario.SimplesNacional;
 
     public ProdutoFormView(
@@ -34,7 +39,8 @@ public partial class ProdutoFormView : Window
         ICategoriaService categoriaService,
         IMarcaService marcaService,
         IFornecedorService fornecedorService,
-        IConfiguracaoFiscalService configuracaoFiscal)
+        IConfiguracaoFiscalService configuracaoFiscal,
+        INcmService ncmService)
     {
         InitializeComponent();
         ModalWindowHelper.AplicarEstiloModerno(this);
@@ -43,6 +49,7 @@ public partial class ProdutoFormView : Window
         _marcaService = marcaService;
         _fornecedorService = fornecedorService;
         _configuracaoFiscal = configuracaoFiscal;
+        _ncmService = ncmService;
 
         SelecionarUnidadePadrao();
         Loaded += OnLoadedInicial;
@@ -229,7 +236,7 @@ public partial class ProdutoFormView : Window
 
     private void PreencherCamposTributacao(TributacaoProdutoDto tributacao)
     {
-        TxtNcm.Text = tributacao.Ncm ?? string.Empty;
+        DefinirNcmSemAutocomplete(tributacao.Ncm ?? string.Empty);
         TxtCest.Text = tributacao.Cest ?? string.Empty;
         DefinirOrigemSelecionada(tributacao.Origem);
         TxtCstIcms.Text = tributacao.CstIcms ?? string.Empty;
@@ -238,6 +245,7 @@ public partial class ProdutoFormView : Window
         TxtAliquotaIcmsSt.Text = FormatarPercentual(tributacao.AliquotaIcmsSt);
         TxtMva.Text = FormatarPercentual(tributacao.Mva);
         TxtReducaoBaseCalculo.Text = FormatarPercentual(tributacao.ReducaoBaseCalculo);
+        TxtAliquotaIcmsStRetido.Text = FormatarPercentual(tributacao.AliquotaIcmsStRetido);
         TxtCstPis.Text = tributacao.CstPis ?? string.Empty;
         TxtAliquotaPis.Text = FormatarPercentual(tributacao.AliquotaPis);
         TxtCstCofins.Text = tributacao.CstCofins ?? string.Empty;
@@ -344,7 +352,7 @@ public partial class ProdutoFormView : Window
 
     private void LimparCamposTributacao()
     {
-        TxtNcm.Text = string.Empty;
+        DefinirNcmSemAutocomplete(string.Empty);
         TxtCest.Text = string.Empty;
         CmbOrigem.SelectedItem = null;
         TxtCstIcms.Text = string.Empty;
@@ -353,6 +361,7 @@ public partial class ProdutoFormView : Window
         TxtAliquotaIcmsSt.Text = string.Empty;
         TxtMva.Text = string.Empty;
         TxtReducaoBaseCalculo.Text = string.Empty;
+        TxtAliquotaIcmsStRetido.Text = string.Empty;
         TxtCstPis.Text = string.Empty;
         TxtAliquotaPis.Text = string.Empty;
         TxtCstCofins.Text = string.Empty;
@@ -375,6 +384,90 @@ public partial class ProdutoFormView : Window
         TxtAliquotaIbsMunicipioDiferimento.Text = string.Empty;
         TxtAliquotaIbsMunicipioReducao.Text = string.Empty;
         TxtOrigemPadraoCategoria.Visibility = Visibility.Collapsed;
+    }
+
+    // --- Autocompletar de NCM (BrasilAPI — Tabela NCM oficial) ---
+
+    /// <summary>Debounça 350ms após a última tecla antes de consultar — evita disparar uma
+    /// chamada de rede a cada caractere digitado.</summary>
+    private void TxtNcm_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_preenchendoNcmProgramaticamente || _suprimirEventosUi)
+            return;
+
+        _ncmDebounceTimer?.Stop();
+        _ncmDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+        _ncmDebounceTimer.Tick -= NcmDebounceTimer_Tick;
+        _ncmDebounceTimer.Tick += NcmDebounceTimer_Tick;
+        _ncmDebounceTimer.Start();
+    }
+
+    private async void NcmDebounceTimer_Tick(object? sender, EventArgs e)
+    {
+        _ncmDebounceTimer!.Stop();
+        await BuscarSugestoesNcmAsync(TxtNcm.Text);
+    }
+
+    private async Task BuscarSugestoesNcmAsync(string termo)
+    {
+        // Cancela uma busca anterior ainda em andamento — só a última letra digitada importa.
+        _ncmCts?.Cancel();
+        _ncmCts?.Dispose();
+        _ncmCts = new CancellationTokenSource();
+        var token = _ncmCts.Token;
+
+        if (termo.Trim().Length < 2)
+        {
+            PopupSugestoesNcm.IsOpen = false;
+            return;
+        }
+
+        try
+        {
+            var sugestoes = await _ncmService.BuscarAsync(termo, token);
+            if (token.IsCancellationRequested) return;
+
+            LstSugestoesNcm.ItemsSource = sugestoes;
+            PopupSugestoesNcm.IsOpen = sugestoes.Count > 0;
+        }
+        catch (OperationCanceledException)
+        {
+            // Busca superada por uma tecla mais recente — nada a fazer.
+        }
+        catch
+        {
+            // Consulta auxiliar (sem internet, BrasilAPI fora do ar) — o operador ainda
+            // digita o NCM manualmente, não vale a pena interromper o cadastro por isso.
+            PopupSugestoesNcm.IsOpen = false;
+        }
+    }
+
+    private void LstSugestoesNcm_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (LstSugestoesNcm.SelectedItem is not NcmSugestaoDto selecionado)
+            return;
+
+        DefinirNcmSemAutocomplete(selecionado.Codigo);
+        PopupSugestoesNcm.IsOpen = false;
+        LstSugestoesNcm.SelectedItem = null;
+    }
+
+    /// <summary>Único ponto que atribui <c>TxtNcm.Text</c> fora da digitação do operador —
+    /// suprime o <see cref="TxtNcm_TextChanged"/> pra um preenchimento programático (carregar
+    /// produto existente, herdar padrão da categoria, limpar o formulário, ou aplicar a
+    /// sugestão escolhida) não reabrir o popup de busca em cima do próprio resultado.</summary>
+    private void DefinirNcmSemAutocomplete(string valor)
+    {
+        _preenchendoNcmProgramaticamente = true;
+        try
+        {
+            TxtNcm.Text = valor;
+            TxtNcm.CaretIndex = TxtNcm.Text.Length;
+        }
+        finally
+        {
+            _preenchendoNcmProgramaticamente = false;
+        }
     }
 
     private void DefinirOrigemSelecionada(OrigemMercadoria? origem)
@@ -405,10 +498,25 @@ public partial class ProdutoFormView : Window
         => valor.HasValue ? valor.Value.ToString("0.####", FormattingHelper.CulturaPtBr) : string.Empty;
 
     /// <summary>Monta o DTO de tributação a partir dos campos preenchidos na tela.
-    /// Retorna null se nenhum campo fiscal foi preenchido (nada a salvar).</summary>
+    /// Retorna null se nenhum campo fiscal foi preenchido (nada a salvar).
+    /// Lança <see cref="DomainException"/> quando algum percentual digitado não é um número
+    /// válido — antes o texto inválido virava null em silêncio e o produto era salvo "sem
+    /// alíquota", travando a emissão da nota sem nenhum aviso no cadastro.</summary>
     private TributacaoProdutoDto? MontarDtoTributacaoOuNulo()
     {
+        // As alíquotas contam como "campo preenchido": digitar só a alíquota de ICMS (o caso
+        // clássico de quem está corrigindo a nota bloqueada por falta de pICMS) devolvia null
+        // aqui, e o salvamento da tributação era pulado sem qualquer mensagem.
         var temAlgumCampo =
+            !string.IsNullOrWhiteSpace(TxtAliquotaIcms.Text) ||
+            !string.IsNullOrWhiteSpace(TxtAliquotaIcmsSt.Text) ||
+            !string.IsNullOrWhiteSpace(TxtAliquotaPis.Text) ||
+            !string.IsNullOrWhiteSpace(TxtAliquotaCofins.Text) ||
+            !string.IsNullOrWhiteSpace(TxtAliquotaIpi.Text) ||
+            !string.IsNullOrWhiteSpace(TxtMva.Text) ||
+            !string.IsNullOrWhiteSpace(TxtReducaoBaseCalculo.Text) ||
+            !string.IsNullOrWhiteSpace(TxtAliquotaIcmsStRetido.Text) ||
+            !string.IsNullOrWhiteSpace(TxtAliquotaIS.Text) ||
             !string.IsNullOrWhiteSpace(TxtNcm.Text) ||
             !string.IsNullOrWhiteSpace(TxtCest.Text) ||
             CmbOrigem.SelectedItem is not null ||
@@ -431,18 +539,19 @@ public partial class ProdutoFormView : Window
         if (!temAlgumCampo)
             return null;
 
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIcms.Text, out var aliquotaIcms);
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIcmsSt.Text, out var aliquotaIcmsSt);
-        FormattingHelper.TryParseMoedaOpcional(TxtMva.Text, out var mva);
-        FormattingHelper.TryParseMoedaOpcional(TxtReducaoBaseCalculo.Text, out var reducaoBase);
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaPis.Text, out var aliquotaPis);
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaCofins.Text, out var aliquotaCofins);
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIpi.Text, out var aliquotaIpi);
-        FormattingHelper.TryParseMoedaOpcional(TxtValorIpiFixo.Text, out var valorIpiFixo);
-        FormattingHelper.TryParseMoedaOpcional(TxtFatorConversao.Text, out var fatorConversao);
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIS.Text, out var aliquotaIS);
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIbsMunicipioDiferimento.Text, out var aliquotaIbsMunicipioDiferimento);
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIbsMunicipioReducao.Text, out var aliquotaIbsMunicipioReducao);
+        var aliquotaIcms = LerNumeroOpcional(TxtAliquotaIcms, "Alíquota de ICMS");
+        var aliquotaIcmsSt = LerNumeroOpcional(TxtAliquotaIcmsSt, "Alíquota de ICMS-ST");
+        var mva = LerNumeroOpcional(TxtMva, "MVA/IVA-ST");
+        var reducaoBase = LerNumeroOpcional(TxtReducaoBaseCalculo, "Redução de base de cálculo");
+        var aliquotaIcmsStRetido = LerNumeroOpcional(TxtAliquotaIcmsStRetido, "Alíquota de ICMS-ST Retido (pST)");
+        var aliquotaPis = LerNumeroOpcional(TxtAliquotaPis, "Alíquota de PIS");
+        var aliquotaCofins = LerNumeroOpcional(TxtAliquotaCofins, "Alíquota de COFINS");
+        var aliquotaIpi = LerNumeroOpcional(TxtAliquotaIpi, "Alíquota de IPI");
+        var valorIpiFixo = LerNumeroOpcional(TxtValorIpiFixo, "Valor fixo do IPI");
+        var fatorConversao = LerNumeroOpcional(TxtFatorConversao, "Fator de conversão");
+        var aliquotaIS = LerNumeroOpcional(TxtAliquotaIS, "Alíquota do Imposto Seletivo");
+        var aliquotaIbsMunicipioDiferimento = LerNumeroOpcional(TxtAliquotaIbsMunicipioDiferimento, "Alíquota de diferimento do IBS Municipal");
+        var aliquotaIbsMunicipioReducao = LerNumeroOpcional(TxtAliquotaIbsMunicipioReducao, "Redução de alíquota do IBS Municipal");
 
         return new TributacaoProdutoDto
         {
@@ -455,6 +564,7 @@ public partial class ProdutoFormView : Window
             AliquotaIcmsSt = aliquotaIcmsSt,
             Mva = mva,
             ReducaoBaseCalculo = reducaoBase,
+            AliquotaIcmsStRetido = aliquotaIcmsStRetido,
             CstPis = TextoOuNulo(TxtCstPis.Text),
             AliquotaPis = aliquotaPis,
             CstCofins = TextoOuNulo(TxtCstCofins.Text),
@@ -481,6 +591,18 @@ public partial class ProdutoFormView : Window
 
     private static string? TextoOuNulo(string texto)
         => string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
+
+    /// <summary>Campo numérico opcional da aba Tributação: vazio vira null, texto inválido
+    /// vira erro visível. Silenciar o erro aqui significa gravar "sem alíquota" num produto
+    /// que o operador acabou de preencher.</summary>
+    private static decimal? LerNumeroOpcional(TextBox campo, string rotulo)
+    {
+        if (FormattingHelper.TryParseMoedaOpcional(campo.Text, out var valor))
+            return valor;
+
+        throw new DomainException(
+            $"{rotulo}: '{campo.Text}' não é um número válido — use apenas dígitos e vírgula (ex.: 18 ou 18,5), sem o símbolo '%'.");
+    }
 
     private async void TxtNome_LostFocus(object sender, RoutedEventArgs e)
     {

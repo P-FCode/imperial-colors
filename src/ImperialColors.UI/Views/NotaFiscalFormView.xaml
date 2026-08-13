@@ -373,6 +373,8 @@
                                 <DataGridTextColumn Header="Código" Binding="{Binding CodigoProduto}" Width="90" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="NCM" Binding="{Binding Ncm}" Width="80" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="CFOP" Binding="{Binding Cfop}" Width="60" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="CST/CSOSN" Binding="{Binding CodigoIcms}" Width="80" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Alíq. ICMS" Binding="{Binding AliquotaIcms, StringFormat=N2}" Width="75" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Un." Binding="{Binding Unidade}" Width="45" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Qtd." Binding="{Binding Quantidade, StringFormat=N4}" Width="80" IsReadOnly="False"/>
                                 <DataGridTextColumn Header="Vlr. Unit." Binding="{Binding ValorUnitario, StringFormat=N2}" Width="90" IsReadOnly="False"/>

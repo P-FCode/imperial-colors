@@ -46,6 +46,9 @@ public class ConfiguracaoFiscalEmpresaDto
     public string? CstIcmsPadrao { get; set; }
     public string? CsosnIcmsPadrao { get; set; }
 
+    /// <summary>Alíquota que acompanha o CST padrão — exigida no XML pelos CST 00/20/51/90.</summary>
+    public decimal? AliquotaIcmsPadrao { get; set; }
+
     public decimal? AliquotaIbsUfPadrao { get; set; }
     public decimal? AliquotaIbsMunicipioPadrao { get; set; }
     public decimal? AliquotaCbsPadrao { get; set; }

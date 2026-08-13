@@ -114,25 +114,8 @@ public class NotaFiscalService : INotaFiscalService
         var produto = await _produtoRepository.ObterPorIdAsync(produtoId)
             ?? throw new DomainException($"Produto com Id {produtoId} não encontrado.");
 
-        var tributacao = await _tributacaoProdutoRepository.ObterPorProdutoIdAsync(produtoId, cancellationToken);
-        if (tributacao is null && produto.CategoriaId.HasValue)
-        {
-            var tributacaoCategoria = await _tributacaoCategoriaRepository.ObterPorCategoriaIdAsync(produto.CategoriaId.Value, cancellationToken);
-            if (tributacaoCategoria is not null)
-                tributacao = MapearTributacaoCategoriaComoProduto(tributacaoCategoria, produtoId);
-        }
-
         var empresa = await _configuracaoFiscal.ObterConfiguracaoEmpresaAsync(cancellationToken);
         var precoUnitario = ProdutoPrecoHelper.ObterPrecoEfetivo(produto.PrecoVenda, produto.PromocaoAtiva, produto.PrecoPromocional);
-
-        // Sem CST/CSOSN cadastrado no produto (nem herdado da categoria), cai no padrão
-        // "Regra Geral" da empresa — mesmo papel que empresa.CstIbsCbsPadrao já cumpre pra
-        // IBS/CBS. Sem isso, todo produto sem tributação bloqueava a emissão com "falta CST
-        // ou CSOSN do ICMS" (obrigatório em todo item da NF-e, sem exceção — não dá pra
-        // simplesmente pular essa validação). Só cai no padrão da empresa quando o produto
-        // não define NENHUM dos dois — nunca mistura CST do produto com CSOSN da empresa.
-        var temIcmsProduto = !string.IsNullOrWhiteSpace(tributacao?.CstIcms) || !string.IsNullOrWhiteSpace(tributacao?.CsosnIcms);
-        var cstIcmsResolvido = temIcmsProduto ? tributacao?.CstIcms : empresa.CstIcmsPadrao;
 
         var item = new ItemNotaFiscalDto
         {
@@ -143,50 +126,148 @@ public class NotaFiscalService : INotaFiscalService
             Unidade = produto.Unidade,
             Quantidade = quantidade,
             ValorUnitario = precoUnitario,
-            ValorTotal = Math.Round(quantidade * precoUnitario, 2, MidpointRounding.AwayFromZero),
-            Cfop = interestadual ? tributacao?.CfopForaEstado ?? string.Empty : tributacao?.CfopDentroEstado ?? string.Empty,
-            Ncm = tributacao?.Ncm,
-            Cest = tributacao?.Cest,
-            Origem = tributacao?.Origem is null ? "0" : ((int)tributacao.Origem).ToString(),
-            CstIcms = cstIcmsResolvido,
-            CsosnIcms = temIcmsProduto ? tributacao?.CsosnIcms : empresa.CsosnIcmsPadrao,
-            AliquotaIcms = tributacao?.AliquotaIcms,
-            // vBC é obrigatório no XML sempre que o CST exige o grupo ICMS00/20/51/90 (leiaute
-            // NFe) — independente de a alíquota estar cadastrada ou não. Antes isso dependia de
-            // AliquotaIcms.HasValue, então um produto com CST '00' sem alíquota cadastrada saía
-            // sem vBC/pICMS/vICMS no JSON, e a API/SEFAZ rejeitava por XSD_VALIDATION
-            // ("incomplete content... expected 'pICMS'"). NotaFiscalValidator.ValidarIcmsItem
-            // bloqueia a emissão nesse cenário (falta alíquota) antes de chegar aqui de novo.
-            BaseIcms = !string.IsNullOrWhiteSpace(cstIcmsResolvido) && CalculoFiscalHelper.CstIcmsTributacaoIntegral.Contains(cstIcmsResolvido)
-                ? Math.Round(quantidade * precoUnitario, 2, MidpointRounding.AwayFromZero)
-                : null,
-            CstPis = tributacao?.CstPis,
-            AliquotaPis = tributacao?.AliquotaPis,
-            CstCofins = tributacao?.CstCofins,
-            AliquotaCofins = tributacao?.AliquotaCofins,
-            CstIpi = tributacao?.CstIpi,
-            AliquotaIpi = tributacao?.AliquotaIpi,
-            CodigoEnquadramentoIpi = tributacao?.CodigoEnquadramentoIpi,
-            CstIbsCbs = tributacao?.CstIbsCbs ?? empresa.CstIbsCbsPadrao ?? "000",
-            CClassTrib = tributacao?.CClassTrib ?? empresa.CClassTribPadrao ?? "000001",
-            UnidadeTributavel = tributacao?.UnidadeTributavel
+            ValorTotal = Math.Round(quantidade * precoUnitario, 2, MidpointRounding.AwayFromZero)
         };
+
+        await AplicarTributacaoAtualAsync(item, produto.Id, produto.CategoriaId, interestadual, empresa, cancellationToken);
+
+        return item;
+    }
+
+    /// <summary>
+    /// Sincroniza CRT e a tributação de cada item de uma nota ainda editável (Rascunho/
+    /// Rejeitada) com o cadastro ATUAL do produto/categoria/Regra Geral da empresa e com o
+    /// regime tributário atual — sem isso, uma nota criada antes de uma correção no Estoque
+    /// ou em Configurações → Fiscal ficava com CST/CSOSN/alíquota/CRT congelados no momento
+    /// em que o item foi adicionado, e só se atualizava com um clique manual em "Atualizar"
+    /// por item (o CRT da nota nem tinha essa opção — nunca era refeito). Preserva
+    /// deliberadamente Descrição/Código/Quantidade/Valor: isso é dado comercial (preço
+    /// negociado na venda, por exemplo), não fiscal, e não deve mudar sozinho.
+    /// </summary>
+    public async Task<NotaFiscalDto> SincronizarTributacaoComCadastroAtualAsync(
+        NotaFiscalDto nota, CancellationToken cancellationToken = default)
+    {
+        var empresa = await _configuracaoFiscal.ObterConfiguracaoEmpresaAsync(cancellationToken);
+        return await SincronizarTributacaoComCadastroAtualAsync(nota, empresa, cancellationToken);
+    }
+
+    private async Task<NotaFiscalDto> SincronizarTributacaoComCadastroAtualAsync(
+        NotaFiscalDto nota, ConfiguracaoFiscalEmpresaDto empresa, CancellationToken cancellationToken)
+    {
+        nota.Crt = await _configuracaoFiscal.ObterCodigoCrtAsync(cancellationToken);
+
+        var interestadual = !string.IsNullOrWhiteSpace(nota.DestinatarioUf) &&
+            !string.Equals(nota.DestinatarioUf, empresa.Uf, StringComparison.OrdinalIgnoreCase);
+
+        foreach (var item in nota.Itens)
+        {
+            if (item.ProdutoId is not int produtoId)
+                continue; // item avulso (sem produto vinculado) não tem cadastro para sincronizar
+
+            var produto = await _produtoRepository.ObterPorIdAsync(produtoId);
+            if (produto is null)
+                continue; // produto foi excluído do estoque depois — mantém o dado congelado
+
+            await AplicarTributacaoAtualAsync(item, produtoId, produto.CategoriaId, interestadual, empresa, cancellationToken);
+        }
+
+        // Respeita o modo manual da tela (CalculoAutomatico=false): abrir um rascunho para
+        // edição não deve sobrescrever totais que o operador digitou à mão. A sincronização
+        // pré-emissão (EmitirAsync) força o recálculo por fora desta chamada — ali os totais
+        // têm que refletir os itens de qualquer forma, indo ou não para a API.
+        return RecalcularTotais(nota);
+    }
+
+    /// <summary>Resolve NCM/CFOP/CST-CSOSN/alíquotas/PIS/COFINS/IPI/IBS-CBS do cadastro ATUAL
+    /// do produto (com fallback de categoria, depois Regra Geral da empresa) e recalcula os
+    /// valores de imposto do item — usado tanto para montar um item novo (com o preço vindo
+    /// junto) quanto para sincronizar um item já existente na nota (preço preservado,
+    /// só a classificação fiscal e os impostos são recalculados).</summary>
+    private async Task AplicarTributacaoAtualAsync(
+        ItemNotaFiscalDto item, int produtoId, int? categoriaId, bool interestadual,
+        ConfiguracaoFiscalEmpresaDto empresa, CancellationToken cancellationToken)
+    {
+        var tributacao = await _tributacaoProdutoRepository.ObterPorProdutoIdAsync(produtoId, cancellationToken);
+        if (tributacao is null && categoriaId.HasValue)
+        {
+            var tributacaoCategoria = await _tributacaoCategoriaRepository.ObterPorCategoriaIdAsync(categoriaId.Value, cancellationToken);
+            if (tributacaoCategoria is not null)
+                tributacao = MapearTributacaoCategoriaComoProduto(tributacaoCategoria, produtoId);
+        }
+
+        // Sem CST/CSOSN cadastrado no produto (nem herdado da categoria), cai no padrão
+        // "Regra Geral" da empresa — mesmo papel que empresa.CstIbsCbsPadrao já cumpre pra
+        // IBS/CBS. Sem isso, todo produto sem tributação bloqueava a emissão com "falta CST
+        // ou CSOSN do ICMS" (obrigatório em todo item da NF-e, sem exceção — não dá pra
+        // simplesmente pular essa validação). Só cai no padrão da empresa quando o produto
+        // não define NENHUM dos dois — nunca mistura CST do produto com CSOSN da empresa.
+        var temIcmsProduto = !string.IsNullOrWhiteSpace(tributacao?.CstIcms) || !string.IsNullOrWhiteSpace(tributacao?.CsosnIcms);
+        var cstIcmsResolvido = temIcmsProduto ? tributacao?.CstIcms : empresa.CstIcmsPadrao;
+
+        // A alíquota segue o mesmo dono do CST: se o ICMS veio da Regra Geral da empresa, a
+        // alíquota também tem que vir de lá. Antes ela vinha SEMPRE do produto, então um
+        // produto sem tributação própria herdava o CST '00' da empresa e ficava eternamente
+        // sem pICMS — a emissão era bloqueada por "falta alíquota" e não havia onde
+        // cadastrá-la (o produto não tem o CST que justifica o campo).
+        var aliquotaIcmsResolvida = temIcmsProduto ? tributacao?.AliquotaIcms : empresa.AliquotaIcmsPadrao;
+
+        item.Cfop = interestadual ? tributacao?.CfopForaEstado ?? string.Empty : tributacao?.CfopDentroEstado ?? string.Empty;
+        item.Ncm = tributacao?.Ncm;
+        item.Cest = tributacao?.Cest;
+        item.Origem = tributacao?.Origem is null ? "0" : ((int)tributacao.Origem).ToString();
+        item.CstIcms = cstIcmsResolvido;
+        item.CsosnIcms = temIcmsProduto ? tributacao?.CsosnIcms : empresa.CsosnIcmsPadrao;
+        item.AliquotaIcms = aliquotaIcmsResolvida;
+        item.ReducaoBaseCalculo = tributacao?.ReducaoBaseCalculo;
+        item.CstPis = tributacao?.CstPis;
+        item.AliquotaPis = tributacao?.AliquotaPis;
+        item.CstCofins = tributacao?.CstCofins;
+        item.AliquotaCofins = tributacao?.AliquotaCofins;
+        item.CstIpi = tributacao?.CstIpi;
+        item.AliquotaIpi = tributacao?.AliquotaIpi;
+        item.CodigoEnquadramentoIpi = tributacao?.CodigoEnquadramentoIpi;
+        item.CstIbsCbs = tributacao?.CstIbsCbs ?? empresa.CstIbsCbsPadrao ?? "000";
+        item.CClassTrib = tributacao?.CClassTrib ?? empresa.CClassTribPadrao ?? "000001";
+        item.UnidadeTributavel = tributacao?.UnidadeTributavel;
 
         // Base ad-valorem do IPI = valor do item, mesma convenção já usada para ICMS/IBS/CBS
         // (BaseIcms/BaseIbsCbs) — este módulo não modela cenários de IPI por valor fixo
         // (Produto.ValorIpiFixo) nem por unidade (qUnid/vUnid), só o caso comum.
         item.BaseIpi = item.ValorTotal;
 
+        // Mva/AliquotaIcmsSt/AliquotaIcmsStRetido são copiados do cadastro ANTES do cálculo —
+        // são o insumo do ICMS-ST (para frente e retido), mesma convenção de ReducaoBaseCalculo.
+        item.Mva = tributacao?.Mva;
+        item.AliquotaIcmsSt = tributacao?.AliquotaIcmsSt;
+        item.AliquotaIcmsStRetido = tributacao?.AliquotaIcmsStRetido;
+
         var resultadoCalculo = CalculoFiscalHelper.CalcularItem(
-            produto.Id, produto.Nome, item.ValorTotal,
-            item.CstIcms, item.CsosnIcms, item.AliquotaIcms,
+            produtoId, item.Descricao, item.ValorTotal,
+            item.CstIcms, item.CsosnIcms, item.AliquotaIcms, item.ReducaoBaseCalculo,
+            item.Mva, item.AliquotaIcmsSt, item.AliquotaIcmsStRetido,
             item.CstPis, item.AliquotaPis,
             item.CstCofins, item.AliquotaCofins,
             item.CstIpi, item.AliquotaIpi,
             empresa.AliquotaIbsUfPadrao ?? 0m, empresa.AliquotaIbsMunicipioPadrao ?? 0m, empresa.AliquotaCbsPadrao ?? 0m);
 
+        // vBC do ICMS sai do próprio cálculo (já com pRedBC aplicado) e é preenchido sempre
+        // que o CST exige o grupo ICMS00/20/51/90 — mesmo sem alíquota cadastrada, caso em que
+        // NotaFiscalValidator bloqueia a emissão com mensagem específica em vez de deixar a
+        // SEFAZ rejeitar por XSD ("incomplete content... expected 'pICMS'").
+        item.BaseIcms = resultadoCalculo.VBcIcms;
         item.ValorIcms = resultadoCalculo.VIcms;
+        // ICMS-ST "para frente" (CST 10/CSOSN 201/202/203) e retido (CST 60/CSOSN 500) — antes
+        // nunca calculados; o item saía sem vBCST/vICMSST/vBCSTRet/vICMSSTRet e a SEFAZ
+        // rejeitava (regressão real: "Nao informada vBCSTRet, pST e vICMSSTRet").
+        item.BaseIcmsSt = resultadoCalculo.VBcIcmsSt;
+        item.ValorIcmsSt = resultadoCalculo.VIcmsSt;
+        item.BaseIcmsStRetido = resultadoCalculo.VBcIcmsStRetido;
+        item.ValorIcmsStRetido = resultadoCalculo.VIcmsStRetido;
+        // vBC de PIS/COFINS nunca era preenchido: o payload saía com pPIS/vPIS sem vBC e o
+        // grupo PISAliq/COFINSAliq era rejeitado por incompleto.
+        item.BasePis = resultadoCalculo.VBcPis;
         item.ValorPis = resultadoCalculo.VPis;
+        item.BaseCofins = resultadoCalculo.VBcCofins;
         item.ValorCofins = resultadoCalculo.VCofins;
         item.ValorIpi = resultadoCalculo.VIpi;
         item.BaseIbsCbs = item.ValorTotal;
@@ -197,8 +278,6 @@ public class NotaFiscalService : INotaFiscalService
         item.AliquotaCbs = empresa.AliquotaCbsPadrao;
         item.ValorCbs = resultadoCalculo.VCbs;
         item.Avisos = resultadoCalculo.Avisos;
-
-        return item;
     }
 
     public NotaFiscalDto RecalcularTotais(NotaFiscalDto nota)
@@ -206,11 +285,25 @@ public class NotaFiscalService : INotaFiscalService
         if (!nota.CalculoAutomatico)
             return nota;
 
+        return AplicarTotaisCalculados(nota);
+    }
+
+    /// <summary>Núcleo do cálculo de totais, sem o gate de <see cref="NotaFiscalDto.CalculoAutomatico"/>
+    /// — usado tanto por <see cref="RecalcularTotais"/> (que respeita o modo manual da tela)
+    /// quanto pela sincronização pré-emissão, onde os totais TÊM que refletir os itens
+    /// (o payload usa nota.VIcms/nota.VNf diretamente em vários campos, não só a soma dos
+    /// itens — ver NotaFiscalPayloadBuilder.ConstruirTotal), mesmo que o operador tenha
+    /// digitado os totais manualmente antes da tributação ser corrigida.</summary>
+    private static NotaFiscalDto AplicarTotaisCalculados(NotaFiscalDto nota)
+    {
         for (var i = 0; i < nota.Itens.Count; i++)
             nota.Itens[i].NItem = i + 1;
 
         nota.VProd = nota.Itens.Where(i => i.CompoeTotalNota).Sum(i => i.ValorTotal);
-        nota.VBcIcms = nota.Itens.Where(i => i.ValorIcms is > 0).Sum(i => i.BaseIcms ?? 0);
+        // Soma a base de TODO item que declara vBC no XML, não só dos que destacaram valor:
+        // um item com alíquota 0 (ou base reduzida a zero) manda vBC no grupo ICMS e ficava
+        // de fora do total, divergindo da soma dos itens que a SEFAZ confere.
+        nota.VBcIcms = nota.Itens.Sum(i => i.BaseIcms ?? 0);
         nota.VIcms = nota.Itens.Sum(i => i.ValorIcms ?? 0);
         nota.VBcIcmsSt = nota.Itens.Sum(i => i.BaseIcmsSt ?? 0);
         nota.VIcmsSt = nota.Itens.Sum(i => i.ValorIcmsSt ?? 0);
@@ -337,6 +430,27 @@ public class NotaFiscalService : INotaFiscalService
         var empresa = await _configuracaoFiscal.ObterConfiguracaoEmpresaAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(empresa.ApiKeyFiscal))
             throw new DomainException("Cadastre a API Key da API Fiscal em Configurações → Fiscal antes de emitir.");
+
+        // Sincroniza CRT + tributação de cada item com o cadastro ATUAL antes de validar/
+        // emitir — uma nota Rascunho/Rejeitada pode ter sido criada antes de uma correção no
+        // produto, na Regra Geral fiscal ou no regime tributário, e sem isso o operador tinha
+        // que lembrar de clicar "Atualizar" em cada item manualmente (e o CRT da nota nem
+        // tinha essa opção — ficava congelado desde a criação do rascunho). Só se aplica a
+        // notas ainda editáveis: uma Indeterminada pode já ter sido aceita do lado da SEFAZ,
+        // reescrever os itens dela antes de reenviar arriscaria divergir do que já foi
+        // processado — o operador deve consultar status antes.
+        if (entidade.Status is StatusNotaFiscal.Rascunho or StatusNotaFiscal.Rejeitada)
+        {
+            var dtoParaSincronizar = await MapearParaDtoAsync(entidade);
+            var dtoSincronizado = await SincronizarTributacaoComCadastroAtualAsync(dtoParaSincronizar, empresa, cancellationToken);
+            // Força os totais a refletirem os itens recém-sincronizados mesmo se a nota está
+            // em modo manual (CalculoAutomatico=false) — o payload usa nota.VIcms/nota.VNf
+            // diretamente, então eles não podem ficar defasados em relação aos itens no
+            // momento da emissão, independente do que o operador digitou enquanto rascunhava.
+            dtoSincronizado = AplicarTotaisCalculados(dtoSincronizado);
+            entidade = MapearParaEntidade(dtoSincronizado, entidade);
+            await _notaFiscalRepository.AtualizarAsync(entidade, substituirItens: true, cancellationToken: cancellationToken);
+        }
 
         var dtoValidacao = await MapearParaDtoAsync(entidade);
         NotaFiscalValidator.ValidarParaEmissao(dtoValidacao, empresa.Uf ?? string.Empty, empresa.ValidarNcmEmNotas);
@@ -607,6 +721,13 @@ public class NotaFiscalService : INotaFiscalService
         CstIcms = c.CstIcms,
         CsosnIcms = c.CsosnIcms,
         AliquotaIcms = c.AliquotaIcms,
+        ReducaoBaseCalculo = c.ReducaoBaseCalculo,
+        // Regressão: Mva/AliquotaIcmsSt/AliquotaIcmsStRetido nunca eram copiados aqui — um
+        // produto sem tributação própria que herdava CST 10/60 (ou CSOSN 201/202/203/500) da
+        // categoria ficava sem os campos de ST mesmo que a CATEGORIA os tivesse cadastrados.
+        AliquotaIcmsSt = c.AliquotaIcmsSt,
+        Mva = c.Mva,
+        AliquotaIcmsStRetido = c.AliquotaIcmsStRetido,
         CstPis = c.CstPis,
         AliquotaPis = c.AliquotaPis,
         CstCofins = c.CstCofins,
@@ -737,11 +858,16 @@ public class NotaFiscalService : INotaFiscalService
         CstIcms = dto.CstIcms,
         CsosnIcms = dto.CsosnIcms,
         BaseIcms = dto.BaseIcms,
+        ReducaoBaseCalculo = dto.ReducaoBaseCalculo,
         AliquotaIcms = dto.AliquotaIcms,
         ValorIcms = dto.ValorIcms,
+        Mva = dto.Mva,
         BaseIcmsSt = dto.BaseIcmsSt,
         AliquotaIcmsSt = dto.AliquotaIcmsSt,
         ValorIcmsSt = dto.ValorIcmsSt,
+        BaseIcmsStRetido = dto.BaseIcmsStRetido,
+        AliquotaIcmsStRetido = dto.AliquotaIcmsStRetido,
+        ValorIcmsStRetido = dto.ValorIcmsStRetido,
         CstPis = dto.CstPis,
         BasePis = dto.BasePis,
         AliquotaPis = dto.AliquotaPis,
@@ -905,11 +1031,16 @@ public class NotaFiscalService : INotaFiscalService
                 CstIcms = i.CstIcms,
                 CsosnIcms = i.CsosnIcms,
                 BaseIcms = i.BaseIcms,
+                ReducaoBaseCalculo = i.ReducaoBaseCalculo,
                 AliquotaIcms = i.AliquotaIcms,
                 ValorIcms = i.ValorIcms,
+                Mva = i.Mva,
                 BaseIcmsSt = i.BaseIcmsSt,
                 AliquotaIcmsSt = i.AliquotaIcmsSt,
                 ValorIcmsSt = i.ValorIcmsSt,
+                BaseIcmsStRetido = i.BaseIcmsStRetido,
+                AliquotaIcmsStRetido = i.AliquotaIcmsStRetido,
+                ValorIcmsStRetido = i.ValorIcmsStRetido,
                 CstPis = i.CstPis,
                 BasePis = i.BasePis,
                 AliquotaPis = i.AliquotaPis,

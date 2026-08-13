@@ -63,11 +63,36 @@ public class NotaFiscalValidatorTests
         Assert.Contains("NCM", ex.Message);
     }
 
+    /// <summary>
+    /// NCM é obrigatório no leiaute em qualquer cenário — a opção "Validar NCM em notas"
+    /// controla a conferência do FORMATO, não a existência do campo. Com ela desligada o
+    /// item seguia sem NCM e o XML saía com a tag vazia, rejeitado pelo XSD.
+    /// </summary>
     [Fact]
-    public void ValidarParaEmissao_ItemSemNcmComValidarNcmDesligado_NaoLancaExcecao()
+    public void ValidarParaEmissao_ItemSemNcm_LancaDomainExceptionMesmoComValidacaoDesligada()
     {
         var nota = NotaValida();
         nota.Itens[0].Ncm = null;
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: false));
+        Assert.Contains("NCM", ex.Message);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_NcmComFormatoInvalidoEValidacaoLigada_LancaDomainException()
+    {
+        var nota = NotaValida();
+        nota.Itens[0].Ncm = "3209"; // 4 dígitos — o leiaute exige 8
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Contains("8 dígitos", ex.Message);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_NcmComFormatoInvalidoEValidacaoDesligada_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.Itens[0].Ncm = "3209";
 
         var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: false));
         Assert.Null(ex);
@@ -147,7 +172,7 @@ public class NotaFiscalValidatorTests
         nota.Itens[0].AliquotaIcms = null;
 
         var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
-        Assert.Contains("alíquota cadastrada", ex.Message);
+        Assert.Contains("exige alíquota", ex.Message);
     }
 
     [Fact]
@@ -162,18 +187,129 @@ public class NotaFiscalValidatorTests
         Assert.Null(ex);
     }
 
+    // ===== CRT × CST/CSOSN — o par errado é rejeitado pela SEFAZ (ela espera o grupo
+    // ICMSSN quando o CRT é do Simples) e acontecia sozinho quando a Regra Geral da
+    // empresa tinha CST cadastrado com a empresa no Simples Nacional. =====
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("4")]
+    public void ValidarParaEmissao_CrtDoSimplesComCstNoItem_LancaDomainException(string crt)
+    {
+        var nota = NotaValida();
+        nota.Crt = crt;
+        nota.Itens[0].CsosnIcms = null;
+        nota.Itens[0].CstIcms = "00";
+        nota.Itens[0].AliquotaIcms = 18m;
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Contains("CSOSN", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("2")]
+    [InlineData("3")]
+    public void ValidarParaEmissao_CrtDoRegimeNormalComCsosnNoItem_LancaDomainException(string crt)
+    {
+        var nota = NotaValida(); // ItemValido() usa CSOSN 102
+        nota.Crt = crt;
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Contains("CST", ex.Message);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_CrtDoSimplesComCsosnNoItem_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.Crt = "1";
+
+        var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Null(ex);
+    }
+
+    // ===== ICMS-ST: bloqueia só quando FALTA o cadastro necessário, não o código em si
+    // (desde que CalculoFiscalHelper passou a calcular ST de verdade — CST 10/CSOSN
+    // 201/202/203 via MVA, CST 60/CSOSN 500 via pST informado). =====
+
     [Theory]
     [InlineData("10")]
     [InlineData("60")]
-    public void ValidarParaEmissao_CstSubstituicaoTributaria_LancaDomainException(string cst)
+    public void ValidarParaEmissao_CstStSemCadastroNecessario_LancaDomainException(string cst)
     {
         var nota = NotaValida();
         nota.Itens[0].CsosnIcms = null;
         nota.Itens[0].CstIcms = cst;
-        nota.Itens[0].AliquotaIcms = 18m; // mesmo com alíquota, ST não é calculada — deve bloquear
+        nota.Itens[0].AliquotaIcms = 18m; // alíquota própria presente, mas falta MVA/AliquotaIcmsSt (10) ou pST (60)
 
         var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
         Assert.Contains("Substituição Tributária", ex.Message);
+    }
+
+    /// <summary>Regressão: nota rejeitada pela SEFAZ ("Nao informada vBCSTRet, pST e
+    /// vICMSSTRet") porque um item com CSOSN 500 passava pela validação sem bloqueio — só o
+    /// CST 10/60 (mesma limitação, lado Regime Normal) era bloqueado.</summary>
+    [Theory]
+    [InlineData("201")]
+    [InlineData("202")]
+    [InlineData("203")]
+    [InlineData("500")]
+    public void ValidarParaEmissao_CsosnStSemCadastroNecessario_LancaDomainException(string csosn)
+    {
+        var nota = NotaValida();
+        nota.Itens[0].CsosnIcms = csosn;
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Contains("Substituição Tributária", ex.Message);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_Cst10ComMvaEAliquotaSt_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.Itens[0].CsosnIcms = null;
+        nota.Itens[0].CstIcms = "10";
+        nota.Itens[0].AliquotaIcms = 18m;
+        nota.Itens[0].Mva = 40m;
+        nota.Itens[0].AliquotaIcmsSt = 18m;
+
+        var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_Cst60ComAliquotaStRetido_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.Itens[0].CsosnIcms = null;
+        nota.Itens[0].CstIcms = "60";
+        nota.Itens[0].AliquotaIcmsStRetido = 12m;
+
+        var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_Csosn201ComMvaEAliquotaSt_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.Itens[0].CsosnIcms = "201";
+        nota.Itens[0].Mva = 40m;
+        nota.Itens[0].AliquotaIcmsSt = 18m;
+
+        var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_Csosn500ComAliquotaStRetido_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.Itens[0].CsosnIcms = "500";
+        nota.Itens[0].AliquotaIcmsStRetido = 12m;
+
+        var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Null(ex);
     }
 
     [Fact]

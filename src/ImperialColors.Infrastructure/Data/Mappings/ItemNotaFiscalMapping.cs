@@ -35,11 +35,16 @@ public class ItemNotaFiscalMapping : IEntityTypeConfiguration<ItemNotaFiscal>
         builder.Property(i => i.CstIcms).HasColumnName("cst_icms").HasMaxLength(2);
         builder.Property(i => i.CsosnIcms).HasColumnName("csosn_icms").HasMaxLength(3);
         builder.Property(i => i.BaseIcms).HasColumnName("base_icms").HasPrecision(12, 2);
+        builder.Property(i => i.ReducaoBaseCalculo).HasColumnName("reducao_base_calculo").HasPrecision(5, 2);
         builder.Property(i => i.AliquotaIcms).HasColumnName("aliquota_icms").HasPrecision(6, 4);
         builder.Property(i => i.ValorIcms).HasColumnName("valor_icms").HasPrecision(12, 2);
+        builder.Property(i => i.Mva).HasColumnName("mva").HasPrecision(7, 4);
         builder.Property(i => i.BaseIcmsSt).HasColumnName("base_icms_st").HasPrecision(12, 2);
         builder.Property(i => i.AliquotaIcmsSt).HasColumnName("aliquota_icms_st").HasPrecision(6, 4);
         builder.Property(i => i.ValorIcmsSt).HasColumnName("valor_icms_st").HasPrecision(12, 2);
+        builder.Property(i => i.BaseIcmsStRetido).HasColumnName("base_icms_st_retido").HasPrecision(12, 2);
+        builder.Property(i => i.AliquotaIcmsStRetido).HasColumnName("aliquota_icms_st_retido").HasPrecision(6, 4);
+        builder.Property(i => i.ValorIcmsStRetido).HasColumnName("valor_icms_st_retido").HasPrecision(12, 2);
 
         builder.Property(i => i.CstPis).HasColumnName("cst_pis").HasMaxLength(2);
         builder.Property(i => i.BasePis).HasColumnName("base_pis").HasPrecision(12, 2);

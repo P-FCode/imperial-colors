@@ -104,6 +104,15 @@ public partial class NotaFiscalFormView : Window
             {
                 _nota = await _notaFiscalService.ObterPorIdAsync(_notaFiscalId.Value)
                     ?? throw new DomainException("Nota fiscal não encontrada.");
+
+                // O rascunho pode ter sido criado antes de uma correção na tributação do
+                // produto, na Regra Geral fiscal da empresa ou no regime tributário — sincroniza
+                // itens e CRT com o cadastro ATUAL antes de exibir, para o operador não precisar
+                // clicar "Atualizar" item por item só porque corrigiu algo em Estoque ou
+                // Configurações → Fiscal. Só se aplica a notas ainda editáveis (Autorizada/
+                // Cancelada/Indeterminada são documento fiscal ou já em trânsito com a SEFAZ).
+                if (_nota.Status is StatusNotaFiscal.Rascunho or StatusNotaFiscal.Rejeitada)
+                    _nota = await _notaFiscalService.SincronizarTributacaoComCadastroAtualAsync(_nota);
             }
             else
             {
@@ -190,6 +199,7 @@ public partial class NotaFiscalFormView : Window
 
         _itens.Clear();
         foreach (var item in n.Itens) _itens.Add(item);
+        TxtAvisosItens.Text = string.Join(" | ", _itens.SelectMany(i => i.Avisos).Distinct());
 
         _pagamentos.Clear();
         foreach (var pagamento in n.Pagamentos) _pagamentos.Add(new PagamentoUi(pagamento));

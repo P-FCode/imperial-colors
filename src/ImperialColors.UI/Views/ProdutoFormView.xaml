@@ -282,8 +282,30 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Style="{StaticResource LabelCampo}" Text="NCM *"
-                                               ToolTip="Obrigatório em toda NF-e/NFC-e, sem exceção."/>
-                                    <TextBox x:Name="TxtNcm" Style="{StaticResource TextBoxModerno}" MaxLength="8"/>
+                                               ToolTip="Obrigatório em toda NF-e/NFC-e, sem exceção. Digite o código ou uma palavra-chave (ex.: 'tinta') para ver sugestões da Tabela NCM oficial."/>
+                                    <TextBox x:Name="TxtNcm" Style="{StaticResource TextBoxModerno}"
+                                             TextChanged="TxtNcm_TextChanged"/>
+                                    <Popup x:Name="PopupSugestoesNcm" PlacementTarget="{Binding ElementName=TxtNcm}"
+                                           Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="380">
+                                        <Border Background="White" BorderBrush="{StaticResource CinzaMedioBrush}"
+                                                BorderThickness="1" CornerRadius="4">
+                                            <Border.Effect>
+                                                <DropShadowEffect ShadowDepth="1" BlurRadius="8" Opacity="0.15" Color="#000000"/>
+                                            </Border.Effect>
+                                            <ListBox x:Name="LstSugestoesNcm" MaxHeight="220" BorderThickness="0"
+                                                     SelectionChanged="LstSugestoesNcm_SelectionChanged">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="10,6">
+                                                            <TextBlock Text="{Binding Codigo}" FontWeight="SemiBold" FontSize="12"/>
+                                                            <TextBlock Text="{Binding Descricao}" FontSize="11" TextWrapping="Wrap"
+                                                                       Foreground="{StaticResource CinzaTextoBrush}"/>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </Border>
+                                    </Popup>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Style="{StaticResource LabelCampo}" Text="CEST"
@@ -379,6 +401,19 @@
                                     <TextBlock Style="{StaticResource LabelCampo}" Text="Redução Base de Cálculo (%)"
                                                ToolTip="Só quando houver benefício fiscal de redução de base de cálculo."/>
                                     <TextBox x:Name="TxtReducaoBaseCalculo" Style="{StaticResource TextBoxNumerico}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="15"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Style="{StaticResource LabelCampo}" Text="Alíquota ICMS-ST Retido — pST (%)"
+                                               ToolTip="Só para CST 60 / CSOSN 500 (ICMS-ST já cobrado por um elo anterior da cadeia — fabricante/distribuidor). Percentual informado na nota de compra ou em tabela do fisco estadual, não calculado por fórmula."/>
+                                    <TextBox x:Name="TxtAliquotaIcmsStRetido" Style="{StaticResource TextBoxNumerico}"/>
                                 </StackPanel>
                             </Grid>
 

@@ -46,6 +46,7 @@ public class ConfiguracaoFiscalEmpresaMapping : IEntityTypeConfiguration<Configu
 
         builder.Property(c => c.CstIcmsPadrao).HasColumnName("cst_icms_padrao").HasMaxLength(2);
         builder.Property(c => c.CsosnIcmsPadrao).HasColumnName("csosn_icms_padrao").HasMaxLength(3);
+        builder.Property(c => c.AliquotaIcmsPadrao).HasColumnName("aliquota_icms_padrao").HasPrecision(5, 2);
 
         builder.Property(c => c.AliquotaIbsUfPadrao).HasColumnName("aliquota_ibs_uf_padrao").HasPrecision(6, 4);
         builder.Property(c => c.AliquotaIbsMunicipioPadrao).HasColumnName("aliquota_ibs_municipio_padrao").HasPrecision(6, 4);

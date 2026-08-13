@@ -27,6 +27,10 @@ public class TributacaoCategoria
     public decimal? Mva { get; set; }
     public decimal? ReducaoBaseCalculo { get; set; }
 
+    /// <summary>Percentual do ICMS-ST retido (<c>pST</c>) — ver observações em
+    /// <see cref="TributacaoProduto.AliquotaIcmsStRetido"/>.</summary>
+    public decimal? AliquotaIcmsStRetido { get; set; }
+
     public string? CstPis { get; set; }
     public decimal? AliquotaPis { get; set; }
 

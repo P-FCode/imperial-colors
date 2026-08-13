@@ -87,6 +87,13 @@ public class ConfiguracaoFiscalEmpresa
     public string? CstIcmsPadrao { get; set; }
     public string? CsosnIcmsPadrao { get; set; }
 
+    /// <summary>Alíquota de ICMS que acompanha <see cref="CstIcmsPadrao"/>. Os CST de
+    /// tributação integral (00/20/51/90) exigem <c>pICMS</c> no XML, e a alíquota do produto
+    /// não existe justamente nos casos em que este fallback é usado (produto sem tributação
+    /// própria) — sem este campo o padrão de CST vira um beco sem saída: a nota é bloqueada
+    /// por "falta alíquota" e não há onde cadastrá-la.</summary>
+    public decimal? AliquotaIcmsPadrao { get; set; }
+
     // --- Reforma Tributária — alíquotas padrão do ano-piloto (2026) ---
     // Fixas e nacionais neste ano (0,1% IBS + 0,9% CBS, todo IBS alocado à UF por
     // padrão) — não variam por produto, por isso vivem aqui e não em TributacaoProduto.

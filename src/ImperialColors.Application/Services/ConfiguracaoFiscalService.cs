@@ -4,6 +4,7 @@ using ImperialColors.Application.Validation;
 using ImperialColors.Domain.Constants;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
 
 namespace ImperialColors.Application.Services;
@@ -33,6 +34,13 @@ public class ConfiguracaoFiscalService : IConfiguracaoFiscalService
         return Enum.TryParse<RegimeTributario>(texto, out var regime) ? regime : RegimePadrao;
     }
 
+    /// <summary>
+    /// Troca o regime tributário. A coerência da Regra Geral de ICMS (CST × CSOSN) com o
+    /// regime é conferida em <see cref="SalvarConfiguracaoEmpresaAsync"/>, que roda logo
+    /// depois desta chamada na tela de configuração e já valida o cadastro NOVO — validar a
+    /// configuração antiga aqui bloquearia justamente quem está corrigindo regime e Regra
+    /// Geral de uma vez só.
+    /// </summary>
     public Task DefinirRegimeAsync(RegimeTributario regime, CancellationToken cancellationToken = default)
         => _parametroRepository.SalvarTextoAsync(
             ParametroSistemaChaves.RegimeTributarioEmpresa, regime.ToString(), cancellationToken);
@@ -63,7 +71,8 @@ public class ConfiguracaoFiscalService : IConfiguracaoFiscalService
     public async Task<ConfiguracaoFiscalEmpresaDto> SalvarConfiguracaoEmpresaAsync(
         ConfiguracaoFiscalEmpresaDto dto, CancellationToken cancellationToken = default)
     {
-        ConfiguracaoFiscalEmpresaValidator.Validar(dto);
+        var regime = await ObterRegimeAsync(cancellationToken);
+        ConfiguracaoFiscalEmpresaValidator.Validar(dto, regime);
 
         var entidade = new ConfiguracaoFiscalEmpresa
         {
@@ -93,6 +102,7 @@ public class ConfiguracaoFiscalService : IConfiguracaoFiscalService
             SimplesExcessoSublimite = dto.SimplesExcessoSublimite,
             CstIcmsPadrao = NormalizarDigitos(dto.CstIcmsPadrao),
             CsosnIcmsPadrao = NormalizarDigitos(dto.CsosnIcmsPadrao),
+            AliquotaIcmsPadrao = dto.AliquotaIcmsPadrao,
             AliquotaIbsUfPadrao = dto.AliquotaIbsUfPadrao,
             AliquotaIbsMunicipioPadrao = dto.AliquotaIbsMunicipioPadrao,
             AliquotaCbsPadrao = dto.AliquotaCbsPadrao,
@@ -153,6 +163,7 @@ public class ConfiguracaoFiscalService : IConfiguracaoFiscalService
         SimplesExcessoSublimite = c.SimplesExcessoSublimite,
         CstIcmsPadrao = c.CstIcmsPadrao,
         CsosnIcmsPadrao = c.CsosnIcmsPadrao,
+        AliquotaIcmsPadrao = c.AliquotaIcmsPadrao,
         AliquotaIbsUfPadrao = c.AliquotaIbsUfPadrao,
         AliquotaIbsMunicipioPadrao = c.AliquotaIbsMunicipioPadrao,
         AliquotaCbsPadrao = c.AliquotaCbsPadrao,

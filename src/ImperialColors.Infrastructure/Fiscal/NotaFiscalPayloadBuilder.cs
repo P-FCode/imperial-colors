@@ -328,8 +328,23 @@ internal static class NotaFiscalPayloadBuilder
         };
     }
 
+    /// <summary>CST cujo grupo no leiaute exige <c>modBC</c>/<c>vBC</c>/<c>pICMS</c>/
+    /// <c>vICMS</c> — CST 00/20/51/90 (tributação integral) mais o CST 10 (Substituição
+    /// Tributária "para frente", que tem grupo próprio ADEMAIS do grupo ST — ver seção 4.7
+    /// do guia: "10 | ... | Grupo 00 + modBCST/pMVAST/vBCST/pICMSST/vICMSST"). Espelha
+    /// <c>CalculoFiscalHelper.CstIcmsTributacaoIntegral</c>/<c>CstIcmsStParaFrente</c> (que
+    /// são internal da camada Application, daí a cópia, mesma abordagem já usada em
+    /// <see cref="CstIpiNaoTributado"/>).</summary>
+    private static readonly HashSet<string> CstIcmsComDestaque = ["00", "20", "51", "90", "10"];
+
+    /// <summary>CST que reduzem base e por isso exigem <c>pRedBC</c> no grupo, mesmo que o
+    /// percentual seja zero — omitir derruba a nota por XSD incompleto.</summary>
+    private static readonly HashSet<string> CstIcmsExigeRedBC = ["20", "70"];
+
     private static IcmsDetailsContract ConstruirIcms(ItemNotaFiscal item)
     {
+        var cst = item.CstIcms ?? string.Empty;
+
         var details = new IcmsDetailsContract
         {
             Orig = item.Origem ?? "0",
@@ -337,20 +352,42 @@ internal static class NotaFiscalPayloadBuilder
             CSOSN = string.IsNullOrWhiteSpace(item.CsosnIcms) ? null : item.CsosnIcms
         };
 
-        if (item.BaseIcms is > 0)
+        // A condição é o CST, não o valor da base: um item de valor zero (brinde, bonificação)
+        // com CST 00 saía sem vBC/pICMS/vICMS e era rejeitado por grupo ICMS00 incompleto —
+        // o `BaseIcms is > 0` continua no OU só para não perder itens legados que trazem base
+        // com um CST fora da lista.
+        if (CstIcmsComDestaque.Contains(cst) || item.BaseIcms is > 0)
         {
             details.ModBC = "3";
             details.VBC = ArredondarValor(item.BaseIcms);
             details.PICMS = ArredondarPercentual(item.AliquotaIcms);
             details.VICMS = ArredondarValor(item.ValorIcms);
+
+            if (CstIcmsExigeRedBC.Contains(cst) || item.ReducaoBaseCalculo is > 0)
+                details.PRedBC = ArredondarPercentual(item.ReducaoBaseCalculo);
         }
 
+        // ICMS-ST "para frente" (CST 10 / CSOSN 201/202/203) — grupo vBCST/pMVAST/pICMSST/
+        // vICMSST. BaseIcmsSt só sai preenchido pelo CalculoFiscalHelper quando MVA e
+        // AliquotaIcmsSt estão cadastrados (NotaFiscalValidator bloqueia a emissão antes
+        // disso, então na prática todo item que chega aqui com esse CST/CSOSN tem os dados).
         if (item.BaseIcmsSt is > 0)
         {
             details.ModBCST = "4";
+            details.PMVAST = ArredondarPercentualOpcional(item.Mva);
             details.VBCST = ArredondarValor(item.BaseIcmsSt);
             details.PICMSST = ArredondarPercentual(item.AliquotaIcmsSt);
             details.VICMSST = ArredondarValor(item.ValorIcmsSt);
+        }
+
+        // ICMS-ST retido anteriormente (CST 60 / CSOSN 500) — grupo vBCSTRet/pST/vICMSSTRet,
+        // DISTINTO do grupo "para frente" acima (schema TICMS60/TICMSSN500, não TICMS10).
+        // Regressão real corrigida aqui: "Nao informada vBCSTRet, pST e vICMSSTRet".
+        if (item.BaseIcmsStRetido is > 0)
+        {
+            details.VBCSTRet = ArredondarValor(item.BaseIcmsStRetido);
+            details.PST = ArredondarPercentual(item.AliquotaIcmsStRetido);
+            details.VICMSSTRet = ArredondarValor(item.ValorIcmsStRetido);
         }
 
         return details;
@@ -378,13 +415,21 @@ internal static class NotaFiscalPayloadBuilder
         // entrava na soma, divergindo da semântica documentada do campo.
         var itensQueCompoem = det.Where(d => d.Prod.IndTot == "1").ToList();
         var vProdSoma = itensQueCompoem.Sum(d => d.Prod.VProd);
-        var vNfSoma = itensQueCompoem.Sum(d => d.Prod.VProd - (d.Prod.VDesc ?? 0) + (d.Prod.VFrete ?? 0) + (d.Prod.VSeg ?? 0) + (d.Prod.VOutro ?? 0));
         var vIbsSoma = det.Sum(d => d.Imposto.IBSCBS.TribDetails.VIBS);
         var vCbsSoma = det.Sum(d => d.Imposto.IBSCBS.TribDetails.GCBS.VCBS);
         // Somado a partir do grupo IPI de cada item (fonte real, igual vProd/vNF/vIBS/vCBS
         // acima) em vez de nota.VIpi — o vOutro que carregava esse valor pro item 1 não
         // existe mais (ConstruirItem monta o grupo IPI próprio agora).
         var vIpiSoma = det.Sum(d => d.Imposto.IPI?.IPIDetails.VIPI ?? 0);
+
+        // vNF = Σ(vProd − vDesc + vFrete + vSeg + vOutro) + vIPI. O vIPI entra por FORA da soma
+        // por item porque não existe campo de IPI em det[].prod — quando o IPI deixou o vOutro
+        // do item 1 e passou a ter grupo próprio, ele sumiu do total: o vNF transmitido ficava
+        // menor que a soma dos pagamentos (pag.vPag, que sempre incluiu o IPI via nota.VNf) e a
+        // nota era rejeitada por total divergente. Bate com a fórmula oficial da seção 4.8 do
+        // guia e com NotaFiscalService.RecalcularTotais.
+        var vNfSoma = itensQueCompoem.Sum(d => d.Prod.VProd - (d.Prod.VDesc ?? 0) + (d.Prod.VFrete ?? 0) + (d.Prod.VSeg ?? 0) + (d.Prod.VOutro ?? 0))
+            + vIpiSoma;
 
         return new TotalContract
         {

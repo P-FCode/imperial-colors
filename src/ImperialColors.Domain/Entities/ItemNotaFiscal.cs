@@ -34,11 +34,30 @@ public class ItemNotaFiscal : BaseEntity
     public string? CstIcms { get; set; }
     public string? CsosnIcms { get; set; }
     public decimal? BaseIcms { get; set; }
+
+    /// <summary>Percentual de redução da base de cálculo (<c>pRedBC</c>) copiado do cadastro
+    /// do produto/categoria. Obrigatório no XML para os CST que reduzem base (20/70) — sem
+    /// ele o grupo ICMS20 sai incompleto e a SEFAZ rejeita. <see cref="BaseIcms"/> já é
+    /// gravada COM a redução aplicada; este campo é o percentual declarado.</summary>
+    public decimal? ReducaoBaseCalculo { get; set; }
     public decimal? AliquotaIcms { get; set; }
     public decimal? ValorIcms { get; set; }
+    /// <summary>MVA/IVA-ST (<c>pMVAST</c>) usado no cálculo do ICMS-ST "para frente" (CST 10 /
+    /// CSOSN 201/202/203) — copiado do cadastro do produto/categoria no momento da montagem
+    /// do item, mesma convenção de <see cref="ReducaoBaseCalculo"/>.</summary>
+    public decimal? Mva { get; set; }
     public decimal? BaseIcmsSt { get; set; }
     public decimal? AliquotaIcmsSt { get; set; }
     public decimal? ValorIcmsSt { get; set; }
+
+    /// <summary>ICMS-ST retido anteriormente (CST 60 / CSOSN 500) — grupo <c>vBCSTRet</c>/
+    /// <c>pST</c>/<c>vICMSSTRet</c>, distinto do grupo "para frente" acima (BaseIcmsSt/
+    /// AliquotaIcmsSt/ValorIcmsSt): aqui o produto já teve o ICMS-ST recolhido por um elo
+    /// anterior da cadeia (fabricante/distribuidor), e este item só DECLARA o valor retido —
+    /// não há cálculo de tributo novo, é informação para a SEFAZ auditar a cadeia.</summary>
+    public decimal? BaseIcmsStRetido { get; set; }
+    public decimal? AliquotaIcmsStRetido { get; set; }
+    public decimal? ValorIcmsStRetido { get; set; }
 
     // --- PIS / COFINS ---
     public string? CstPis { get; set; }

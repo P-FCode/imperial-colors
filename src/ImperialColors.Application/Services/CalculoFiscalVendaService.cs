@@ -65,6 +65,10 @@ public class CalculoFiscalVendaService : ICalculoFiscalVendaService
                 tributacao.CstIcms,
                 tributacao.CsosnIcms,
                 tributacao.AliquotaIcms,
+                tributacao.ReducaoBaseCalculo,
+                tributacao.Mva,
+                tributacao.AliquotaIcmsSt,
+                tributacao.AliquotaIcmsStRetido,
                 tributacao.CstPis,
                 tributacao.AliquotaPis,
                 tributacao.CstCofins,
@@ -78,14 +82,20 @@ public class CalculoFiscalVendaService : ICalculoFiscalVendaService
             totais.Itens.Add(resultadoItem);
             totais.Avisos.AddRange(resultadoItem.Avisos);
 
-            // Base do ICMS/PIS/COFINS só soma quando o item efetivamente destacou valor
-            // (mantém vBC coerente com vICMS/vPIS/vCOFINS, igual o MathematicalValidator
-            // da API de emissão exige).
-            if (resultadoItem.VIcms > 0) totais.VBcIcms += item.Subtotal;
-            if (resultadoItem.VPis > 0) totais.VBcPis += item.Subtotal;
-            if (resultadoItem.VCofins > 0) totais.VBcCofins += item.Subtotal;
+            // As bases vêm do próprio cálculo do item (já com redução de base aplicada no
+            // ICMS), não do subtotal cru: um item com base reduzida ou com alíquota zero
+            // declara vBC no XML, e somar o subtotal cheio — ou não somar nada quando o
+            // valor deu zero — deixava o total divergente da soma dos itens.
+            totais.VBcIcms += resultadoItem.VBcIcms ?? 0m;
+            totais.VBcPis += resultadoItem.VBcPis ?? 0m;
+            totais.VBcCofins += resultadoItem.VBcCofins ?? 0m;
+
+            totais.VBcIcmsSt += resultadoItem.VBcIcmsSt ?? 0m;
+            totais.VBcIcmsStRetido += resultadoItem.VBcIcmsStRetido ?? 0m;
 
             totais.VIcms += resultadoItem.VIcms;
+            totais.VIcmsSt += resultadoItem.VIcmsSt;
+            totais.VIcmsStRetido += resultadoItem.VIcmsStRetido;
             totais.VPis += resultadoItem.VPis;
             totais.VCofins += resultadoItem.VCofins;
             totais.VBcIbsCbs += item.Subtotal;

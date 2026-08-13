@@ -21,6 +21,17 @@ public class TotaisFiscaisVendaDto
     public decimal VDesc { get; set; }
     public decimal VBcIcms { get; set; }
     public decimal VIcms { get; set; }
+
+    /// <summary>ICMS-ST "para frente" (CST 10 / CSOSN 201/202/203).</summary>
+    public decimal VBcIcmsSt { get; set; }
+    public decimal VIcmsSt { get; set; }
+
+    /// <summary>ICMS-ST retido anteriormente (CST 60 / CSOSN 500) — informativo, não entra
+    /// no vNF nem em nenhum total oficial do XML (o leiaute não tem um totalizador próprio
+    /// para vICMSSTRet).</summary>
+    public decimal VBcIcmsStRetido { get; set; }
+    public decimal VIcmsStRetido { get; set; }
+
     public decimal VBcPis { get; set; }
     public decimal VPis { get; set; }
     public decimal VBcCofins { get; set; }
@@ -54,10 +65,33 @@ public class ItemCalculoFiscalDto
     public int ProdutoId { get; set; }
     public string NomeProduto { get; set; } = string.Empty;
     public decimal ValorItem { get; set; }
+
+    /// <summary>Base de cálculo do ICMS já com a redução de base aplicada (pRedBC do
+    /// cadastro do produto) — só preenchida quando o CST destaca ICMS. Sem isso, quem
+    /// consome o cálculo teria que reaplicar a redução por conta própria para chegar ao
+    /// vBC que vai no XML.</summary>
+    public decimal? VBcIcms { get; set; }
     public decimal VIcms { get; set; }
+
+    /// <summary>Bases de PIS/COFINS — preenchidas só quando o CST tributa. Os grupos
+    /// PISAliq/COFINSAliq do XML exigem <c>vBC</c> junto de <c>pPIS</c>/<c>vPIS</c>;
+    /// enviar alíquota e valor sem base derruba a nota por XML incompleto.</summary>
+    public decimal? VBcPis { get; set; }
     public decimal VPis { get; set; }
+    public decimal? VBcCofins { get; set; }
     public decimal VCofins { get; set; }
     public decimal? VIpi { get; set; }
+
+    /// <summary>ICMS-ST "para frente" (CST 10 / CSOSN 201/202/203) — calculado a partir do
+    /// MVA cadastrado. Preenchido só quando o CST/CSOSN exige o grupo.</summary>
+    public decimal? VBcIcmsSt { get; set; }
+    public decimal VIcmsSt { get; set; }
+
+    /// <summary>ICMS-ST retido anteriormente (CST 60 / CSOSN 500) — declarado a partir do
+    /// percentual pST cadastrado, não calculado por fórmula de margem.</summary>
+    public decimal? VBcIcmsStRetido { get; set; }
+    public decimal VIcmsStRetido { get; set; }
+
     public decimal VIbsUf { get; set; }
     public decimal VIbsMunicipio { get; set; }
     public decimal VCbs { get; set; }

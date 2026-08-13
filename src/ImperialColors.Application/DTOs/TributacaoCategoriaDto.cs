@@ -22,6 +22,9 @@ public class TributacaoCategoriaDto
     public decimal? Mva { get; set; }
     public decimal? ReducaoBaseCalculo { get; set; }
 
+    /// <summary>Percentual do ICMS-ST retido (pST) — só para CST 60 / CSOSN 500.</summary>
+    public decimal? AliquotaIcmsStRetido { get; set; }
+
     public string? CstPis { get; set; }
     public decimal? AliquotaPis { get; set; }
 
@@ -55,9 +58,16 @@ public class TributacaoCategoriaDto
     public decimal? AliquotaIbsMunicipioReducao { get; set; }
 
     /// <summary>True quando a categoria já tem ao menos um campo fiscal padrão preenchido.</summary>
+    /// <summary>Mesma regra de <see cref="TributacaoProdutoDto.Preenchida"/> — as alíquotas
+    /// também contam, senão um padrão de categoria salvo só com alíquota some da tela.</summary>
     public bool Preenchida =>
         !string.IsNullOrWhiteSpace(Ncm) || !string.IsNullOrWhiteSpace(CstIcms) ||
-        !string.IsNullOrWhiteSpace(CsosnIcms) || !string.IsNullOrWhiteSpace(CstIbsCbs);
+        !string.IsNullOrWhiteSpace(CsosnIcms) || !string.IsNullOrWhiteSpace(CstIbsCbs) ||
+        !string.IsNullOrWhiteSpace(CstPis) || !string.IsNullOrWhiteSpace(CstCofins) ||
+        !string.IsNullOrWhiteSpace(CstIpi) || !string.IsNullOrWhiteSpace(CfopDentroEstado) ||
+        !string.IsNullOrWhiteSpace(CfopForaEstado) ||
+        AliquotaIcms.HasValue || AliquotaPis.HasValue || AliquotaCofins.HasValue || AliquotaIpi.HasValue ||
+        AliquotaIcmsStRetido.HasValue;
 
     /// <summary>Converte para o DTO de produto (usado ao herdar o padrão na tela de cadastro).</summary>
     public TributacaoProdutoDto ParaProdutoDto(int produtoId) => new()
@@ -72,6 +82,7 @@ public class TributacaoCategoriaDto
         AliquotaIcmsSt = AliquotaIcmsSt,
         Mva = Mva,
         ReducaoBaseCalculo = ReducaoBaseCalculo,
+        AliquotaIcmsStRetido = AliquotaIcmsStRetido,
         CstPis = CstPis,
         AliquotaPis = AliquotaPis,
         CstCofins = CstCofins,
@@ -103,6 +114,7 @@ public class TributacaoCategoriaDto
         AliquotaIcmsSt = produto.AliquotaIcmsSt,
         Mva = produto.Mva,
         ReducaoBaseCalculo = produto.ReducaoBaseCalculo,
+        AliquotaIcmsStRetido = produto.AliquotaIcmsStRetido,
         CstPis = produto.CstPis,
         AliquotaPis = produto.AliquotaPis,
         CstCofins = produto.CstCofins,

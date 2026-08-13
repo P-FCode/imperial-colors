@@ -110,6 +110,8 @@ public partial class FiscalConfigView : UserControl
 
         TxtCstIcmsPadrao.Text = empresa.CstIcmsPadrao ?? string.Empty;
         TxtCsosnIcmsPadrao.Text = empresa.CsosnIcmsPadrao ?? string.Empty;
+        TxtAliquotaIcmsPadrao.Text = empresa.AliquotaIcmsPadrao.HasValue
+            ? FormatarPercentual(empresa.AliquotaIcmsPadrao.Value) : string.Empty;
 
         TxtCstIbsCbsPadrao.Text = empresa.CstIbsCbsPadrao ?? string.Empty;
         TxtCClassTribPadrao.Text = empresa.CClassTribPadrao ?? string.Empty;
@@ -237,9 +239,27 @@ public partial class FiscalConfigView : UserControl
         var fretePorConta = ObterTagSelecionada<ModalidadeFrete>(CmbFretePorConta) ?? ModalidadeFrete.SemOcorrenciaTransporte;
         var indicadorPresenca = ObterTagSelecionada<IndicadorPresencaComprador>(CmbIndicadorPresenca) ?? IndicadorPresencaComprador.Presencial;
 
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIbsUf.Text, out var aliquotaIbsUf);
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaIbsMunicipio.Text, out var aliquotaIbsMunicipio);
-        FormattingHelper.TryParseMoedaOpcional(TxtAliquotaCbs.Text, out var aliquotaCbs);
+        // O resultado do parse é conferido (antes era descartado): um texto que o parse não
+        // entende — "18%", "18.5" com ponto — virava null silenciosamente e a alíquota era
+        // salva como "não cadastrada", sem nenhum aviso na tela.
+        if (!TentarLerPercentual(TxtAliquotaIbsUf, "Alíquota padrão do IBS (UF)", out var aliquotaIbsUf) ||
+            !TentarLerPercentual(TxtAliquotaIbsMunicipio, "Alíquota padrão do IBS (Município)", out var aliquotaIbsMunicipio) ||
+            !TentarLerPercentual(TxtAliquotaCbs, "Alíquota padrão da CBS", out var aliquotaCbs) ||
+            !TentarLerPercentual(TxtAliquotaIcmsPadrao, "Alíquota de ICMS (Regra Geral)", out var aliquotaIcmsPadrao))
+            return;
+
+        // Um CST padrão de tributação integral sem alíquota é o cadastro que trava a emissão
+        // de todo produto que depende da Regra Geral — barrar aqui evita descobrir isso só
+        // na hora de emitir, quando não é mais óbvio de onde veio o CST do item.
+        var cstPadraoNormalizado = NormalizarSomenteDigitos(TxtCstIcmsPadrao.Text);
+        if (cstPadraoNormalizado is "00" or "20" or "51" or "90" && aliquotaIcmsPadrao is null)
+        {
+            ExibirStatus(
+                $"O CST de ICMS padrão '{cstPadraoNormalizado}' exige alíquota — preencha 'Alíquota de ICMS Padrão (%)'.",
+                sucesso: false);
+            AtivarAba(BtnAbaRegime);
+            return;
+        }
 
         var dto = new ConfiguracaoFiscalEmpresaDto
         {
@@ -269,6 +289,7 @@ public partial class FiscalConfigView : UserControl
             SimplesExcessoSublimite = ChkSimplesExcessoSublimite.IsChecked == true,
             CstIcmsPadrao = NormalizarSomenteDigitos(TxtCstIcmsPadrao.Text),
             CsosnIcmsPadrao = NormalizarSomenteDigitos(TxtCsosnIcmsPadrao.Text),
+            AliquotaIcmsPadrao = aliquotaIcmsPadrao,
             AliquotaIbsUfPadrao = aliquotaIbsUf,
             AliquotaIbsMunicipioPadrao = aliquotaIbsMunicipio,
             AliquotaCbsPadrao = aliquotaCbs,
@@ -337,6 +358,19 @@ public partial class FiscalConfigView : UserControl
 
     private static string FormatarPercentual(decimal valor)
         => valor.ToString("0.####", FormattingHelper.CulturaPtBr);
+
+    /// <summary>Lê um percentual opcional avisando quando o texto digitado não é um número
+    /// válido, em vez de silenciosamente gravar "não informado" (o que, numa alíquota, vira
+    /// uma nota bloqueada lá na frente sem pista da causa).</summary>
+    private bool TentarLerPercentual(TextBox campo, string rotulo, out decimal? valor)
+    {
+        if (FormattingHelper.TryParseMoedaOpcional(campo.Text, out valor))
+            return true;
+
+        ExibirStatus($"{rotulo}: '{campo.Text}' não é um número válido — use apenas dígitos e vírgula (ex.: 18 ou 18,5).", sucesso: false);
+        campo.Focus();
+        return false;
+    }
 
     private static string? TextoOuNulo(string? texto)
         => string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();

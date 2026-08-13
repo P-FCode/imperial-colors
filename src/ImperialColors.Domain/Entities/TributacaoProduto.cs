@@ -33,6 +33,14 @@ public class TributacaoProduto
     public decimal? Mva { get; set; }
     public decimal? ReducaoBaseCalculo { get; set; }
 
+    /// <summary>Percentual do ICMS-ST retido (<c>pST</c>) — só para produtos com CST 60 /
+    /// CSOSN 500 (ICMS-ST já cobrado por um elo anterior da cadeia, ex.: fabricante/
+    /// distribuidor). Informado pelo cadastro (normalmente vindo da nota de compra ou de
+    /// tabela do fisco estadual), não calculado por fórmula — ao contrário do MVA, que serve
+    /// para calcular ST "para frente" (CST 10/CSOSN 201/202/203), este percentual já é o
+    /// valor final a declarar.</summary>
+    public decimal? AliquotaIcmsStRetido { get; set; }
+
     // --- PIS ---
     public string? CstPis { get; set; }
     public decimal? AliquotaPis { get; set; }

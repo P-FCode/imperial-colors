@@ -24,6 +24,7 @@ public class TributacaoProdutoMapping : IEntityTypeConfiguration<TributacaoProdu
         builder.Property(t => t.AliquotaIcmsSt).HasColumnName("aliquota_icms_st").HasPrecision(5, 2);
         builder.Property(t => t.Mva).HasColumnName("mva").HasPrecision(6, 2);
         builder.Property(t => t.ReducaoBaseCalculo).HasColumnName("reducao_base_calculo").HasPrecision(5, 2);
+        builder.Property(t => t.AliquotaIcmsStRetido).HasColumnName("aliquota_icms_st_retido").HasPrecision(5, 2);
 
         builder.Property(t => t.CstPis).HasColumnName("cst_pis").HasMaxLength(2);
         builder.Property(t => t.AliquotaPis).HasColumnName("aliquota_pis").HasPrecision(5, 2);

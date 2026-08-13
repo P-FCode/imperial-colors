@@ -93,6 +93,14 @@ public static class InfrastructureExtensions
 
         services.AddTransient<ICnpjConsultaService, CnpjConsultaCompostaService>();
 
+        services.AddHttpClient<INcmService, BrasilApiNcmService>(client =>
+        {
+            client.BaseAddress = new Uri("https://brasilapi.com.br/");
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("ImperialColors/1.0");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+        });
+
         // API Fiscal (PFCode) — dois HttpClients nomeados (NF-e :5001 / NFC-e :5002),
         // ver comentário em FiscalApiClient sobre por que não é o AddHttpClient<T> típico.
         services.AddHttpClient(FiscalApiClient.ClienteNFe, (sp, client) =>

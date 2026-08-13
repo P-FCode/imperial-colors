@@ -216,6 +216,15 @@
                             <TextBox x:Name="TxtCsosnIcmsPadrao" Style="{StaticResource TextBoxModerno}" MaxLength="3"/>
                         </StackPanel>
                     </Grid>
+
+                    <StackPanel Margin="0,12,0,0">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Alíquota de ICMS Padrão (%)"
+                                   ToolTip="Acompanha o CST padrão. Os CST 00/20/51/90 exigem pICMS no XML — sem esta alíquota, um produto que usa a Regra Geral fica sem como emitir."/>
+                        <TextBox x:Name="TxtAliquotaIcmsPadrao" Style="{StaticResource TextBoxModerno}" MaxLength="6"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"
+                                   Foreground="{StaticResource CinzaTextoBrush}"
+                                   Text="Obrigatória quando o CST padrão for 00, 20, 51 ou 90. Não se aplica a CSOSN (Simples Nacional não destaca ICMS na nota)."/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
         </StackPanel>

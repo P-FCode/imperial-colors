@@ -129,6 +129,11 @@ public class IcmsDetailsContract
     [JsonPropertyName("pICMSST")] public decimal? PICMSST { get; set; }
     [JsonPropertyName("vICMSST")] public decimal? VICMSST { get; set; }
     [JsonPropertyName("vBCSTRet")] public decimal? VBCSTRet { get; set; }
+
+    /// <summary>Alíquota do ICMS-ST retido anteriormente (NT 2016.002) — obrigatório junto de
+    /// <see cref="VBCSTRet"/>/<see cref="VICMSSTRet"/> no grupo ICMS60/ICMSSN500. Confirmado
+    /// numa rejeição real: "Nao informada vBCSTRet, pST e vICMSSTRet".</summary>
+    [JsonPropertyName("pST")] public decimal? PST { get; set; }
     [JsonPropertyName("vICMSSTRet")] public decimal? VICMSSTRet { get; set; }
 
     // Diferimento (CST 51)

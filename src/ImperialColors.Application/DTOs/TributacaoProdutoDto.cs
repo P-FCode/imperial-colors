@@ -20,6 +20,9 @@ public class TributacaoProdutoDto
     public decimal? Mva { get; set; }
     public decimal? ReducaoBaseCalculo { get; set; }
 
+    /// <summary>Percentual do ICMS-ST retido (pST) — só para CST 60 / CSOSN 500.</summary>
+    public decimal? AliquotaIcmsStRetido { get; set; }
+
     public string? CstPis { get; set; }
     public decimal? AliquotaPis { get; set; }
 
@@ -60,8 +63,16 @@ public class TributacaoProdutoDto
     public decimal? AliquotaIbsMunicipioDiferimento { get; set; }
     public decimal? AliquotaIbsMunicipioReducao { get; set; }
 
-    /// <summary>True quando o produto já tem ao menos um campo fiscal preenchido.</summary>
+    /// <summary>True quando o produto já tem ao menos um campo fiscal preenchido. As
+    /// alíquotas entram na conta: uma tributação salva só com a alíquota de ICMS (caso comum
+    /// de quem herda CST/CSOSN da Regra Geral da empresa) era considerada "vazia" e a tela de
+    /// edição do produto voltava com os campos em branco, como se nada tivesse sido salvo.</summary>
     public bool Preenchida =>
         !string.IsNullOrWhiteSpace(Ncm) || !string.IsNullOrWhiteSpace(CstIcms) ||
-        !string.IsNullOrWhiteSpace(CsosnIcms) || !string.IsNullOrWhiteSpace(CstIbsCbs);
+        !string.IsNullOrWhiteSpace(CsosnIcms) || !string.IsNullOrWhiteSpace(CstIbsCbs) ||
+        !string.IsNullOrWhiteSpace(CstPis) || !string.IsNullOrWhiteSpace(CstCofins) ||
+        !string.IsNullOrWhiteSpace(CstIpi) || !string.IsNullOrWhiteSpace(CfopDentroEstado) ||
+        !string.IsNullOrWhiteSpace(CfopForaEstado) ||
+        AliquotaIcms.HasValue || AliquotaPis.HasValue || AliquotaCofins.HasValue || AliquotaIpi.HasValue ||
+        AliquotaIcmsStRetido.HasValue;
 }

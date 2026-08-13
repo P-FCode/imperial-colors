@@ -3,6 +3,7 @@ using System;
 using ImperialColors.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ImperialColors.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812151458_AddAliquotaIcmsPadraoEReducaoBaseItemNota")]
+    partial class AddAliquotaIcmsPadraoEReducaoBaseItemNota
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -635,11 +638,6 @@ namespace ImperialColors.Infrastructure.Migrations
                         .HasColumnType("numeric(6,4)")
                         .HasColumnName("aliquota_icms_st");
 
-                    b.Property<decimal?>("AliquotaIcmsStRetido")
-                        .HasPrecision(6, 4)
-                        .HasColumnType("numeric(6,4)")
-                        .HasColumnName("aliquota_icms_st_retido");
-
                     b.Property<decimal?>("AliquotaIpi")
                         .HasPrecision(6, 4)
                         .HasColumnType("numeric(6,4)")
@@ -677,11 +675,6 @@ namespace ImperialColors.Infrastructure.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("base_icms_st");
-
-                    b.Property<decimal?>("BaseIcmsStRetido")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)")
-                        .HasColumnName("base_icms_st_retido");
 
                     b.Property<decimal?>("BaseIpi")
                         .HasPrecision(12, 2)
@@ -771,11 +764,6 @@ namespace ImperialColors.Infrastructure.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("descricao");
 
-                    b.Property<decimal?>("Mva")
-                        .HasPrecision(7, 4)
-                        .HasColumnType("numeric(7,4)")
-                        .HasColumnName("mva");
-
                     b.Property<int>("NItem")
                         .HasColumnType("integer")
                         .HasColumnName("n_item");
@@ -853,11 +841,6 @@ namespace ImperialColors.Infrastructure.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("valor_icms_st");
-
-                    b.Property<decimal?>("ValorIcmsStRetido")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)")
-                        .HasColumnName("valor_icms_st_retido");
 
                     b.Property<decimal?>("ValorIpi")
                         .HasPrecision(12, 2)
@@ -2159,11 +2142,6 @@ namespace ImperialColors.Infrastructure.Migrations
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("aliquota_icms_st");
 
-                    b.Property<decimal?>("AliquotaIcmsStRetido")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)")
-                        .HasColumnName("aliquota_icms_st_retido");
-
                     b.Property<decimal?>("AliquotaIpi")
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)")
@@ -2302,11 +2280,6 @@ namespace ImperialColors.Infrastructure.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("aliquota_icms_st");
-
-                    b.Property<decimal?>("AliquotaIcmsStRetido")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)")
-                        .HasColumnName("aliquota_icms_st_retido");
 
                     b.Property<decimal?>("AliquotaIpi")
                         .HasPrecision(5, 2)

@@ -348,6 +348,207 @@ public class NotaFiscalPayloadBuilderTests
         Assert.Equal(10m, payload.InfNFe.Total.ICMSTot.VIPI); // 5 + 5
     }
 
+    /// <summary>
+    /// Regressão: quando o IPI saiu do <c>vOutro</c> do item 1 e ganhou grupo próprio, ele
+    /// sumiu do <c>vNF</c> — que passou a ser só a soma dos itens. O total transmitido ficava
+    /// menor que a soma dos pagamentos (que sempre incluiu o IPI) e a nota era rejeitada por
+    /// divergência. vNF = Σ(itens) + vIPI, como manda a fórmula oficial.
+    /// </summary>
+    [Fact]
+    public void Total_VNF_IncluiOVIPIDosItens()
+    {
+        var nota = NotaValida();
+        var item = nota.Itens.First();
+        item.CstIpi = "50";
+        item.BaseIpi = 100m;
+        item.AliquotaIpi = 5m;
+        item.ValorIpi = 5m;
+
+        var payload = NotaFiscalPayloadBuilder.Construir(nota, EmitenteValido());
+
+        Assert.Equal(105m, payload.InfNFe.Total.ICMSTot.VNF); // 100 do produto + 5 de IPI
+        Assert.Equal(5m, payload.InfNFe.Total.ICMSTot.VIPI);
+    }
+
+    // ===== Grupo ICMS: campos exigidos pelo CST =====
+
+    /// <summary>Regressão: o grupo ICMS era montado só quando <c>vBC &gt; 0</c>. Um item de
+    /// valor zero (brinde/bonificação) com CST 00 saía sem vBC/pICMS/vICMS e a SEFAZ rejeitava
+    /// o grupo ICMS00 por incompleto — a condição é o CST, não o valor.</summary>
+    [Fact]
+    public void Icms_ItemDeValorZeroComCst00_MantemGrupoCompleto()
+    {
+        var nota = NotaValida();
+        var item = nota.Itens.First();
+        item.ValorUnitario = 0m;
+        item.ValorTotal = 0m;
+        item.BaseIcms = 0m;
+        item.ValorIcms = 0m;
+        nota.Pagamentos = new List<NotaFiscalPagamento>
+        {
+            new() { FormaPagamento = FormaPagamento.SemPagamento, Valor = 0m, Ordem = 1 }
+        };
+
+        var payload = NotaFiscalPayloadBuilder.Construir(nota, EmitenteValido());
+        var icms = payload.InfNFe.Det[0].Imposto.ICMS.ICMSDetails;
+
+        Assert.Equal("3", icms.ModBC);
+        Assert.Equal(0m, icms.VBC);
+        Assert.Equal(18m, icms.PICMS);
+        Assert.Equal(0m, icms.VICMS);
+    }
+
+    /// <summary>CST 20 (redução de base) exige pRedBC no grupo ICMS20 — o campo existia no
+    /// contrato mas nunca era preenchido, então toda nota com CST 20 saía incompleta.</summary>
+    [Fact]
+    public void Icms_Cst20_EnviaPRedBC()
+    {
+        var nota = NotaValida();
+        var item = nota.Itens.First();
+        item.CstIcms = "20";
+        item.ReducaoBaseCalculo = 40m;
+        item.BaseIcms = 60m;
+        item.ValorIcms = 10.80m;
+
+        var payload = NotaFiscalPayloadBuilder.Construir(nota, EmitenteValido());
+        var icms = payload.InfNFe.Det[0].Imposto.ICMS.ICMSDetails;
+
+        Assert.Equal(40m, icms.PRedBC);
+        Assert.Equal(60m, icms.VBC);
+    }
+
+    /// <summary>CST 20 sem percentual cadastrado ainda manda pRedBC (zero) — omitir o campo
+    /// derruba a nota por XSD; mandar 0,00 é válido e representa "sem redução".</summary>
+    [Fact]
+    public void Icms_Cst20SemReducaoCadastrada_EnviaPRedBCZerado()
+    {
+        var nota = NotaValida();
+        nota.Itens.First().CstIcms = "20";
+
+        var payload = NotaFiscalPayloadBuilder.Construir(nota, EmitenteValido());
+
+        Assert.Equal(0m, payload.InfNFe.Det[0].Imposto.ICMS.ICMSDetails.PRedBC);
+    }
+
+    /// <summary>CST 00 não reduz base — pRedBC fica omitido para não poluir o grupo com um
+    /// campo que o leiaute não prevê ali.</summary>
+    [Fact]
+    public void Icms_Cst00_NaoEnviaPRedBC()
+    {
+        var payload = NotaFiscalPayloadBuilder.Construir(NotaValida(), EmitenteValido());
+
+        Assert.Null(payload.InfNFe.Det[0].Imposto.ICMS.ICMSDetails.PRedBC);
+    }
+
+    // ===== ICMS-ST "para frente" (CST 10) e retido (CST 60) — regressão real: nota
+    // rejeitada pela SEFAZ com "Nao informada vBCSTRet, pST e vICMSSTRet". =====
+
+    /// <summary>CST 10 tem grupo próprio (vBC/pICMS/vICMS, igual CST 00) MAIS o grupo ST
+    /// (vBCST/pMVAST/pICMSST/vICMSST) — os dois precisam sair juntos no mesmo item.</summary>
+    [Fact]
+    public void Icms_Cst10_EnviaGrupoProprioEGrupoStJuntos()
+    {
+        var nota = NotaValida();
+        var item = nota.Itens.First();
+        item.CstIcms = "10";
+        item.AliquotaIcms = 18m;
+        item.BaseIcms = 100m;
+        item.ValorIcms = 18m;
+        item.Mva = 40m;
+        item.BaseIcmsSt = 140m;
+        item.AliquotaIcmsSt = 18m;
+        item.ValorIcmsSt = 7.20m;
+
+        var payload = NotaFiscalPayloadBuilder.Construir(nota, EmitenteValido());
+        var icms = payload.InfNFe.Det[0].Imposto.ICMS.ICMSDetails;
+
+        Assert.Equal("3", icms.ModBC);
+        Assert.Equal(100m, icms.VBC);
+        Assert.Equal(18m, icms.PICMS);
+        Assert.Equal(18m, icms.VICMS);
+        Assert.Equal("4", icms.ModBCST);
+        Assert.Equal(40m, icms.PMVAST);
+        Assert.Equal(140m, icms.VBCST);
+        Assert.Equal(18m, icms.PICMSST);
+        Assert.Equal(7.20m, icms.VICMSST);
+    }
+
+    /// <summary>CST 60 (ICMS-ST já retido por um elo anterior da cadeia) usa um grupo
+    /// DISTINTO do CST 10: vBCSTRet/pST/vICMSSTRet — nunca vBCST/pICMSST/vICMSST. Regressão
+    /// exata da rejeição real: "Nao informada vBCSTRet, pST e vICMSSTRet".</summary>
+    [Fact]
+    public void Icms_Cst60_EnviaGrupoRetidoDistintoDoGrupoParaFrente()
+    {
+        var nota = NotaValida();
+        var item = nota.Itens.First();
+        item.CstIcms = "60";
+        item.AliquotaIcms = null;
+        item.BaseIcms = null;
+        item.ValorIcms = null;
+        item.BaseIcmsStRetido = 100m;
+        item.AliquotaIcmsStRetido = 12m;
+        item.ValorIcmsStRetido = 12m;
+
+        var payload = NotaFiscalPayloadBuilder.Construir(nota, EmitenteValido());
+        var icms = payload.InfNFe.Det[0].Imposto.ICMS.ICMSDetails;
+
+        Assert.Equal(100m, icms.VBCSTRet);
+        Assert.Equal(12m, icms.PST);
+        Assert.Equal(12m, icms.VICMSSTRet);
+        // Grupo "para frente" não deve vazar aqui — são schemas XML diferentes (TICMS60 x TICMS10).
+        Assert.Null(icms.VBCST);
+        Assert.Null(icms.PICMSST);
+        Assert.Null(icms.VICMSST);
+    }
+
+    /// <summary>CSOSN 500 (equivalente Simples Nacional do CST 60) — mesmo grupo retido.</summary>
+    [Fact]
+    public void Icms_Csosn500_EnviaGrupoRetido()
+    {
+        var nota = NotaValida();
+        var item = nota.Itens.First();
+        item.CstIcms = null;
+        item.CsosnIcms = "500";
+        item.AliquotaIcms = null;
+        item.BaseIcms = null;
+        item.ValorIcms = null;
+        item.BaseIcmsStRetido = 100m;
+        item.AliquotaIcmsStRetido = 12m;
+        item.ValorIcmsStRetido = 12m;
+
+        var payload = NotaFiscalPayloadBuilder.Construir(nota, EmitenteValido());
+        var icms = payload.InfNFe.Det[0].Imposto.ICMS.ICMSDetails;
+
+        Assert.Null(icms.CST);
+        Assert.Equal("500", icms.CSOSN);
+        Assert.Equal(100m, icms.VBCSTRet);
+        Assert.Equal(12m, icms.PST);
+        Assert.Equal(12m, icms.VICMSSTRet);
+    }
+
+    /// <summary>Regressão: PISAliq/COFINSAliq exigem vBC junto de pPIS/vPIS — o item passou a
+    /// carregar as bases (antes sempre nulas) e elas precisam chegar ao payload.</summary>
+    [Fact]
+    public void PisCofins_BasesDoItem_ChegamAoPayload()
+    {
+        var nota = NotaValida();
+        var item = nota.Itens.First();
+        item.BasePis = 100m;
+        item.AliquotaPis = 1.65m;
+        item.ValorPis = 1.65m;
+        item.BaseCofins = 100m;
+        item.AliquotaCofins = 7.6m;
+        item.ValorCofins = 7.6m;
+
+        var payload = NotaFiscalPayloadBuilder.Construir(nota, EmitenteValido());
+        var imposto = payload.InfNFe.Det[0].Imposto;
+
+        Assert.Equal(100m, imposto.PIS.PISDetails.VBC);
+        Assert.Equal(1.65m, imposto.PIS.PISDetails.PPIS);
+        Assert.Equal(100m, imposto.COFINS.COFINSDetails.VBC);
+        Assert.Equal(7.6m, imposto.COFINS.COFINSDetails.PCOFINS);
+    }
+
     // ===== Pagamento: indPag (regressão) =====
 
     [Fact]
