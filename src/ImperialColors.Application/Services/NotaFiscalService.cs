@@ -5,6 +5,7 @@ using ImperialColors.Application.Validation;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Interfaces;
 
 namespace ImperialColors.Application.Services;
@@ -439,6 +440,20 @@ public class NotaFiscalService : INotaFiscalService
         // notas ainda editáveis: uma Indeterminada pode já ter sido aceita do lado da SEFAZ,
         // reescrever os itens dela antes de reenviar arriscaria divergir do que já foi
         // processado — o operador deve consultar status antes.
+        if (entidade.Status == StatusNotaFiscal.Rejeitada)
+        {
+            // Numeração é imutável assim que a SEFAZ (ou a própria API Fiscal, numa rejeição
+            // 422 local) responde a uma tentativa — ver StatusNotaFiscal.Rejeitada e o índice
+            // único Tipo+Serie+Numero em NotaFiscalMapping, ambos já documentando essa regra
+            // sem ela ser aplicada aqui. Reenviar com o MESMO nNF gera uma chave de acesso
+            // diferente a cada tentativa (cNF/dhEmi mudam) e, se aquele número já tinha sido
+            // respondido pela SEFAZ antes, ela recusa como duplicidade — cStat 539 "Duplicidade
+            // de NF-e, com diferença na Chave de Acesso" (seção 9.4 e "Boas práticas #2" do
+            // guia: "nNF rejeitado não volta para a fila; use o próximo"). Avança para o
+            // próximo número disponível antes de qualquer nova tentativa.
+            entidade.Numero = await _notaFiscalRepository.ObterProximoNumeroAsync(entidade.Tipo, entidade.Serie, cancellationToken);
+        }
+
         if (entidade.Status is StatusNotaFiscal.Rascunho or StatusNotaFiscal.Rejeitada)
         {
             var dtoParaSincronizar = await MapearParaDtoAsync(entidade);
@@ -501,10 +516,21 @@ public class NotaFiscalService : INotaFiscalService
 
         var (cscId, cscSecret) = ObterCscDoAmbiente(empresa, entidade.Ambiente);
 
+        // Gerado aqui (não mais deixado em branco pro payload builder) e enviado no
+        // ide.cNF — permite reconstituir localmente a chave de 44 dígitos que ESTA
+        // tentativa está usando, antes mesmo do POST. Sem isso, uma tentativa que nunca
+        // recebe resposta (502/503/504) não deixa nenhuma chave para consultar depois, e
+        // o operador acaba reemitindo às cegas — exatamente o que gera cStat 539.
+        var codigoNumerico = ChaveAcessoNfeHelper.GerarCodigoNumerico();
+        var chaveTentativa = ChaveAcessoNfeHelper.Montar(
+            UfCodigoIbgeHelper.ObterCodigo(empresa.Uf), entidade.DataEmissao, empresa.Cnpj,
+            entidade.Tipo == TipoNotaFiscal.NFCe ? "65" : "55", entidade.Serie, entidade.Numero,
+            tpEmis: "1", codigoNumerico: codigoNumerico);
+
         ResultadoEmissaoFiscalDto resultado;
         try
         {
-            resultado = await _fiscalApiClient.EmitirAsync(entidade, emitente, empresa.ApiKeyFiscal, cscId, cscSecret, cancellationToken);
+            resultado = await _fiscalApiClient.EmitirAsync(entidade, emitente, empresa.ApiKeyFiscal, cscId, cscSecret, codigoNumerico, cancellationToken);
         }
         catch (FiscalApiException ex)
         {
@@ -515,6 +541,11 @@ public class NotaFiscalService : INotaFiscalService
             entidade.Status = ex.ConsultarStatusAntesDeReemitir ? StatusNotaFiscal.Indeterminada : StatusNotaFiscal.Rejeitada;
             entidade.MensagemErro = ex.Message;
             entidade.TraceId = ex.TraceId;
+            // Grava a chave que ESTA tentativa usou (mesmo sem resposta) só quando a regra
+            // de ouro da seção 9.5 se aplica — é o que viabiliza ConsultarStatusAsync (que
+            // exige ChaveAcesso preenchida) antes de qualquer nova tentativa.
+            if (ex.ConsultarStatusAntesDeReemitir && chaveTentativa is not null)
+                entidade.ChaveAcesso = chaveTentativa;
             await _notaFiscalRepository.AtualizarAsync(entidade, cancellationToken: cancellationToken);
             await RegistrarEventoAsync(entidade.Id, TipoEventoNotaFiscal.Emissao, sucesso: false,
                 cStat: ex.HttpStatus?.ToString(), xMotivo: ex.Message, traceId: ex.TraceId, cancellationToken: cancellationToken);
@@ -629,8 +660,20 @@ public class NotaFiscalService : INotaFiscalService
             "Denegada" => StatusNotaFiscal.Denegada,
             "Rejeitada" => StatusNotaFiscal.Rejeitada,
             "Indeterminada" => StatusNotaFiscal.Indeterminada,
+            // A tentativa anterior (normalmente uma Indeterminada de 502/504) nunca chegou a
+            // existir do lado da SEFAZ — sem isso a nota ficava presa em Indeterminada pra
+            // sempre, porque a tela de Ações só mostra "Emitir" para Rascunho/Rejeitada
+            // (NotaFiscalAcoesView.PodeEmitir). Volta pra Rascunho (não Rejeitada) porque é
+            // seguro reemitir com o MESMO nNF (seção 9.5 do guia) — não deve passar pelo
+            // renumeramento que agora se aplica só a Rejeitada.
+            "Inexistente" => StatusNotaFiscal.Rascunho,
             _ => entidade.Status
         };
+
+        // A chave antiga nunca existiu na SEFAZ — mantê-la seria enganoso numa nota que
+        // acabou de voltar pro estado de Rascunho.
+        if (resultado.Situacao == "Inexistente")
+            entidade.ChaveAcesso = null;
 
         await _notaFiscalRepository.AtualizarAsync(entidade, cancellationToken: cancellationToken);
         await RegistrarEventoAsync(entidade.Id, TipoEventoNotaFiscal.ConsultaStatus, resultado.ConfirmadoNaSefaz,

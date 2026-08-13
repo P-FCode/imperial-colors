@@ -62,6 +62,28 @@ public static class NotaFiscalValidator
             nota.Tipo == Domain.Enums.TipoNotaFiscal.NFe)
             throw new DomainException("NF-e exige destinatário — NFC-e é a única que permite venda sem cliente identificado.");
 
+        // NotaFiscalPayloadBuilder.ConstruirDest só envia o campo IE quando o indicador é
+        // "Contribuinte de ICMS" — em Isento/Não contribuinte/Não informado, o dado digitado
+        // aqui é descartado antes do XML sair, silenciosamente. Sem esta checagem, uma nota
+        // com IE preenchida mas indicador errado (ex.: herdado de um cliente cadastrado como
+        // "Não contribuinte" por engano) passa por essa validação e só é rejeitada depois,
+        // pela própria SEFAZ, com uma mensagem que não deixa óbvio qual campo da tela causou
+        // o problema ("IE do destinatário não informada" quando a tela mostra IE preenchida).
+        if (nota.DestinatarioIndicadorIe != IndicadorIeDestinatario.ContribuinteIcms &&
+            !string.IsNullOrWhiteSpace(nota.DestinatarioInscricaoEstadual))
+        {
+            var rotuloIndicador = nota.DestinatarioIndicadorIe switch
+            {
+                IndicadorIeDestinatario.Isento => "Isento de IE",
+                IndicadorIeDestinatario.NaoContribuinte => "Não contribuinte",
+                _ => "Não informado"
+            };
+            throw new DomainException(
+                $"Destinatário: a Inscrição Estadual está preenchida ('{nota.DestinatarioInscricaoEstadual}'), mas o indicador ao lado está como " +
+                $"'{rotuloIndicador}' — nesse caso a IE é descartada e a SEFAZ rejeita a nota como \"IE do destinatário não informada\". " +
+                "Se o cliente é contribuinte de ICMS, mude o indicador para 'Contribuinte de ICMS'; senão, apague a Inscrição Estadual.");
+        }
+
         if (nota.Pagamentos.Count == 0)
             throw new DomainException("Informe ao menos uma forma de pagamento.");
 

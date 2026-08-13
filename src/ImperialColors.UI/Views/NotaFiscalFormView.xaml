@@ -186,12 +186,16 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource LabelCampo}" Text="Contribuinte (IE)"/>
-                                <ComboBox x:Name="CmbIndicadorIe" Style="{StaticResource ComboBoxModerno}"/>
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Contribuinte (IE)"
+                                           ToolTip="Diz à SEFAZ se o destinatário tem cadastro de ICMS ativo. Só quando marcado 'Contribuinte de ICMS' a Inscrição Estadual ao lado é enviada na nota — nos outros casos ela é ignorada, mesmo preenchida."/>
+                                <ComboBox x:Name="CmbIndicadorIe" Style="{StaticResource ComboBoxModerno}"
+                                          SelectionChanged="CmbIndicadorIe_SelectionChanged"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Style="{StaticResource LabelCampo}" Text="Inscrição Estadual"/>
-                                <TextBox x:Name="TxtDestinatarioIe" Style="{StaticResource TextBoxModerno}"/>
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Inscrição Estadual"
+                                           ToolTip="Só é enviada à SEFAZ se 'Contribuinte (IE)' ao lado estiver como 'Contribuinte de ICMS'. Preencher aqui muda o indicador automaticamente."/>
+                                <TextBox x:Name="TxtDestinatarioIe" Style="{StaticResource TextBoxModerno}"
+                                         TextChanged="TxtDestinatarioIe_TextChanged"/>
                             </StackPanel>
                             <StackPanel Grid.Column="4">
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="Suframa (opcional)"/>

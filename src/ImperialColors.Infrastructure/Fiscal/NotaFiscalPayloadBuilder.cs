@@ -38,7 +38,7 @@ internal static class NotaFiscalPayloadBuilder
     /// a descrição real do produto com sufixo em vez deste literal exato.</summary>
     internal const string TextoProdHomologacaoItem1 = "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
 
-    public static EmissaoNotaRequest Construir(NotaFiscal nota, EmitenteFiscalDto emitente)
+    public static EmissaoNotaRequest Construir(NotaFiscal nota, EmitenteFiscalDto emitente, string? codigoNumerico = null)
     {
         var mod = ((int)nota.Tipo).ToString(CultureInfo.InvariantCulture);
         var homologacao = nota.Ambiente == AmbienteEmissaoFiscal.Homologacao;
@@ -82,7 +82,12 @@ internal static class NotaFiscalPayloadBuilder
                     IndFinal = nota.ConsumidorFinal ? "1" : "0",
                     IndPres = ((int)nota.IndicadorPresenca).ToString(CultureInfo.InvariantCulture),
                     ProcEmi = "0",
-                    VerProc = "ImperialColors/1.0"
+                    VerProc = "ImperialColors/1.0",
+                    // Gerado pelo chamador (ChaveAcessoNfeHelper) e não mais deixado em branco —
+                    // sem isso a API sorteava o cNF a cada chamada e a chave de acesso mudava a
+                    // cada tentativa para o MESMO nNF, causando duplicidade (cStat 539) em
+                    // reenvios. Ver NotaFiscalService.EmitirAsync.
+                    CNF = codigoNumerico
                 },
                 Emit = new EmitContract
                 {

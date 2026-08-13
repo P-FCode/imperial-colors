@@ -72,20 +72,60 @@ public partial class NotaFiscalFormView : Window
         CmbIndicadorPresenca.ItemsSource = Enum.GetValues<IndicadorPresencaComprador>().Select(v => new EnumItem<IndicadorPresencaComprador>(v, DescricaoIndicadorPresenca(v))).ToList();
         CmbIndicadorPresenca.SelectedIndex = 0;
 
+        // Rótulos deixam explícito o que cada opção representa (e não só o nome técnico da
+        // SEFAZ) — "Não informado"/"Isento"/"Não contribuinte" pareciam dizer "cliente sem
+        // IE", quando na prática só controlam se o campo IE ao lado é enviado ou descartado
+        // (ver NotaFiscalPayloadBuilder.ConstruirDest e o aviso em ValidarParaEmissao).
         CmbIndicadorIe.ItemsSource = new[]
         {
-            new EnumItem<IndicadorIeDestinatario?>(null, "Não informado"),
-            new EnumItem<IndicadorIeDestinatario?>(IndicadorIeDestinatario.ContribuinteIcms, "Contribuinte de ICMS"),
-            new EnumItem<IndicadorIeDestinatario?>(IndicadorIeDestinatario.Isento, "Isento de IE"),
-            new EnumItem<IndicadorIeDestinatario?>(IndicadorIeDestinatario.NaoContribuinte, "Não contribuinte")
+            new EnumItem<IndicadorIeDestinatario?>(null, "Não informado (não enviar IE)"),
+            new EnumItem<IndicadorIeDestinatario?>(IndicadorIeDestinatario.ContribuinteIcms, "Contribuinte de ICMS (empresa com IE ativa)"),
+            new EnumItem<IndicadorIeDestinatario?>(IndicadorIeDestinatario.Isento, "Isento de Inscrição Estadual"),
+            new EnumItem<IndicadorIeDestinatario?>(IndicadorIeDestinatario.NaoContribuinte, "Não contribuinte (pessoa física / sem cadastro de ICMS)")
         };
         CmbIndicadorIe.SelectedIndex = _tipo == TipoNotaFiscal.NFCe ? 3 : 0;
+        AtualizarCampoIePorIndicador();
 
         CmbFormaEnvio.ItemsSource = Enum.GetValues<ModalidadeFrete>().Select(v => new EnumItem<ModalidadeFrete>(v, DescricaoFrete(v))).ToList();
         CmbFormaEnvio.SelectedIndex = Array.IndexOf(Enum.GetValues<ModalidadeFrete>(), ModalidadeFrete.SemOcorrenciaTransporte);
 
         CmbNovaFormaPagamento.ItemsSource = Enum.GetValues<FormaPagamento>().Select(v => new EnumItem<FormaPagamento>(v, v.ToString())).ToList();
         CmbNovaFormaPagamento.SelectedIndex = 0;
+    }
+
+    /// <summary>
+    /// A IE só é enviada à SEFAZ quando o indicador é "Contribuinte de ICMS" — ver
+    /// NotaFiscalPayloadBuilder.ConstruirDest e o bloqueio equivalente em
+    /// NotaFiscalValidator.ValidarParaEmissao. Desabilitar (sem apagar) o campo nos outros
+    /// casos deixa visualmente óbvio que o valor ali não será usado, em vez do operador
+    /// digitar uma IE, tudo parecer preenchido, e só descobrir que foi ignorada quando a
+    /// SEFAZ rejeitar a nota com "IE do destinatário não informada".
+    /// </summary>
+    private void AtualizarCampoIePorIndicador()
+    {
+        var indicador = (CmbIndicadorIe.SelectedItem as EnumItem<IndicadorIeDestinatario?>)?.Valor;
+        TxtDestinatarioIe.IsEnabled = indicador == IndicadorIeDestinatario.ContribuinteIcms;
+    }
+
+    private void CmbIndicadorIe_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => AtualizarCampoIePorIndicador();
+
+    /// <summary>
+    /// Contrapartida do método acima: se o operador digita uma IE de verdade, o indicador
+    /// quase sempre deveria ser "Contribuinte de ICMS" — sem isso, alguém que preenche a IE
+    /// mas esquece de trocar o indicador (ex.: cliente puxado do cadastro com "Não
+    /// contribuinte" selecionado por padrão) só descobre o problema numa rejeição da SEFAZ.
+    /// Só age com o operador digitando (guardado por <see cref="_carregando"/>) — nunca
+    /// sobrescreve o indicador ao carregar uma nota/cliente já salvo.
+    /// </summary>
+    private void TxtDestinatarioIe_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_carregando) return;
+        if (string.IsNullOrWhiteSpace(TxtDestinatarioIe.Text)) return;
+
+        var indicador = (CmbIndicadorIe.SelectedItem as EnumItem<IndicadorIeDestinatario?>)?.Valor;
+        if (indicador != IndicadorIeDestinatario.ContribuinteIcms)
+            SelecionarEnum<IndicadorIeDestinatario>(CmbIndicadorIe, IndicadorIeDestinatario.ContribuinteIcms);
     }
 
     private async Task CarregarAsync()

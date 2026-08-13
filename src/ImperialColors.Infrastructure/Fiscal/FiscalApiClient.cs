@@ -29,9 +29,9 @@ public class FiscalApiClient : IFiscalApiClient
 
     public async Task<ResultadoEmissaoFiscalDto> EmitirAsync(
         NotaFiscal nota, EmitenteFiscalDto emitente, string apiKey, string? cscId, string? cscSecret,
-        CancellationToken cancellationToken = default)
+        string? codigoNumerico = null, CancellationToken cancellationToken = default)
     {
-        var payload = NotaFiscalPayloadBuilder.Construir(nota, emitente);
+        var payload = NotaFiscalPayloadBuilder.Construir(nota, emitente, codigoNumerico);
         var rota = nota.Tipo == TipoNotaFiscal.NFCe ? "api/v1/nfce/emitir" : "api/v1/nfe/emitir";
         var http = ObterCliente(nota.Tipo, apiKey, cscId, cscSecret);
 

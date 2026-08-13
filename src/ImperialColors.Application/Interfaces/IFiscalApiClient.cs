@@ -13,8 +13,14 @@ namespace ImperialColors.Application.Interfaces;
 /// </summary>
 public interface IFiscalApiClient
 {
+    /// <summary><paramref name="codigoNumerico"/> é o <c>cNF</c> gerado pelo chamador
+    /// (<see cref="Domain.Helpers.ChaveAcessoNfeHelper"/>) — sem ele, a API sorteia um valor
+    /// próprio a cada chamada e o ERP nunca sabe qual chave uma tentativa sem resposta
+    /// (502/503/504) teria gerado, impedindo a consulta de status recomendada antes de
+    /// reemitir (seção 9.5 do guia).</summary>
     Task<ResultadoEmissaoFiscalDto> EmitirAsync(
-        NotaFiscal nota, EmitenteFiscalDto emitente, string apiKey, string? cscId, string? cscSecret, CancellationToken cancellationToken = default);
+        NotaFiscal nota, EmitenteFiscalDto emitente, string apiKey, string? cscId, string? cscSecret,
+        string? codigoNumerico = null, CancellationToken cancellationToken = default);
 
     Task<ResultadoEventoFiscalDto> CancelarAsync(
         NotaFiscal nota, string cnpjEmitente, string justificativa, string apiKey, CancellationToken cancellationToken = default);

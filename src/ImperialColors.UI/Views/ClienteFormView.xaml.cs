@@ -15,6 +15,10 @@ public partial class ClienteFormView : Window
     private readonly IViaCepService _viaCepService;
     private readonly ICnpjConsultaService _cnpjConsultaService;
     private int? _clienteId;
+    /// <summary>Suprime o auto-ajuste do indicador de IE (ver
+    /// <see cref="TxtInscricaoEstadual_TextChanged"/>) enquanto os campos ainda estão sendo
+    /// preenchidos programaticamente por <see cref="InicializarNovo"/>/<see cref="InicializarEdicao"/>.</summary>
+    private bool _carregando = true;
     private bool _suprimirMascaraCpf;
     private bool _suprimirMascaraCnpj;
     private bool _suprimirMascaraCep;
@@ -52,12 +56,15 @@ public partial class ClienteFormView : Window
         TxtStatus.Text = string.Empty;
         RbPf.IsChecked = true;
         AtualizarPainelTipoPessoa();
+        AtualizarCampoIePorIndicador();
+        _carregando = false;
     }
 
     public void InicializarEdicao(ClienteDto cliente)
     {
         ArgumentNullException.ThrowIfNull(cliente);
 
+        _carregando = true;
         TxtTitulo.Text = "Editar Cliente";
         _clienteId = cliente.Id;
 
@@ -94,8 +101,10 @@ public partial class ClienteFormView : Window
         TxtEstado.Text = cliente.Estado ?? string.Empty;
         TxtCodigoIbge.Text = cliente.CodigoMunicipioIbge ?? string.Empty;
         SelecionarIndicadorIe(cliente.IndicadorIe);
+        AtualizarCampoIePorIndicador();
         TxtObservacoes.Text = cliente.Observacoes ?? string.Empty;
         TxtStatus.Text = string.Empty;
+        _carregando = false;
     }
 
     private void TipoPessoaCliente_Changed(object sender, RoutedEventArgs e)
@@ -387,6 +396,40 @@ public partial class ClienteFormView : Window
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// A IE só é enviada nas notas fiscais deste cliente quando o indicador é "Contribuinte
+    /// de ICMS" (ver NotaFiscalPayloadBuilder.ConstruirDest e o bloqueio equivalente em
+    /// NotaFiscalValidator.ValidarParaEmissao). Desabilitar (sem apagar) o campo nos outros
+    /// casos deixa visualmente óbvio que o valor ali não terá efeito.
+    /// </summary>
+    private void AtualizarCampoIePorIndicador()
+    {
+        var selecionado = CmbIndicadorIe.SelectedItem as ComboBoxItem;
+        TxtInscricaoEstadual.IsEnabled = selecionado?.Tag as string == nameof(IndicadorIeDestinatario.ContribuinteIcms);
+    }
+
+    private void CmbIndicadorIe_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => AtualizarCampoIePorIndicador();
+
+    /// <summary>
+    /// Contrapartida do método acima: se o operador digita uma IE de verdade, o indicador
+    /// quase sempre deveria virar "Contribuinte de ICMS" — sem isso, um cliente cadastrado
+    /// com IE preenchida mas indicador "Não contribuinte" (o padrão do formulário) carrega
+    /// essa contradição pra toda nota fiscal emitida pra ele, e só aparece como problema numa
+    /// rejeição da SEFAZ ("IE do destinatário não informada") bem depois do cadastro.
+    /// Só age com o operador digitando (guardado por <see cref="_carregando"/>) — nunca
+    /// sobrescreve o indicador ao carregar um cliente já salvo.
+    /// </summary>
+    private void TxtInscricaoEstadual_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_carregando) return;
+        if (string.IsNullOrWhiteSpace(TxtInscricaoEstadual.Text)) return;
+
+        var selecionado = CmbIndicadorIe.SelectedItem as ComboBoxItem;
+        if (selecionado?.Tag as string != nameof(IndicadorIeDestinatario.ContribuinteIcms))
+            SelecionarIndicadorIe(IndicadorIeDestinatario.ContribuinteIcms);
     }
 
     private IndicadorIeDestinatario? ObterIndicadorIeSelecionado()

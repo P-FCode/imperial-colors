@@ -76,8 +76,10 @@
                             </Button>
                         </Grid>
                         <StackPanel>
-                            <TextBlock Style="{StaticResource LabelCampo}" Text="Inscrição Estadual"/>
-                            <TextBox x:Name="TxtInscricaoEstadual" Style="{StaticResource TextBoxModerno}" MaxLength="20"/>
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Inscrição Estadual"
+                                       ToolTip="Só é enviada nas notas fiscais deste cliente se 'Indicador de IE' abaixo estiver como 'Contribuinte de ICMS'. Preencher aqui muda o indicador automaticamente."/>
+                            <TextBox x:Name="TxtInscricaoEstadual" Style="{StaticResource TextBoxModerno}" MaxLength="20"
+                                     TextChanged="TxtInscricaoEstadual_TextChanged"/>
                         </StackPanel>
                     </StackPanel>
 
@@ -175,10 +177,11 @@
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Style="{StaticResource LabelCampo}" Text="Indicador de IE (NF-e)"
-                                       ToolTip="Se o cliente é contribuinte de ICMS, isento ou não contribuinte. Só é exigido em NF-e (B2B) — na NFC-e do PDV não é obrigatório."/>
-                            <ComboBox x:Name="CmbIndicadorIe" Style="{StaticResource ComboBoxModerno}">
-                                <ComboBoxItem Content="Não contribuinte" Tag="NaoContribuinte" IsSelected="True"/>
-                                <ComboBoxItem Content="Contribuinte de ICMS" Tag="ContribuinteIcms"/>
+                                       ToolTip="Diz à SEFAZ se este cliente tem cadastro de ICMS ativo. Só quando marcado 'Contribuinte de ICMS' a Inscrição Estadual ao lado é enviada nas notas dele — nos outros casos ela é ignorada, mesmo preenchida."/>
+                            <ComboBox x:Name="CmbIndicadorIe" Style="{StaticResource ComboBoxModerno}"
+                                      SelectionChanged="CmbIndicadorIe_SelectionChanged">
+                                <ComboBoxItem Content="Não contribuinte (pessoa física / sem cadastro de ICMS)" Tag="NaoContribuinte" IsSelected="True"/>
+                                <ComboBoxItem Content="Contribuinte de ICMS (empresa com IE ativa)" Tag="ContribuinteIcms"/>
                                 <ComboBoxItem Content="Isento de Inscrição Estadual" Tag="Isento"/>
                             </ComboBox>
                         </StackPanel>
