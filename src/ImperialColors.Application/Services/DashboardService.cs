@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
@@ -30,49 +31,60 @@ public class DashboardService : IDashboardService
         _relatorioAnalyticsService = relatorioAnalyticsService;
     }
 
+    /// <summary>
+    /// Monta o dashboard a partir de UM resumo diário agregado pelo banco.
+    ///
+    /// Antes eram três chamadas a <c>ObterPorPeriodoAsync</c> (hoje, mês, últimos 7 dias),
+    /// cada uma materializando o grafo <c>Venda → Itens → Produto</c> inteiro só para somar
+    /// faturamento e custo — numa loja de 500 vendas/dia isso são ~112 mil linhas trazidas
+    /// para a memória a cada abertura do app, e o dashboard abre no login.
+    ///
+    /// Agora: uma única consulta cobre o intervalo que engloba os três recortes (o menor
+    /// entre o início do mês e o início dos últimos 7 dias — os dois divergem na primeira
+    /// semana do mês, quando "últimos 7 dias" cruza para o mês anterior). O resultado tem no
+    /// máximo ~37 linhas, uma por dia com movimento, e os três recortes saem de filtros
+    /// triviais sobre essa lista.
+    /// </summary>
     public async Task<DashboardDto> ObterDadosDashboardAsync()
     {
-        var hoje = DateTime.Today;
-        var (inicioMes, fimMes) = ObterMesAtual(hoje);
+        var hoje = Relogio.Hoje;
+        var (inicioMes, fimMesExclusivo) = ObterMesAtual(hoje);
         var inicioUltimos7Dias = hoje.AddDays(-6);
+        var amanha = hoje.AddDays(1);
 
-        var totalVendasHoje = await _vendaRepository.ObterTotalVendasDiaAsync(hoje);
-        var totalVendasMes = await _vendaRepository.ObterTotalVendasMesAsync(hoje.Year, hoje.Month);
+        var inicioCobertura = inicioMes < inicioUltimos7Dias ? inicioMes : inicioUltimos7Dias;
+        var resumoDiario = await _vendaRepository.ObterResumoDiarioAsync(inicioCobertura, amanha);
+
         var totalProdutos = await _produtoRepository.ContarAsync();
         var produtosEstoqueCritico = await _produtoRepository.ContarComEstoqueCriticoAsync(LimiteEstoqueCritico);
-        var produtosSemEstoque = (await _produtoRepository.ObterSemEstoqueAsync()).Count();
+        var produtosSemEstoque = await _produtoRepository.ContarSemEstoqueAsync();
 
-        // ObterPorPeriodoAsync já filtra Status == Finalizada e inclui Itens.Produto — é o
-        // que permite calcular custo (Produto.Custo) por item vendido, não só o faturamento.
-        var vendasHoje = (await _vendaRepository.ObterPorPeriodoAsync(hoje, hoje.AddDays(1).AddSeconds(-1))).ToList();
-        var vendasMes = (await _vendaRepository.ObterPorPeriodoAsync(inicioMes, fimMes)).ToList();
+        var diasDoMes = resumoDiario.Where(r => r.Data >= inicioMes && r.Data < fimMesExclusivo).ToList();
+        var diaDeHoje = resumoDiario.FirstOrDefault(r => r.Data == hoje);
 
-        // Consulta separada (não reaproveita vendasMes) porque os últimos 7 dias podem
-        // cruzar a virada do mês (ex.: dia 3 do mês olhando os últimos 7 dias inclui
-        // dias do mês anterior) — matematicamente mais simples e seguro que tentar
-        // recombinar dois períodos na mão.
-        var vendasUltimos7Dias = await _vendaRepository.ObterPorPeriodoAsync(inicioUltimos7Dias, hoje.AddDays(1).AddSeconds(-1));
+        var faturamentoHoje = diaDeHoje?.Faturamento ?? 0m;
+        var custoHoje = diaDeHoje?.Custo ?? 0m;
 
-        var (faturamentoHoje, custoHoje, lucroHoje, _) = CalcularLucro(vendasHoje);
-        var (faturamentoMes, custoMes, lucroMes, itensSemCustoMes) = CalcularLucro(vendasMes);
+        var faturamentoMes = diasDoMes.Sum(r => r.Faturamento);
+        var custoMes = diasDoMes.Sum(r => r.Custo);
+        var quantidadeVendasMes = diasDoMes.Sum(r => r.QuantidadeVendas);
+        var itensSemCustoMes = diasDoMes.Sum(r => r.ItensSemCusto);
 
-        var lucroPorDia = vendasUltimos7Dias
-            .GroupBy(v => v.DataVenda.Date)
-            .ToDictionary(g => g.Key, g => CalcularLucro(g));
-
+        // Os 7 dias saem sempre completos (dias sem venda entram zerados) para o gráfico
+        // manter largura fixa — o resumo do banco só traz dias com movimento.
+        var porDia = resumoDiario.ToDictionary(r => r.Data);
         var lucroUltimos7Dias = new List<LucroDiarioDto>();
         for (var i = 6; i >= 0; i--)
         {
             var dia = hoje.AddDays(-i);
-            var (faturamentoDia, custoDia, lucroDia, _) = lucroPorDia.TryGetValue(dia, out var valores)
-                ? valores : (0m, 0m, 0m, 0);
+            porDia.TryGetValue(dia, out var resumo);
 
             lucroUltimos7Dias.Add(new LucroDiarioDto
             {
                 Data = dia,
-                Faturamento = faturamentoDia,
-                Custo = custoDia,
-                Lucro = lucroDia
+                Faturamento = resumo?.Faturamento ?? 0m,
+                Custo = resumo?.Custo ?? 0m,
+                Lucro = resumo?.Lucro ?? 0m
             });
         }
 
@@ -84,20 +96,23 @@ public class DashboardService : IDashboardService
 
         return new DashboardDto
         {
-            TotalVendasHoje = totalVendasHoje,
-            TotalVendasMes = totalVendasMes,
-            QuantidadeVendasHoje = vendasHoje.Count,
+            // "Total de vendas" e "faturamento" saem agora da MESMA fonte. Antes vinham de
+            // consultas distintas (ObterTotalVendasDiaAsync/MesAsync contra
+            // ObterPorPeriodoAsync com fimMes = 23:59:59), que podiam divergir na virada.
+            TotalVendasHoje = faturamentoHoje,
+            TotalVendasMes = faturamentoMes,
+            QuantidadeVendasHoje = diaDeHoje?.QuantidadeVendas ?? 0,
             ProdutosEstoqueCritico = produtosEstoqueCritico,
             ProdutosSemEstoque = produtosSemEstoque,
             TotalProdutos = totalProdutos,
-            LucroHoje = lucroHoje,
-            LucroMes = lucroMes,
+            LucroHoje = faturamentoHoje - custoHoje,
+            LucroMes = faturamentoMes - custoMes,
             CustoHoje = custoHoje,
             CustoMes = custoMes,
-            MargemLucroHoje = faturamentoHoje > 0 ? Math.Round(lucroHoje / faturamentoHoje * 100m, 1) : 0m,
-            MargemLucroMes = faturamentoMes > 0 ? Math.Round(lucroMes / faturamentoMes * 100m, 1) : 0m,
-            TicketMedioMes = vendasMes.Count > 0 ? Math.Round(faturamentoMes / vendasMes.Count, 2) : 0m,
-            QuantidadeVendasMes = vendasMes.Count,
+            MargemLucroHoje = faturamentoHoje > 0 ? Math.Round((faturamentoHoje - custoHoje) / faturamentoHoje * 100m, 1) : 0m,
+            MargemLucroMes = faturamentoMes > 0 ? Math.Round((faturamentoMes - custoMes) / faturamentoMes * 100m, 1) : 0m,
+            TicketMedioMes = quantidadeVendasMes > 0 ? Math.Round(faturamentoMes / quantidadeVendasMes, 2) : 0m,
+            QuantidadeVendasMes = quantidadeVendasMes,
             ItensSemCustoCadastradoMes = itensSemCustoMes,
             LucroUltimos7Dias = lucroUltimos7Dias
         };
@@ -105,15 +120,17 @@ public class DashboardService : IDashboardService
 
     public async Task<DashboardEstoqueDto> ObterVisaoEstoqueAsync(CancellationToken cancellationToken = default)
     {
-        var (inicioMes, fimMes) = ObterMesAtual(DateTime.Today);
+        var (inicioMes, fimMesExclusivo) = ObterMesAtual(Relogio.Hoje);
 
         // Reaproveita os serviços já existentes (Relatórios/Estoque) em vez de duplicar
         // consulta/mapeamento aqui — mesmo padrão que RelatorioAnalyticsService já usa
         // (injetar outro Application service, não só repositórios).
         var proximosValidade = await _produtoService.ObterProximosDaValidadeAsync(DiasLimiteValidadeProxima);
         var poucaQuantidade = await _produtoService.ObterComEstoqueBaixoAsync();
+        // ObterRankingProdutosAsync tem limite INCLUSIVO (usa <= fim); AddTicks(-1) converte o
+        // limite meio-aberto para o último instante do mês, sem perder o segundo final.
         var maisVendidos = await _relatorioAnalyticsService.ObterRankingProdutosAsync(
-            inicioMes, fimMes, TipoAnaliseGiroProduto.MaisVendidos, cancellationToken);
+            inicioMes, fimMesExclusivo.AddTicks(-1), TipoAnaliseGiroProduto.MaisVendidos, cancellationToken);
 
         return new DashboardEstoqueDto
         {
@@ -125,8 +142,9 @@ public class DashboardService : IDashboardService
 
     public async Task<DashboardVendasDto> ObterVisaoVendasAsync(CancellationToken cancellationToken = default)
     {
-        var (inicioMes, fimMes) = ObterMesAtual(DateTime.Today);
-        var vendasMes = await _vendaRepository.ObterPorPeriodoAsync(inicioMes, fimMes);
+        var (inicioMes, fimMesExclusivo) = ObterMesAtual(Relogio.Hoje);
+        // ObterPorPeriodoAsync também é inclusivo — ver comentário em ObterVisaoEstoqueAsync.
+        var vendasMes = await _vendaRepository.ObterPorPeriodoAsync(inicioMes, fimMesExclusivo.AddTicks(-1));
 
         var maioresVendas = vendasMes
             .OrderByDescending(v => v.Total)
@@ -143,40 +161,15 @@ public class DashboardService : IDashboardService
         return new DashboardVendasDto { MaioresVendas = maioresVendas };
     }
 
-    private static (DateTime Inicio, DateTime Fim) ObterMesAtual(DateTime hoje)
+    /// <summary>
+    /// Mês corrente como intervalo MEIO-ABERTO <c>[inicio, fimExclusivo)</c>. Antes o fim era
+    /// <c>AddMonths(1).AddSeconds(-1)</c>, que descartava vendas no último segundo do mês e
+    /// divergia de <c>ObterTotalVendasMesAsync</c> (que usava o mês-calendário inteiro): o
+    /// card "Total do mês" e a soma do lucro podiam mostrar valores diferentes.
+    /// </summary>
+    private static (DateTime Inicio, DateTime FimExclusivo) ObterMesAtual(DateTime hoje)
     {
         var inicioMes = new DateTime(hoje.Year, hoje.Month, 1);
-        return (inicioMes, inicioMes.AddMonths(1).AddSeconds(-1));
-    }
-
-    /// <summary>
-    /// Faturamento = soma de <c>Venda.Total</c> (já líquido de desconto de item e de
-    /// cabeçalho — mesma base usada em <see cref="IVendaRepository.ObterTotalVendasDiaAsync"/>).
-    /// Custo = soma de <c>Produto.Custo × Quantidade</c> por item vendido; itens cujo
-    /// produto não tem custo cadastrado (<c>Custo</c> nulo) não entram nessa soma e são
-    /// contados separadamente em <c>ItensSemCusto</c> — sem histórico de custo por venda no
-    /// domínio, o custo "no momento da venda" não existe, então usamos o custo ATUAL do
-    /// produto como melhor aproximação disponível (ver <see cref="Produto.Custo"/>).
-    /// </summary>
-    private static (decimal Faturamento, decimal Custo, decimal Lucro, int ItensSemCusto) CalcularLucro(IEnumerable<Venda> vendas)
-    {
-        var faturamento = 0m;
-        var custo = 0m;
-        var itensSemCusto = 0;
-
-        foreach (var venda in vendas)
-        {
-            faturamento += venda.Total;
-
-            foreach (var item in venda.Itens)
-            {
-                if (item.Produto?.Custo is { } custoUnitario)
-                    custo += custoUnitario * item.Quantidade;
-                else
-                    itensSemCusto++;
-            }
-        }
-
-        return (faturamento, custo, faturamento - custo, itensSemCusto);
+        return (inicioMes, inicioMes.AddMonths(1));
     }
 }

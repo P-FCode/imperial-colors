@@ -4,6 +4,7 @@ using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Services;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Interfaces;
+using ImperialColors.Domain.ReadModels;
 using Moq;
 using Xunit;
 
@@ -12,9 +13,13 @@ namespace ImperialColors.Application.Tests;
 /// <summary>
 /// Cobre o cálculo de lucro/custo/margem do painel financeiro do dashboard
 /// (<see cref="DashboardService"/>) — não depende de banco: <see cref="IVendaRepository"/>
-/// é simulado devolvendo, para qualquer período pedido, o subconjunto de
-/// <see cref="Venda.DataVenda"/> dentro do intervalo, replicando o filtro real de
-/// <c>ObterPorPeriodoAsync</c> sem precisar do Postgres.
+/// é simulado a partir de uma lista de <see cref="Venda"/> em memória.
+///
+/// O mock de <c>ObterResumoDiarioAsync</c> reproduz, em LINQ, exatamente a agregação que a
+/// implementação real faz em SQL (agrupar por dia, somar Total, somar Custo×Quantidade,
+/// contar itens sem custo). Os casos de teste continuam expressos em vendas e itens — que é
+/// como se raciocina sobre a regra — e o mock faz a ponte para o formato agregado que o
+/// serviço passou a consumir.
 /// </summary>
 public class DashboardServiceTests
 {
@@ -42,10 +47,31 @@ public class DashboardServiceTests
             .Returns((DateTime inicio, DateTime fim) => Task.FromResult<IEnumerable<Venda>>(
                 todasAsVendas.Where(v => v.DataVenda >= inicio && v.DataVenda <= fim).ToList()));
 
+        // Espelha a agregação SQL de VendaRepository.ObterResumoDiarioAsync. Intervalo
+        // MEIO-ABERTO [inicio, fimExclusivo), igual ao real.
+        vendaMock.Setup(r => r.ObterResumoDiarioAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns((DateTime inicio, DateTime fimExclusivo, CancellationToken _) =>
+                Task.FromResult<IReadOnlyList<ResumoVendasDiario>>(
+                    todasAsVendas
+                        .Where(v => v.DataVenda >= inicio && v.DataVenda < fimExclusivo)
+                        .GroupBy(v => v.DataVenda.Date)
+                        .Select(g => new ResumoVendasDiario
+                        {
+                            Data = g.Key,
+                            QuantidadeVendas = g.Count(),
+                            Faturamento = g.Sum(v => v.Total),
+                            Custo = g.SelectMany(v => v.Itens)
+                                     .Sum(i => i.Produto?.Custo is { } c ? c * i.Quantidade : 0m),
+                            ItensSemCusto = g.SelectMany(v => v.Itens)
+                                             .Count(i => i.Produto?.Custo is null)
+                        })
+                        .OrderBy(r => r.Data)
+                        .ToList()));
+
         var produtoMock = new Mock<IProdutoRepository>();
         produtoMock.Setup(p => p.ContarAsync(It.IsAny<Expression<Func<Produto, bool>>>())).ReturnsAsync(0);
         produtoMock.Setup(p => p.ContarComEstoqueCriticoAsync(It.IsAny<decimal>())).ReturnsAsync(0);
-        produtoMock.Setup(p => p.ObterSemEstoqueAsync()).ReturnsAsync(new List<Produto>());
+        produtoMock.Setup(p => p.ContarSemEstoqueAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
 
         var produtoServiceMock = new Mock<IProdutoService>();
         produtoServiceMock.Setup(p => p.ObterProximosDaValidadeAsync(It.IsAny<int>())).ReturnsAsync(new List<ProdutoDto>());
@@ -235,7 +261,9 @@ public class DashboardServiceTests
 
         var hoje = DateTime.Today;
         var inicioMesEsperado = new DateTime(hoje.Year, hoje.Month, 1);
-        var fimMesEsperado = inicioMesEsperado.AddMonths(1).AddSeconds(-1);
+        // O fim passado ao ranking agora é o ÚLTIMO INSTANTE do mês (AddTicks(-1) sobre o
+        // limite meio-aberto), não 23:59:59 — antes o último segundo do mês era descartado.
+        var fimMesEsperado = inicioMesEsperado.AddMonths(1).AddTicks(-1);
 
         analyticsMock.Verify(a => a.ObterRankingProdutosAsync(
             inicioMesEsperado, fimMesEsperado, TipoAnaliseGiroProduto.MaisVendidos, It.IsAny<CancellationToken>()), Times.Once);

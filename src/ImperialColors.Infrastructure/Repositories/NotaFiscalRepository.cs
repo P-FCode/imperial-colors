@@ -1,3 +1,4 @@
+using System.Globalization;
 using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
@@ -44,21 +45,39 @@ public class NotaFiscalRepository : INotaFiscalRepository
         return await query.OrderByDescending(n => n.DataEmissao).ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Próximo número livre da série, resolvido com um <c>MAX</c> no banco.
+    ///
+    /// A versão anterior trazia TODOS os números da série para o cliente
+    /// (<c>Select(n =&gt; n.Numero).ToListAsync()</c>) e calculava o <c>Max()</c> em memória —
+    /// com 100 mil notas, cada rascunho criado e cada reemissão transferia 100 mil strings
+    /// antes de montar o payload. O motivo de não ser um <c>MAX</c> direto é que
+    /// <c>numero</c> é <c>varchar(9)</c> sem zero à esquerda, então a ordenação de texto não
+    /// corresponde à numérica ("9" &gt; "12"); o <c>CAST</c> resolve isso, e o índice de
+    /// expressão criado em <c>AddIndiceNumeracaoNotaFiscal</c> faz o Postgres responder por
+    /// leitura de uma única entrada de índice.
+    ///
+    /// Sem filtro de soft-delete de propósito (SQL cru não aplica query filter, e é o que se
+    /// quer aqui): a numeração é imutável mesmo para notas inativadas ou rejeitadas — ver o
+    /// índice único Tipo+Serie+Numero em <c>NotaFiscalMapping</c>.
+    /// O <c>~ '^[0-9]+$'</c> protege o CAST de qualquer número não-numérico legado.
+    /// </summary>
     public async Task<string> ObterProximoNumeroAsync(TipoNotaFiscal tipo, string serie, CancellationToken cancellationToken = default)
     {
         await using var context = _contextFactory.CreateDbContext();
 
-        var numeros = await context.NotasFiscais.IgnoreQueryFilters()
-            .Where(n => n.Tipo == tipo && n.Serie == serie)
-            .Select(n => n.Numero)
-            .ToListAsync(cancellationToken);
+        var codigoTipo = (int)tipo;
+        var maiorNumero = await context.Database
+            .SqlQuery<int>($"""
+                SELECT COALESCE(MAX(CAST(numero AS INTEGER)), 0) AS "Value"
+                FROM notas_fiscais
+                WHERE tipo = {codigoTipo}
+                  AND serie = {serie}
+                  AND numero ~ '^[0-9]+$'
+                """)
+            .SingleAsync(cancellationToken);
 
-        var maiorNumero = numeros
-            .Select(n => int.TryParse(n, out var valor) ? valor : 0)
-            .DefaultIfEmpty(0)
-            .Max();
-
-        return (maiorNumero + 1).ToString();
+        return (maiorNumero + 1).ToString(CultureInfo.InvariantCulture);
     }
 
     public async Task<NotaFiscal> CriarAsync(NotaFiscal nota, CancellationToken cancellationToken = default)

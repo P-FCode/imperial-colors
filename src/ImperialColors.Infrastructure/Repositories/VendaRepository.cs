@@ -2,6 +2,7 @@ using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
+using ImperialColors.Domain.ReadModels;
 using ImperialColors.Infrastructure.Data;
 using ImperialColors.Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
@@ -114,23 +115,103 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
             .ToListAsync();
     }
 
+    // Os dois totais abaixo usam intervalo MEIO-ABERTO [inicio, fimExclusivo). Antes eram
+    // `v.DataVenda.Date == data.Date` e `v.DataVenda.Year == ano && .Month == mes`, que viram
+    // DATE(data_venda) = ... e EXTRACT(... FROM data_venda) = ... no SQL — aplicar função
+    // sobre a coluna torna o predicado não-sargável e o IX_vendas_data_venda deixa de ser
+    // usado: o Postgres varre a tabela inteira e avalia linha a linha. Comparar a coluna
+    // "crua" contra dois limites mantém o índice em jogo e, de quebra, deixa de perder o
+    // último segundo do período (o `<=` com 23:59:59 excluía vendas em 23:59:59.5).
     public async Task<decimal> ObterTotalVendasDiaAsync(DateTime data)
     {
+        var inicio = data.Date;
+        var fimExclusivo = inicio.AddDays(1);
+
         await using var context = ContextFactory.CreateDbContext();
         return await context.Set<Venda>()
             .AsNoTracking()
-            .Where(v => v.Status == StatusVenda.Finalizada && v.DataVenda.Date == data.Date)
+            .Where(v => v.Status == StatusVenda.Finalizada &&
+                        v.DataVenda >= inicio && v.DataVenda < fimExclusivo)
             .SumAsync(v => v.Total);
     }
 
     public async Task<decimal> ObterTotalVendasMesAsync(int ano, int mes)
     {
+        var inicio = new DateTime(ano, mes, 1);
+        var fimExclusivo = inicio.AddMonths(1);
+
         await using var context = ContextFactory.CreateDbContext();
         return await context.Set<Venda>()
             .AsNoTracking()
             .Where(v => v.Status == StatusVenda.Finalizada &&
-                        v.DataVenda.Year == ano && v.DataVenda.Month == mes)
+                        v.DataVenda >= inicio && v.DataVenda < fimExclusivo)
             .SumAsync(v => v.Total);
+    }
+
+    /// <summary>
+    /// Duas agregações no banco (uma no nível da venda, outra no nível do item) casadas por
+    /// dia em memória. São dois SELECTs porque <c>Venda.Total</c> se repetiria em cada linha
+    /// de item num único JOIN, inflando o faturamento — o clássico fan-out de agregar sobre
+    /// junção 1-N. Cada consulta devolve no máximo uma linha por dia do intervalo.
+    ///
+    /// O custo vem de <c>Produto.Custo</c> com <c>IgnoreQueryFilters</c> de propósito: o custo
+    /// histórico de um produto não deixa de existir porque ele foi inativado depois da venda.
+    /// A versão anterior usava <c>Include(i =&gt; i.Produto)</c>, que aplica o filtro de
+    /// soft-delete e devolvia <c>null</c> nesse caso — inativar um produto fazia o lucro de
+    /// todas as vendas passadas dele subir retroativamente, contando o item como "sem custo".
+    /// </summary>
+    public async Task<IReadOnlyList<ResumoVendasDiario>> ObterResumoDiarioAsync(
+        DateTime inicio, DateTime fimExclusivo, CancellationToken cancellationToken = default)
+    {
+        await using var context = ContextFactory.CreateDbContext();
+
+        var porVenda = await context.Set<Venda>()
+            .AsNoTracking()
+            .Where(v => v.Status == StatusVenda.Finalizada &&
+                        v.DataVenda >= inicio && v.DataVenda < fimExclusivo)
+            .GroupBy(v => v.DataVenda.Date)
+            .Select(g => new
+            {
+                Data = g.Key,
+                Quantidade = g.Count(),
+                Faturamento = g.Sum(v => v.Total)
+            })
+            .ToListAsync(cancellationToken);
+
+        var porItem = await (
+            from item in context.Set<ItemVenda>().AsNoTracking()
+            join produto in context.Set<Produto>().IgnoreQueryFilters().AsNoTracking()
+                on item.ProdutoId equals produto.Id into correspondentes
+            from produto in correspondentes.DefaultIfEmpty()
+            where item.Venda.Status == StatusVenda.Finalizada &&
+                  item.Venda.DataVenda >= inicio && item.Venda.DataVenda < fimExclusivo
+            group new { item, produto } by item.Venda.DataVenda.Date into g
+            select new
+            {
+                Data = g.Key,
+                Custo = g.Sum(x => x.produto != null && x.produto.Custo != null
+                    ? x.produto.Custo.Value * x.item.Quantidade
+                    : 0m),
+                ItensSemCusto = g.Count(x => x.produto == null || x.produto.Custo == null)
+            }).ToListAsync(cancellationToken);
+
+        var custosPorDia = porItem.ToDictionary(x => x.Data);
+
+        return porVenda
+            .Select(v =>
+            {
+                custosPorDia.TryGetValue(v.Data, out var c);
+                return new ResumoVendasDiario
+                {
+                    Data = v.Data,
+                    QuantidadeVendas = v.Quantidade,
+                    Faturamento = v.Faturamento,
+                    Custo = c?.Custo ?? 0m,
+                    ItensSemCusto = c?.ItensSemCusto ?? 0
+                };
+            })
+            .OrderBy(r => r.Data)
+            .ToList();
     }
 
     public async Task<string> GerarNumeroVendaAsync()

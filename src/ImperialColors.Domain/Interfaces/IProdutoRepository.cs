@@ -53,6 +53,13 @@ public interface IProdutoRepository : IRepository<Produto>
     /// próxima primeiro.</summary>
     Task<IEnumerable<Produto>> ObterProximosDaValidadeAsync(int diasLimite = 15);
     Task<int> ContarComEstoqueCriticoAsync(decimal limiteUnidades = 5);
+
+    /// <summary>
+    /// Conta os produtos zerados sem trazer nenhum deles. Existe porque o dashboard fazia
+    /// <c>(await ObterSemEstoqueAsync()).Count()</c> — que materializa cada produto com
+    /// Categoria, Marca e Fornecedor anexados só para descartar tudo e ficar com um número.
+    /// </summary>
+    Task<int> ContarSemEstoqueAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<Produto>> ObterComCategoriaEMarcaAsync();
     Task<bool> CodigoInternoExisteAsync(string codigoInterno, int? ignorarId = null);
     Task<int> ObterMaiorSequenciaCodigoInternoAsync();

@@ -1,4 +1,5 @@
 using ImperialColors.Domain.Entities;
+using ImperialColors.Domain.ReadModels;
 
 namespace ImperialColors.Domain.Interfaces;
 
@@ -9,6 +10,16 @@ public interface IVendaRepository : IRepository<Venda>
     Task<decimal> ObterTotalVendasDiaAsync(DateTime data);
     Task<decimal> ObterTotalVendasMesAsync(int ano, int mes);
     Task<string> GerarNumeroVendaAsync();
+
+    /// <summary>
+    /// Faturamento, custo e contagem de vendas AGREGADOS POR DIA no banco, no intervalo
+    /// meio-aberto <c>[inicio, fimExclusivo)</c>. Devolve uma linha por dia que teve venda
+    /// finalizada (dias sem movimento simplesmente não aparecem).
+    /// Substitui o padrão de carregar as vendas do período com <c>Include(Itens).ThenInclude
+    /// (Produto)</c> e somar em memória, que não escala.
+    /// </summary>
+    Task<IReadOnlyList<ResumoVendasDiario>> ObterResumoDiarioAsync(
+        DateTime inicio, DateTime fimExclusivo, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Cria a venda (cabeçalho + itens + pagamentos) e dá baixa atômica no estoque de

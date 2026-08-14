@@ -219,11 +219,23 @@ public class ProdutoRepository : RepositoryBase<Produto>, IProdutoRepository
             .ToListAsync();
     }
 
+    // As duas contagens abaixo consultam a tabela direto, sem ConsultaLeituraComIncludes: os
+    // Include(Categoria/Marca/Fornecedor) existem para montar o DTO de listagem e não têm uso
+    // nenhum num COUNT.
     public async Task<int> ContarComEstoqueCriticoAsync(decimal limiteUnidades = 5)
     {
         await using var context = ContextFactory.CreateDbContext();
-        return await ConsultaLeituraComIncludes(context)
+        return await context.Set<Produto>()
+            .AsNoTracking()
             .CountAsync(p => p.QuantidadeEstoque > 0 && p.QuantidadeEstoque < limiteUnidades);
+    }
+
+    public async Task<int> ContarSemEstoqueAsync(CancellationToken cancellationToken = default)
+    {
+        await using var context = ContextFactory.CreateDbContext();
+        return await context.Set<Produto>()
+            .AsNoTracking()
+            .CountAsync(p => p.QuantidadeEstoque <= 0, cancellationToken);
     }
 
     public async Task<IEnumerable<Produto>> ObterComCategoriaEMarcaAsync()

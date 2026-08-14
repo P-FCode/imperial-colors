@@ -18,8 +18,30 @@ public static class InfrastructureExtensions
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString)
     {
-        services.AddDbContextFactory<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        // Pooled: o padrão do projeto é abrir um DbContext por método de repositório, então
+        // uma única tela dispara dezenas de instanciações. O pool reaproveita os objetos
+        // internos (model, change tracker, conexão), tirando esse custo do caminho quente do
+        // PDV. Sem a versão pooled, cada CreateDbContext reconstruía tudo do zero.
+        //
+        // CommandTimeout explícito: deixa o limite declarado no código em vez de depender do
+        // padrão do provider, para uma consulta pesada não travar a interface indefinidamente.
+        //
+        // ⚠️ EnableRetryOnFailure está DELIBERADAMENTE DESLIGADO. Ligá-lo compila, passa em
+        // todos os testes e QUEBRA EM PRODUÇÃO: com uma estratégia de retry ativa, o EF lança
+        // InvalidOperationException ("does not support user-initiated transactions") assim que
+        // um SaveChanges/ExecuteUpdate roda dentro de um BeginTransaction manual — e existem 11
+        // desses, incluindo CriarComBaixaEstoqueTransacionalAsync (toda venda),
+        // AjustarEstoqueAsync e as trocas. Curiosamente o BeginTransaction sozinho não lança,
+        // então um teste superficial passa; o erro só aparece na primeira venda real.
+        //
+        // Para ligar o retry é preciso, antes, envolver cada um desses 11 blocos em
+        // Database.CreateExecutionStrategy().ExecuteAsync(...) — e mover a CRIAÇÃO do
+        // DbContext para dentro do lambda, senão a segunda tentativa reusa um contexto com as
+        // entidades já rastreadas da tentativa anterior. É refatoração no código mais crítico
+        // do sistema (venda + baixa de estoque) e merece PR própria, não um efeito colateral
+        // de um ajuste de performance.
+        services.AddPooledDbContextFactory<AppDbContext>(options =>
+            options.UseNpgsql(connectionString, npgsql => npgsql.CommandTimeout(30)));
 
         var caminhoSqlite = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
