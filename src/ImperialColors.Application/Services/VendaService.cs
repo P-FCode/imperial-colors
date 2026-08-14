@@ -38,12 +38,6 @@ public class VendaService : IVendaService, IVendaContingenciaSync
         _logger = logger;
     }
 
-    public async Task<IEnumerable<VendaDto>> ObterTodosAsync()
-    {
-        var vendas = await _vendaRepository.ObterTodosAsync();
-        return vendas.Select(MapParaDto);
-    }
-
     public async Task<VendaDto?> ObterPorIdAsync(int id)
     {
         var venda = await _vendaRepository.ObterPorIdAsync(id);

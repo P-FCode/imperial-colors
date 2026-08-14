@@ -1,5 +1,6 @@
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Extensions;
+using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Infrastructure.Extensions;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,9 +68,31 @@ public class ProdutoCodigoInternoIntegrationTests
                 idsCriados.Add(criado.Id);
             }
 
+            // O que este teste garante de verdade: três produtos criados em sequência recebem
+            // códigos ÚNICOS. É a regra que importa (o índice único de codigo_interno depende
+            // dela).
             Assert.Equal(3, codigosGerados.Distinct(StringComparer.OrdinalIgnoreCase).Count());
-            Assert.All(codigosGerados, c => Assert.Matches("^P[0-9]{5}$", c));
-            Assert.All(codigosGerados, c => Assert.True(int.Parse(c[1..]) > maiorAntes || maiorAntes == 0));
+
+            // Dois formatos são legítimos, e o teste antes só aceitava o primeiro:
+            //   • P##### — sequencial, o que GerarProximoCodigoInternoAsync sugere;
+            //   • SIGLA### — derivado das iniciais do nome, que é o que
+            //     InserirProdutoAsync produz ao REGENERAR o código em caso de colisão
+            //     (GarantirCodigoInternoDisponivelAntesDeInserirAsync).
+            // Com outros testes de integração criando produtos em paralelo, a colisão acontece
+            // e a regeneração entra em ação — comportamento correto, mas que fazia este teste
+            // falhar de forma intermitente, dependendo de o GUID do nome cair antes ou depois
+            // de outra inserção.
+            Assert.All(codigosGerados, c =>
+                Assert.True(
+                    ProdutoCodigoInternoHelper.EhCodigoSequencialPadrao(c) ||
+                    ProdutoCodigoIniciaisHelper.EhCodigoPorIniciais(c),
+                    $"Código '{c}' não segue nenhum dos dois formatos válidos (P##### ou SIGLA###)."));
+
+            // A comparação com o maior sequencial anterior só faz sentido para os códigos no
+            // formato sequencial — os por iniciais têm contador próprio, por sigla.
+            Assert.All(
+                codigosGerados.Where(ProdutoCodigoInternoHelper.EhCodigoSequencialPadrao),
+                c => Assert.True(int.Parse(c[1..]) > maiorAntes || maiorAntes == 0));
         }
         finally
         {

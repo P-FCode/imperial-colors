@@ -9,7 +9,10 @@ public interface IVendaRepository : IRepository<Venda>
     Task<IEnumerable<Venda>> ObterPorPeriodoAsync(DateTime inicio, DateTime fim);
     Task<decimal> ObterTotalVendasDiaAsync(DateTime data);
     Task<decimal> ObterTotalVendasMesAsync(int ano, int mes);
-    Task<string> GerarNumeroVendaAsync();
+
+    // Não existe um "GerarNumeroVendaAsync" público de propósito: gerar o número FORA da
+    // transação que grava a venda é uma corrida entre PDVs esperando para acontecer. A
+    // numeração é gerada dentro de CriarComBaixaEstoqueTransacionalAsync, sob advisory lock.
 
     /// <summary>
     /// Faturamento, custo e contagem de vendas AGREGADOS POR DIA no banco, no intervalo

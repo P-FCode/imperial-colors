@@ -27,6 +27,13 @@ public class RepositoryBase<T> : IRepository<T> where T : BaseEntity
         return await context.Set<T>().FirstOrDefaultAsync(e => e.Id == id);
     }
 
+    /// <summary>
+    /// ⚠️ Carrega a tabela INTEIRA, sem paginação nem teto. Use apenas em tabelas de domínio
+    /// fechado, que não crescem com o uso: categorias, marcas, naturezas de operação,
+    /// fornecedores. Para qualquer tabela que acompanhe o movimento da loja (vendas, itens,
+    /// movimentações, notas, logs) existe uma variante paginada — e <c>Venda</c> deixou de
+    /// sobrescrever este método justamente para que ninguém o chame lá por engano.
+    /// </summary>
     public virtual async Task<IEnumerable<T>> ObterTodosAsync()
     {
         await using var context = ContextFactory.CreateDbContext();

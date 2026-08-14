@@ -244,8 +244,7 @@ public partial class NotaFiscalFormView : Window
         _pagamentos.Clear();
         foreach (var pagamento in n.Pagamentos) _pagamentos.Add(new PagamentoUi(pagamento));
 
-        ChkCalculoAutomatico.IsChecked = n.CalculoAutomatico;
-        AplicarSomenteLeituraCalculo(n.CalculoAutomatico);
+        AplicarSomenteLeituraCalculo();
         AtualizarCamposCalculo(n);
 
         SelecionarEnum<ModalidadeFrete>(CmbFormaEnvio, n.FormaEnvio);
@@ -516,7 +515,7 @@ public partial class NotaFiscalFormView : Window
 
     private void RecalcularTotaisUi()
     {
-        if (ChkCalculoAutomatico.IsChecked != true) return;
+        if (_carregando) return;
 
         _nota.Itens = _itens.ToList();
         _nota.CalculoAutomatico = true;
@@ -526,20 +525,15 @@ public partial class NotaFiscalFormView : Window
 
     // --- Bloco Cálculo do imposto ---
 
-    private void ChkCalculoAutomatico_Changed(object sender, RoutedEventArgs e)
-    {
-        // O XAML fixa IsChecked="True" no CheckBox — isso dispara o evento Checked durante
-        // o próprio InitializeComponent(), antes de qualquer campo do construtor (inclusive
-        // _notaFiscalService) ser atribuído. Sem essa guarda, o clique em "Criar Nota"
-        // sempre lançava NullReferenceException ao tentar recalcular totais nesse instante.
-        if (_carregando) return;
-
-        var automatico = ChkCalculoAutomatico.IsChecked == true;
-        AplicarSomenteLeituraCalculo(automatico);
-        if (automatico) RecalcularTotaisUi();
-    }
-
-    private void AplicarSomenteLeituraCalculo(bool automatico)
+    /// <summary>
+    /// Todos os campos de total são somente-leitura, sempre. A caixa "Cálculo ligado" que
+    /// existia aqui era uma promessa vazia: <c>NotaFiscalService.EmitirAsync</c> chama
+    /// <c>AplicarTotaisCalculados</c> para notas Rascunho e Rejeitada — e a tela de Ações só
+    /// oferece "Emitir" nesses dois status — então qualquer valor digitado à mão era
+    /// silenciosamente sobrescrito no momento de transmitir. Deixar os campos editáveis
+    /// fazia o operador acreditar num controle que ele não tinha.
+    /// </summary>
+    private void AplicarSomenteLeituraCalculo()
     {
         foreach (var caixa in new[]
         {
@@ -548,7 +542,7 @@ public partial class NotaFiscalFormView : Window
             TxtVFcp, TxtVFcpSt, TxtVFcpStRet
         })
         {
-            caixa.IsReadOnly = automatico;
+            caixa.IsReadOnly = true;
         }
     }
 
@@ -707,36 +701,12 @@ public partial class NotaFiscalFormView : Window
         _nota.Itens = _itens.ToList();
         _nota.Pagamentos = _pagamentos.Select(p => p.ParaDto()).ToList();
 
-        _nota.CalculoAutomatico = ChkCalculoAutomatico.IsChecked == true;
-        if (_nota.CalculoAutomatico)
-        {
-            _notaFiscalService.RecalcularTotais(_nota);
-        }
-        else
-        {
-            FormattingHelper.TryParseMoeda(TxtVProd.Text, out var vProd); _nota.VProd = vProd;
-            FormattingHelper.TryParseMoeda(TxtVFrete.Text, out var vFrete); _nota.VFrete = vFrete;
-            FormattingHelper.TryParseMoeda(TxtVSeg.Text, out var vSeg); _nota.VSeg = vSeg;
-            FormattingHelper.TryParseMoeda(TxtVBcIcms.Text, out var vBcIcms); _nota.VBcIcms = vBcIcms;
-            FormattingHelper.TryParseMoeda(TxtVIcms.Text, out var vIcms); _nota.VIcms = vIcms;
-            FormattingHelper.TryParseMoeda(TxtVBcIcmsSt.Text, out var vBcIcmsSt); _nota.VBcIcmsSt = vBcIcmsSt;
-            FormattingHelper.TryParseMoeda(TxtVIcmsSt.Text, out var vIcmsSt); _nota.VIcmsSt = vIcmsSt;
-            FormattingHelper.TryParseMoeda(TxtVIpi.Text, out var vIpi); _nota.VIpi = vIpi;
-            FormattingHelper.TryParseMoeda(TxtVIpiDevolvido.Text, out var vIpiDev); _nota.VIpiDevolvido = vIpiDev;
-            FormattingHelper.TryParseMoeda(TxtVOutro.Text, out var vOutro); _nota.VOutro = vOutro;
-            FormattingHelper.TryParseMoeda(TxtVDesc.Text, out var vDesc); _nota.VDesc = vDesc;
-            FormattingHelper.TryParseMoeda(TxtVFunrural.Text, out var vFunrural); _nota.VFunrural = vFunrural;
-            FormattingHelper.TryParseMoeda(TxtVAproxImp.Text, out var vAproxImp); _nota.VAproxImp = vAproxImp;
-            FormattingHelper.TryParseMoeda(TxtVFcp.Text, out var vFcp); _nota.VFcp = vFcp;
-            FormattingHelper.TryParseMoeda(TxtVFcpSt.Text, out var vFcpSt); _nota.VFcpSt = vFcpSt;
-            FormattingHelper.TryParseMoeda(TxtVFcpStRet.Text, out var vFcpStRet); _nota.VFcpStRet = vFcpStRet;
-            _nota.NumeroItens = _itens.Count;
-            // Fórmula oficial (GUIA_INTEGRACAO.md seção 4.8): vNF = vProd + vST + vFrete + vSeg
-            // + vOutro + vIPI − vDesc. O vST faltava aqui — o modo manual calculava um total
-            // menor que o de AplicarTotaisCalculados e que o vNF realmente transmitido sempre
-            // que a nota tinha ICMS-ST. vServ saiu da conta junto com o campo (ver NotaFiscal.VServ).
-            _nota.VNf = _nota.VProd + _nota.VIcmsSt + _nota.VFrete + _nota.VSeg + _nota.VOutro + _nota.VIpi - _nota.VDesc;
-        }
+        // Os totais vêm SEMPRE dos itens. O ramo "manual" que existia aqui — lendo os 16
+        // campos da tela e montando o vNF na mão — era inalcançável na prática:
+        // NotaFiscalService.EmitirAsync recalcula tudo antes de transmitir, então o que fosse
+        // digitado nunca chegava ao XML. Ver AplicarSomenteLeituraCalculo.
+        _nota.CalculoAutomatico = true;
+        _notaFiscalService.RecalcularTotais(_nota);
         AtualizarCamposCalculo(_nota);
 
         _nota.FormaEnvio = ObterEnumSelecionado(CmbFormaEnvio, ModalidadeFrete.SemOcorrenciaTransporte);

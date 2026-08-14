@@ -19,10 +19,17 @@ public class ClienteRepository : RepositoryBase<Cliente>, IClienteRepository
             .ToListAsync();
     }
 
+    /// <summary>
+    /// <c>AsSplitQuery</c>: três <c>Include</c> encadeados em coleção geram um único JOIN que
+    /// repete os dados do cliente em cada linha de item — um cliente fiel com 500 compras de
+    /// 6 itens devolveria 3.000 linhas largas para exibir um histórico. Com split query o EF
+    /// emite uma consulta por nível e monta o grafo em memória, sem o produto cartesiano.
+    /// </summary>
     public async Task<Cliente?> ObterComVendasAsync(int id)
     {
         await using var context = ContextFactory.CreateDbContext();
         return await context.Set<Cliente>()
+            .AsSplitQuery()
             .Include(c => c.Vendas).ThenInclude(v => v.Itens).ThenInclude(i => i.Produto)
             .FirstOrDefaultAsync(c => c.Id == id);
     }

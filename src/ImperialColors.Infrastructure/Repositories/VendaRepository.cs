@@ -214,27 +214,6 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
             .ToList();
     }
 
-    public async Task<string> GerarNumeroVendaAsync()
-    {
-        await using var context = ContextFactory.CreateDbContext();
-        var hoje = DateTime.Today;
-        var prefixo = hoje.ToString("yyyyMMdd");
-        var ultimaVenda = await context.Set<Venda>()
-            .Where(v => v.NumeroVenda.StartsWith(prefixo))
-            .OrderByDescending(v => v.NumeroVenda)
-            .FirstOrDefaultAsync();
-
-        var sequencial = 1;
-        if (ultimaVenda is not null)
-        {
-            var partes = ultimaVenda.NumeroVenda.Split('-');
-            if (partes.Length == 2 && int.TryParse(partes[1], out var seq))
-                sequencial = seq + 1;
-        }
-
-        return $"{prefixo}-{sequencial:D4}";
-    }
-
     public async Task<(IReadOnlyList<Venda> Itens, int Total)> ObterPaginadoPorPeriodoAsync(
         DateTime inicio, DateTime fim, int pagina, int itensPorPagina, string? termoBusca = null,
         CancellationToken cancellationToken = default)
@@ -382,13 +361,4 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
         }
     }
 
-    public override async Task<IEnumerable<Venda>> ObterTodosAsync()
-    {
-        await using var context = ContextFactory.CreateDbContext();
-        return await context.Set<Venda>()
-            .AsNoTracking()
-            .Include(v => v.Cliente)
-            .OrderByDescending(v => v.DataVenda)
-            .ToListAsync();
-    }
 }

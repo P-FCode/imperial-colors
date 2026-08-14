@@ -406,11 +406,19 @@
                 <!-- ============ BLOCO: CÁLCULO DO IMPOSTO ============ -->
                 <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
                     <StackPanel>
+                        <!-- A caixa "Cálculo ligado" saiu daqui. Ela prometia um controle que não
+                             existia: NotaFiscalService.EmitirAsync SEMPRE recalcula os totais a
+                             partir dos itens antes de transmitir (para Rascunho e Rejeitada — os
+                             únicos status em que a tela de Ações oferece "Emitir"), então tudo que
+                             fosse digitado à mão nestes campos era descartado no momento da
+                             emissão. Os valores agora são somente-leitura e mostram o que
+                             realmente vai no XML. -->
                         <Grid Margin="0,0,0,10">
                             <TextBlock Text="Cálculo do Imposto" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Left"/>
-                            <CheckBox x:Name="ChkCalculoAutomatico" Content="Cálculo ligado" HorizontalAlignment="Right"
-                                      Style="{StaticResource CheckBoxModerno}" IsChecked="True"
-                                      Checked="ChkCalculoAutomatico_Changed" Unchecked="ChkCalculoAutomatico_Changed"/>
+                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11"
+                                       Foreground="{StaticResource CinzaTextoBrush}"
+                                       Text="Calculado a partir dos itens"
+                                       ToolTip="Estes totais são recalculados automaticamente a partir dos itens no momento da emissão — é exatamente o que vai no XML enviado à SEFAZ."/>
                         </Grid>
 
                         <!-- "Total Serviços" (vServ) e "Valor ISSQN" (vIssqn) foram removidos daqui:

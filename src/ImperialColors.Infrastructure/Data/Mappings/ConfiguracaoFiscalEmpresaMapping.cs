@@ -1,11 +1,21 @@
+using System.Runtime.Versioning;
 using ImperialColors.Domain.Entities;
+using ImperialColors.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace ImperialColors.Infrastructure.Data.Mappings;
 
+[SupportedOSPlatform("windows")]
 public class ConfiguracaoFiscalEmpresaMapping : IEntityTypeConfiguration<ConfiguracaoFiscalEmpresa>
 {
+    /// <summary>Cifra ao gravar, decifra ao ler. Ver <see cref="ProtecaoSegredoFiscal"/>.</summary>
+    private static readonly ValueConverter<string?, string?> ConversorSegredo = new(
+        aoGravar => ProtecaoSegredoFiscal.Proteger(aoGravar),
+        aoLer => ProtecaoSegredoFiscal.Desproteger(aoLer));
+
+
     public void Configure(EntityTypeBuilder<ConfiguracaoFiscalEmpresa> builder)
     {
         builder.ToTable("configuracao_fiscal_empresa");
@@ -35,12 +45,24 @@ public class ConfiguracaoFiscalEmpresaMapping : IEntityTypeConfiguration<Configu
 
         builder.Property(c => c.Ambiente).HasColumnName("ambiente");
 
+        // Os três segredos abaixo (CSC de cada ambiente e API Key) passam por
+        // ProtecaoSegredoFiscal na ida e na volta — o banco guarda só o texto cifrado pela
+        // DPAPI. O ValueConverter aplica isso de forma transparente: nenhum repositório,
+        // serviço ou tela precisa saber que existe criptografia no caminho.
+        //
+        // Sem HasMaxLength: o texto cifrado + base64 é várias vezes maior que o original
+        // (um CSC de 36 caracteres passa de 300), então as colunas viraram `text` na
+        // migration ProtegerSegredosFiscais. Os IDs de CSC não são segredo (são identificadores
+        // públicos que acompanham o CSC) e continuam em claro.
         builder.Property(c => c.IdCscHomologacao).HasColumnName("id_csc_homologacao").HasMaxLength(20);
-        builder.Property(c => c.CscHomologacao).HasColumnName("csc_homologacao").HasMaxLength(64);
+        builder.Property(c => c.CscHomologacao).HasColumnName("csc_homologacao")
+            .HasConversion(ConversorSegredo);
         builder.Property(c => c.IdCscProducao).HasColumnName("id_csc_producao").HasMaxLength(20);
-        builder.Property(c => c.CscProducao).HasColumnName("csc_producao").HasMaxLength(64);
+        builder.Property(c => c.CscProducao).HasColumnName("csc_producao")
+            .HasConversion(ConversorSegredo);
 
-        builder.Property(c => c.ApiKeyFiscal).HasColumnName("api_key_fiscal").HasMaxLength(200);
+        builder.Property(c => c.ApiKeyFiscal).HasColumnName("api_key_fiscal")
+            .HasConversion(ConversorSegredo);
 
         builder.Property(c => c.SimplesExcessoSublimite).HasColumnName("simples_excesso_sublimite").HasDefaultValue(false);
 

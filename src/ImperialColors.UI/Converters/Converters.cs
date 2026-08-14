@@ -214,19 +214,3 @@ public class DiasParaVencerConverter : IValueConverter
         => throw new NotImplementedException();
 }
 
-public class DecimalToStringConverter : IValueConverter
-{
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        if (value is decimal d)
-            return d.ToString("G", FormattingHelper.CulturaPtBr);
-        return "0";
-    }
-
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        if (value is string s && FormattingHelper.TryParseQuantidade(s, out decimal result))
-            return result;
-        return 0m;
-    }
-}

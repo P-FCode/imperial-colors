@@ -4,7 +4,8 @@ namespace ImperialColors.Application.Interfaces;
 
 public interface IVendaService
 {
-    Task<IEnumerable<VendaDto>> ObterTodosAsync();
+    // Sem ObterTodosAsync: carregar todas as vendas do histórico não tem uso legítimo em
+    // nenhuma tela — quem lista usa ObterPaginadoPorPeriodoAsync, quem soma usa os totais.
     Task<VendaDto?> ObterPorIdAsync(int id);
     Task<VendaDto?> ObterComItensAsync(int id);
     Task<IEnumerable<VendaDto>> ObterPorPeriodoAsync(DateTime inicio, DateTime fim);
