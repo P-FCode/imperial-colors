@@ -3,6 +3,7 @@ using System.Text.Json;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Contingency;
 using ImperialColors.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -13,16 +14,26 @@ namespace ImperialColors.Infrastructure.Services;
 
 public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposable
 {
+    /// <summary>Quantos meses de log de auditoria são mantidos. Ver <see cref="ExpurgarLogsSeVencidoAsync"/>.</summary>
+    private const int RetencaoLogsAuditoriaMeses = 12;
+
+    /// <summary>Intervalo mínimo entre dois expurgos. O PDV costuma ficar aberto por dias
+    /// seguidos, então não basta expurgar no startup — mas também não faz sentido fazer isso
+    /// no ritmo de 15s do laço de sincronização.</summary>
+    private static readonly TimeSpan IntervaloExpurgoLogs = TimeSpan.FromHours(24);
+
     private readonly IDbContextFactory<ContingencyDbContext> _contingencyFactory;
     private readonly IDbContextFactory<AppDbContext> _appFactory;
     private readonly IDatabaseHealthService _health;
     private readonly IContingencyVendaService _contingencyVenda;
     private readonly IVendaService _vendaService;
     private readonly IAuditoriaService _auditoria;
+    private readonly ILogAuditoriaRepository _logAuditoria;
     private readonly ILogger<DataSyncService> _logger;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
     private CancellationTokenSource? _cts;
     private Task? _loop;
+    private DateTime? _ultimoExpurgoLogs;
 
     public DataSyncService(
         IDbContextFactory<ContingencyDbContext> contingencyFactory,
@@ -31,6 +42,7 @@ public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposa
         IContingencyVendaService contingencyVenda,
         IVendaService vendaService,
         IAuditoriaService auditoria,
+        ILogAuditoriaRepository logAuditoria,
         ILogger<DataSyncService> logger)
     {
         _contingencyFactory = contingencyFactory;
@@ -39,6 +51,7 @@ public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposa
         _contingencyVenda = contingencyVenda;
         _vendaService = vendaService;
         _auditoria = auditoria;
+        _logAuditoria = logAuditoria;
         _logger = logger;
     }
 
@@ -88,9 +101,49 @@ public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposa
             {
                 if (!_health.IsOnline) continue;
                 await SincronizarPendentesAsync(cancellationToken);
+                await ExpurgarLogsSeVencidoAsync(cancellationToken);
             }
         }
         catch (OperationCanceledException) { }
+    }
+
+    /// <summary>
+    /// Retenção de <c>logs_auditoria</c>, a tabela que mais cresce do sistema (um registro por
+    /// ação de operador). <c>ExpurgarAntigosAsync</c> já existia mas ninguém o agendava: rodava
+    /// só uma vez, na abertura do app. Num PDV que fica aberto a semana inteira, isso
+    /// significava não rodar praticamente nunca.
+    ///
+    /// Roda de carona no laço que já existe, no máximo uma vez por dia. O primeiro disparo
+    /// acontece no primeiro tick após o app abrir — mantendo o comportamento antigo de
+    /// expurgar no startup, sem precisar do bloco duplicado que havia em <c>App.xaml.cs</c>.
+    ///
+    /// Falha aqui nunca interrompe o laço: limpeza de histórico não pode derrubar a
+    /// sincronização de vendas de contingência, que é o que realmente importa neste serviço.
+    /// </summary>
+    private async Task ExpurgarLogsSeVencidoAsync(CancellationToken cancellationToken)
+    {
+        if (_ultimoExpurgoLogs is { } ultimo && Relogio.Agora - ultimo < IntervaloExpurgoLogs)
+            return;
+
+        try
+        {
+            var apagados = await _logAuditoria.ExpurgarAntigosAsync(
+                Relogio.Agora.AddMonths(-RetencaoLogsAuditoriaMeses), cancellationToken);
+
+            _ultimoExpurgoLogs = Relogio.Agora;
+
+            if (apagados > 0)
+                _logger.LogInformation(
+                    "Expurgo de logs de auditoria: {Quantidade} registro(s) com mais de {Meses} meses removido(s).",
+                    apagados, RetencaoLogsAuditoriaMeses);
+        }
+        catch (Exception ex)
+        {
+            // Marca a tentativa mesmo em falha: sem isso, um erro persistente faria o expurgo
+            // ser retentado a cada 15 segundos, enchendo o log com o próprio fracasso.
+            _ultimoExpurgoLogs = Relogio.Agora;
+            _logger.LogWarning(ex, "Falha ao expurgar logs de auditoria antigos.");
+        }
     }
 
     public async Task<int> SincronizarPendentesAsync(CancellationToken cancellationToken = default)

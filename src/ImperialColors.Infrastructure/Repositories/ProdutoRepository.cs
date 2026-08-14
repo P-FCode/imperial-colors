@@ -22,10 +22,7 @@ public class ProdutoRepository : RepositoryBase<Produto>, IProdutoRepository
         string? usuario,
         CancellationToken cancellationToken = default)
     {
-        await using var context = ContextFactory.CreateDbContext();
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        return await ExecutarEmTransacaoAsync(async context =>
         {
             decimal qtdAnterior, qtdAtual;
 
@@ -85,14 +82,8 @@ public class ProdutoRepository : RepositoryBase<Produto>, IProdutoRepository
 
             context.Set<MovimentacaoEstoque>().Add(movimentacao);
             await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
             return movimentacao;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+        }, cancellationToken);
     }
 
     public async Task<Produto> AtualizarComAjusteEstoqueTransacionalAsync(
@@ -103,10 +94,7 @@ public class ProdutoRepository : RepositoryBase<Produto>, IProdutoRepository
         string? usuarioAjuste,
         CancellationToken cancellationToken = default)
     {
-        await using var context = ContextFactory.CreateDbContext();
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        return await ExecutarEmTransacaoAsync(async context =>
         {
             // Atualiza os campos comerciais (nome, preço, categoria, etc.) mas exclui
             // QuantidadeEstoque do UPDATE — essa coluna é ajustada abaixo, de forma
@@ -157,14 +145,8 @@ public class ProdutoRepository : RepositoryBase<Produto>, IProdutoRepository
                 produto.QuantidadeEstoque = qtdAtual;
             }
 
-            await transaction.CommitAsync(cancellationToken);
             return produto;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+        }, cancellationToken);
     }
 
     public async Task<Produto?> ObterPorCodigoInternoAsync(string codigoInterno)

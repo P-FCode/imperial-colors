@@ -65,10 +65,7 @@ public class ListaCompraRepository : RepositoryBase<ListaCompra>, IListaCompraRe
         IReadOnlyList<ItemListaCompra> itens,
         CancellationToken cancellationToken = default)
     {
-        await using var context = ContextFactory.CreateDbContext();
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        var idSalvo = await ExecutarEmTransacaoAsync(async context =>
         {
             ListaCompra entidade;
 
@@ -114,15 +111,13 @@ public class ListaCompraRepository : RepositoryBase<ListaCompra>, IListaCompraRe
             }
 
             await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            return entidade.Id;
+        }, cancellationToken);
 
-            return (await ObterComItensAsync(entidade.Id, cancellationToken))!;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+        // Releitura depois do commit: ObterComItensAsync abre o próprio contexto e não veria
+        // dados ainda não confirmados. Ver o mesmo padrão em
+        // VendaExternaRepository.AtualizarTransacionalAsync.
+        return (await ObterComItensAsync(idSalvo, cancellationToken))!;
     }
 
     public override async Task RemoverAsync(int id)

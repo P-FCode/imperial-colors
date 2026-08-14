@@ -35,10 +35,7 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
         bool retornarAoEstoque,
         CancellationToken cancellationToken = default)
     {
-        await using var context = ContextFactory.CreateDbContext();
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        await ExecutarEmTransacaoAsync(async context =>
         {
             // Nomes apenas para validar existência e compor mensagens de erro amigáveis —
             // a baixa/reposição real é feita atomicamente pelo EstoqueAtomicoHelper abaixo.
@@ -98,13 +95,7 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
 
             await context.Set<Troca>().AddAsync(troca, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+        }, cancellationToken);
     }
 
     public async Task RegistrarTrocaVendaExternaTransacionalAsync(
@@ -114,10 +105,7 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
         bool retornarAoEstoque,
         CancellationToken cancellationToken = default)
     {
-        await using var context = ContextFactory.CreateDbContext();
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        await ExecutarEmTransacaoAsync(async context =>
         {
             _ = await context.Set<Produto>()
                 .Where(p => p.Id == produtoDevolvido.Id)
@@ -172,12 +160,6 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
 
             await context.Set<Troca>().AddAsync(troca, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+        }, cancellationToken);
     }
 }

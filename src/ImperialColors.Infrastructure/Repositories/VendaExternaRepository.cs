@@ -104,10 +104,7 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
         string? usuario,
         CancellationToken cancellationToken = default)
     {
-        await using var context = ContextFactory.CreateDbContext();
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        return await ExecutarEmTransacaoAsync(async context =>
         {
             venda.Usuario = usuario;
             venda.Itens = itens.ToList();
@@ -150,14 +147,8 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             }
 
             await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
             return venda;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+        }, cancellationToken);
     }
 
     public async Task<VendaExterna> AtualizarTransacionalAsync(
@@ -167,10 +158,7 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
         string? usuario,
         CancellationToken cancellationToken = default)
     {
-        await using var context = ContextFactory.CreateDbContext();
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        var idAtualizado = await ExecutarEmTransacaoAsync(async context =>
         {
             var venda = await context.Set<VendaExterna>()
                 .Include(v => v.Itens)
@@ -236,23 +224,20 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             venda.AtualizadoEm = Relogio.Agora;
 
             await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            return venda.Id;
+        }, cancellationToken);
 
-            return (await ObterComItensAsync(venda.Id, cancellationToken))!;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+        // Releitura DEPOIS da transação: ObterComItensAsync abre o próprio contexto pelo
+        // factory, então precisa que o commit já tenha acontecido para enxergar as mudanças.
+        // Antes ficava dentro do bloco try — funcionava porque vinha após o Commit, mas por
+        // um fio; com a reexecução da estratégia, uma releitura dentro do delegate seria
+        // refeita a cada tentativa sem necessidade.
+        return (await ObterComItensAsync(idAtualizado, cancellationToken))!;
     }
 
-    public async Task ExcluirFisicamenteTransacionalAsync(int id, CancellationToken cancellationToken = default)
+    public Task ExcluirFisicamenteTransacionalAsync(int id, CancellationToken cancellationToken = default)
     {
-        await using var context = ContextFactory.CreateDbContext();
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        return ExecutarEmTransacaoAsync(async context =>
         {
             var venda = await context.Set<VendaExterna>()
                 .Include(v => v.Itens)
@@ -270,13 +255,7 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
 
             context.Set<VendaExterna>().Remove(venda);
             await context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+        }, cancellationToken);
     }
 
     public async Task<bool> PossuiTrocasAsync(int vendaExternaId, CancellationToken cancellationToken = default)

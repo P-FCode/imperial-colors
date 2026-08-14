@@ -26,22 +26,30 @@ public static class InfrastructureExtensions
         // CommandTimeout explícito: deixa o limite declarado no código em vez de depender do
         // padrão do provider, para uma consulta pesada não travar a interface indefinidamente.
         //
-        // ⚠️ EnableRetryOnFailure está DELIBERADAMENTE DESLIGADO. Ligá-lo compila, passa em
-        // todos os testes e QUEBRA EM PRODUÇÃO: com uma estratégia de retry ativa, o EF lança
-        // InvalidOperationException ("does not support user-initiated transactions") assim que
-        // um SaveChanges/ExecuteUpdate roda dentro de um BeginTransaction manual — e existem 11
-        // desses, incluindo CriarComBaixaEstoqueTransacionalAsync (toda venda),
-        // AjustarEstoqueAsync e as trocas. Curiosamente o BeginTransaction sozinho não lança,
-        // então um teste superficial passa; o erro só aparece na primeira venda real.
+        // EnableRetryOnFailure: uma oscilação momentânea de rede deixa de derrubar a venda.
+        // Antes, uma falha transitória empurrava a operação para o caminho de contingência
+        // (SQLite local + sincronização posterior) — que funciona, mas é bem mais pesado que
+        // simplesmente repetir depois de um segundo.
         //
-        // Para ligar o retry é preciso, antes, envolver cada um desses 11 blocos em
-        // Database.CreateExecutionStrategy().ExecuteAsync(...) — e mover a CRIAÇÃO do
-        // DbContext para dentro do lambda, senão a segunda tentativa reusa um contexto com as
-        // entidades já rastreadas da tentativa anterior. É refatoração no código mais crítico
-        // do sistema (venda + baixa de estoque) e merece PR própria, não um efeito colateral
-        // de um ajuste de performance.
+        // Só é seguro ligar porque TODAS as 11 transações manuais do sistema passam por
+        // RepositoryBase.ExecutarEmTransacaoAsync, que as executa sob
+        // Database.CreateExecutionStrategy() e cria um DbContext novo a cada tentativa. Sem
+        // isso, o EF lança InvalidOperationException ("does not support user-initiated
+        // transactions") no primeiro SaveChanges dentro de um BeginTransaction manual — e o
+        // detalhe traiçoeiro é que o BeginTransaction sozinho NÃO lança, então o erro só
+        // apareceria na primeira venda real do cliente.
+        //
+        // ⚠️ Ao adicionar uma transação nova, use ExecutarEmTransacaoAsync. Um
+        // BeginTransactionAsync solto volta a quebrar em produção passando pelos testes.
+        //
+        // A estratégia do Npgsql só repete erros classificados como transitórios e nunca
+        // reexecuta uma transação já confirmada — não há risco de venda duplicada.
         services.AddPooledDbContextFactory<AppDbContext>(options =>
-            options.UseNpgsql(connectionString, npgsql => npgsql.CommandTimeout(30)));
+            options.UseNpgsql(connectionString, npgsql =>
+            {
+                npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
+                npgsql.CommandTimeout(30);
+            }));
 
         var caminhoSqlite = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

@@ -23,9 +23,6 @@ namespace ImperialColors.UI;
 
 public partial class App : System.Windows.Application
 {
-    /// <summary>Quantos meses de logs de auditoria são mantidos antes do expurgo automático
-    /// no startup — ajustável aqui se a política de retenção mudar.</summary>
-    private const int RetencaoLogsAuditoriaMeses = 12;
 
     private IHost? _host;
 
@@ -141,23 +138,10 @@ public partial class App : System.Windows.Application
             await dbContext.Database.MigrateAsync();
             await UsuarioDatabaseSeeder.SeedAdminAsync(dbContext, logger);
 
-            // Retenção de logs de auditoria — sem isso a tabela cresce sem limite. Roda uma
-            // vez por abertura do app; é um DELETE indexado e barato quando não há nada a
-            // apagar, não precisa de scheduler dedicado.
-            try
-            {
-                var logAuditoriaRepository = scope.ServiceProvider.GetRequiredService<ILogAuditoriaRepository>();
-                var apagados = await logAuditoriaRepository.ExpurgarAntigosAsync(
-                    Relogio.Agora.AddMonths(-RetencaoLogsAuditoriaMeses));
-                if (apagados > 0)
-                    logger.LogInformation("Expurgo de logs de auditoria: {Quantidade} registro(s) com mais de {Meses} meses removido(s).",
-                        apagados, RetencaoLogsAuditoriaMeses);
-            }
-            catch (Exception ex)
-            {
-                // Falha no expurgo não pode impedir o app de abrir — só registra e segue.
-                logger.LogWarning(ex, "Falha ao expurgar logs de auditoria antigos.");
-            }
+            // A retenção de logs de auditoria saiu daqui: rodar só na abertura significava,
+            // num PDV que fica aberto a semana inteira, quase nunca rodar. Agora é
+            // DataSyncService.ExpurgarLogsSeVencidoAsync, que dispara no primeiro tick do laço
+            // (mantendo o efeito de "expurga ao abrir") e depois a cada 24h.
 
             var contingencyFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ContingencyDbContext>>();
             await using var contingencyDb = await contingencyFactory.CreateDbContextAsync();
