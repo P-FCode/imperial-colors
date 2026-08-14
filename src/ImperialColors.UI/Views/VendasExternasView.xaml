@@ -6,7 +6,10 @@
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/AppTheme.xaml"/>
+                <!-- URI absoluta (pack://): a relativa resolve contra o assembly de ENTRADA,
+                     o que funciona com o app rodando mas quebra ao construir a tela em teste.
+                     Mesmo padrão de PDVView, ProdutoFormView e NomeRapidoDialogView. -->
+                <ResourceDictionary Source="pack://application:,,,/ImperialColors;component/Resources/AppTheme.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             <conv:MoedaConverter x:Key="MoedaConverter"/>
             <conv:DataHoraConverter x:Key="DataHoraConverter"/>
@@ -41,10 +44,11 @@
         </Grid>
 
         <Border Grid.Row="2" Style="{StaticResource Card}" Padding="0">
-            <DataGrid Style="{StaticResource DataGridModerno}"
+            <DataGrid x:Name="GridVendasExternas" Style="{StaticResource DataGridModerno}"
                       ColumnHeaderStyle="{StaticResource DataGridHeaderModerno}"
                       ItemsSource="{Binding Vendas}" SelectedItem="{Binding VendaSelecionada}"
-                      AutoGenerateColumns="False">
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      MouseDoubleClick="DataGrid_MouseDoubleClick">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Nº Venda" Binding="{Binding NumeroVendaExterna}" Width="160"/>
                     <DataGridTextColumn Header="Data" Binding="{Binding DataVenda, Converter={StaticResource DataHoraConverter}}" Width="150"/>

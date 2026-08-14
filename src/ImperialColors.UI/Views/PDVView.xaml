@@ -200,7 +200,8 @@
                                           Style="{StaticResource ScrollViewerComMargem}">
                                 <DataGrid x:Name="DgItens" Style="{StaticResource DataGridModerno}"
                                           ColumnHeaderStyle="{StaticResource DataGridHeaderModerno}"
-                                          ItemsSource="{Binding ItensVenda}" MinHeight="180">
+                                          ItemsSource="{Binding ItensVenda}" MinHeight="180"
+                                          IsReadOnly="True">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Produto" Binding="{Binding NomeProduto}" Width="*"/>
                                         <DataGridTextColumn Header="Cód" Binding="{Binding CodigoInterno}" Width="70"/>

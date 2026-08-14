@@ -86,7 +86,7 @@
                               SelectedItem="{Binding ProdutoSelecionado}"
                               ColumnHeaderStyle="{StaticResource DataGridHeaderModerno}"
                               IsEnabled="{Binding Carregando, Converter={StaticResource InverseBool}}"
-                              MouseDoubleClick="DataGrid_MouseDoubleClick">
+                              IsReadOnly="True" MouseDoubleClick="DataGrid_MouseDoubleClick">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Código" Binding="{Binding CodigoInterno}" Width="100"/>
                     <DataGridTextColumn Header="Cód. Barras" Binding="{Binding CodigoBarras}" Width="120"/>

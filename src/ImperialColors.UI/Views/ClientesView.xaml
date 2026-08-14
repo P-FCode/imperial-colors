@@ -40,7 +40,7 @@
         <Border Grid.Row="4" Style="{StaticResource Card}" Padding="0">
             <DataGrid Style="{StaticResource DataGridModerno}" ColumnHeaderStyle="{StaticResource DataGridHeaderModerno}"
                       ItemsSource="{Binding Clientes}" SelectedItem="{Binding ClienteSelecionado}"
-                      MouseDoubleClick="DataGrid_MouseDoubleClick">
+                      IsReadOnly="True" MouseDoubleClick="DataGrid_MouseDoubleClick">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Nome" Binding="{Binding Nome}" Width="*"/>
                     <DataGridTextColumn Header="Telefone" Binding="{Binding Telefone}" Width="130"/>

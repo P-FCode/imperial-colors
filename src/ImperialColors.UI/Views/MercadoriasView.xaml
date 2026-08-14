@@ -46,7 +46,7 @@
                     <Border Grid.Row="4" Style="{StaticResource Card}" Padding="0">
                         <DataGrid Style="{StaticResource DataGridModerno}" ColumnHeaderStyle="{StaticResource DataGridHeaderModerno}"
                                   ItemsSource="{Binding Fornecedores}" SelectedItem="{Binding FornecedorSelecionado}"
-                                  MouseDoubleClick="FornecedoresGrid_MouseDoubleClick">
+                                  IsReadOnly="True" MouseDoubleClick="FornecedoresGrid_MouseDoubleClick">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Nome" Binding="{Binding Nome}" Width="*"/>
                                 <DataGridTextColumn Header="Telefone" Binding="{Binding Telefone}" Width="130"/>
@@ -110,7 +110,7 @@
                     <Border Grid.Row="4" Style="{StaticResource Card}" Padding="0">
                         <DataGrid Style="{StaticResource DataGridModerno}" ColumnHeaderStyle="{StaticResource DataGridHeaderModerno}"
                                   ItemsSource="{Binding Listas}" SelectedItem="{Binding ListaSelecionada}"
-                                  MouseDoubleClick="ListasGrid_MouseDoubleClick">
+                                  IsReadOnly="True" MouseDoubleClick="ListasGrid_MouseDoubleClick">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Nome" Binding="{Binding Nome}" Width="*"/>
                                 <DataGridTextColumn Header="Fornecedor" Binding="{Binding FornecedorNome}" Width="180"/>
