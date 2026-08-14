@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using System.Text.Json;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
@@ -124,7 +125,7 @@ public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposa
                     if (jaExiste)
                     {
                         pendente.PendenteSincronizacao = false;
-                        pendente.SincronizadoEm = DateTime.UtcNow;
+                        pendente.SincronizadoEm = Relogio.Agora;
                         pendente.ErroSincronizacao = null;
                         await local.SaveChangesAsync(cancellationToken);
                         sincronizadas++;
@@ -146,7 +147,7 @@ public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposa
                     var venda = await CriarVendaOnlineComContingenciaAsync(dto, pendente.ContingenciaId, cancellationToken);
 
                     pendente.PendenteSincronizacao = false;
-                    pendente.SincronizadoEm = DateTime.UtcNow;
+                    pendente.SincronizadoEm = Relogio.Agora;
                     pendente.VendaServidorId = venda.Id;
                     pendente.ErroSincronizacao = null;
                     await local.SaveChangesAsync(cancellationToken);

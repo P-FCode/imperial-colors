@@ -1,6 +1,7 @@
 using ImperialColors.Application.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Data;
@@ -56,11 +57,14 @@ public class ProdutoRepository : RepositoryBase<Produto>, IProdutoRepository
                         .FirstOrDefaultAsync(cancellationToken);
                     qtdAnterior = existe ?? throw new DomainException($"Produto com Id {produtoId} não encontrado.");
 
+                    // Variável local, não Relogio.Agora direto na expression tree — ver
+                    // comentário em EstoqueAtomicoHelper.BaixarAsync.
+                    var agoraAjuste = Relogio.Agora;
                     await context.Set<Produto>()
                         .Where(p => p.Id == produtoId)
                         .ExecuteUpdateAsync(s => s
                             .SetProperty(p => p.QuantidadeEstoque, quantidade)
-                            .SetProperty(p => p.AtualizadoEm, DateTime.UtcNow), cancellationToken);
+                            .SetProperty(p => p.AtualizadoEm, agoraAjuste), cancellationToken);
                     qtdAtual = quantidade;
                     break;
 

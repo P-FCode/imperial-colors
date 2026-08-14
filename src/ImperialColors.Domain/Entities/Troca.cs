@@ -1,4 +1,5 @@
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.Helpers;
 
 namespace ImperialColors.Domain.Entities;
 
@@ -19,7 +20,7 @@ public class Troca : BaseEntity
     public FormaPagamento? FormaPagamentoDiferenca { get; set; }
     public string? Observacoes { get; set; }
     public string? Usuario { get; set; }
-    public DateTime DataTroca { get; set; } = DateTime.UtcNow;
+    public DateTime DataTroca { get; set; } = Relogio.Agora;
 
     public Venda? VendaOrigem { get; set; }
     public VendaExterna? VendaExternaOrigem { get; set; }

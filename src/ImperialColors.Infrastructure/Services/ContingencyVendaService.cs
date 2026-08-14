@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using System.Text.Json;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Helpers;
@@ -111,7 +112,7 @@ public class ContingencyVendaService : IContingencyVendaService
             if (cache is not null)
             {
                 cache.QuantidadeEstoque -= item.Quantidade;
-                cache.AtualizadoEm = DateTime.UtcNow;
+                cache.AtualizadoEm = Relogio.Agora;
             }
         }
 
@@ -182,7 +183,7 @@ public class ContingencyVendaService : IContingencyVendaService
                     Unidade = produto.Unidade,
                     QuantidadeEstoque = produto.QuantidadeEstoque,
                     PrecoVenda = produto.PrecoVenda,
-                    AtualizadoEm = DateTime.UtcNow
+                    AtualizadoEm = Relogio.Agora
                 });
             }
             else
@@ -192,7 +193,7 @@ public class ContingencyVendaService : IContingencyVendaService
                 existente.Unidade = produto.Unidade;
                 existente.QuantidadeEstoque = produto.QuantidadeEstoque;
                 existente.PrecoVenda = produto.PrecoVenda;
-                existente.AtualizadoEm = DateTime.UtcNow;
+                existente.AtualizadoEm = Relogio.Agora;
             }
         }
 

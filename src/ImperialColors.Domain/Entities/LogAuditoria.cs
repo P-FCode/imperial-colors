@@ -1,4 +1,5 @@
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.Helpers;
 
 namespace ImperialColors.Domain.Entities;
 
@@ -9,7 +10,7 @@ namespace ImperialColors.Domain.Entities;
 public class LogAuditoria
 {
     public long Id { get; set; }
-    public DateTime DataHora { get; set; } = DateTime.UtcNow;
+    public DateTime DataHora { get; set; } = Relogio.Agora;
     public int? UsuarioId { get; set; }
     public string NomeUsuario { get; set; } = string.Empty;
     public string Modulo { get; set; } = string.Empty;

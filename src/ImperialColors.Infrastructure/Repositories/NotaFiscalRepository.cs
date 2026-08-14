@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
@@ -102,7 +103,7 @@ public class NotaFiscalRepository : INotaFiscalRepository
             await context.NotaFiscalPagamentos.AddRangeAsync(nota.Pagamentos, cancellationToken);
         }
 
-        existente.AtualizadoEm = DateTime.UtcNow;
+        existente.AtualizadoEm = Relogio.Agora;
         await SalvarAlteracoesAsync(context, cancellationToken);
     }
 
@@ -122,7 +123,7 @@ public class NotaFiscalRepository : INotaFiscalRepository
             return;
 
         nota.Ativo = false;
-        nota.AtualizadoEm = DateTime.UtcNow;
+        nota.AtualizadoEm = Relogio.Agora;
         await SalvarAlteracoesAsync(context, cancellationToken);
     }
 

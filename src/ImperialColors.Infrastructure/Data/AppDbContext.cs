@@ -74,7 +74,7 @@ public class AppDbContext : DbContext
         foreach (var entry in entries)
         {
             if (entry.State == EntityState.Modified)
-                entry.Entity.AtualizadoEm = DateTime.UtcNow;
+                entry.Entity.AtualizadoEm = Domain.Helpers.Relogio.Agora;
         }
     }
 }

@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
@@ -75,7 +76,7 @@ public class TrocaService : ITrocaService
             FormaPagamentoDiferenca = dto.FormaPagamentoDiferenca,
             Observacoes = dto.Observacoes,
             Usuario = dto.Usuario,
-            DataTroca = DateTime.UtcNow
+            DataTroca = Relogio.Agora
         };
 
         await _trocaRepository.RegistrarTrocaTransacionalAsync(
@@ -136,7 +137,7 @@ public class TrocaService : ITrocaService
             FormaPagamentoDiferenca = dto.FormaPagamentoDiferenca,
             Observacoes = dto.Observacoes,
             Usuario = dto.Usuario,
-            DataTroca = DateTime.UtcNow
+            DataTroca = Relogio.Agora
         };
 
         await _trocaRepository.RegistrarTrocaVendaExternaTransacionalAsync(

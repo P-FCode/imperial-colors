@@ -1,4 +1,5 @@
 ﻿using DotNetEnv;
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Application.Configuration;
 using ImperialColors.Application.Extensions;
 using ImperialColors.Domain.Interfaces;
@@ -147,7 +148,7 @@ public partial class App : System.Windows.Application
             {
                 var logAuditoriaRepository = scope.ServiceProvider.GetRequiredService<ILogAuditoriaRepository>();
                 var apagados = await logAuditoriaRepository.ExpurgarAntigosAsync(
-                    DateTime.UtcNow.AddMonths(-RetencaoLogsAuditoriaMeses));
+                    Relogio.Agora.AddMonths(-RetencaoLogsAuditoriaMeses));
                 if (apagados > 0)
                     logger.LogInformation("Expurgo de logs de auditoria: {Quantidade} registro(s) com mais de {Meses} meses removido(s).",
                         apagados, RetencaoLogsAuditoriaMeses);

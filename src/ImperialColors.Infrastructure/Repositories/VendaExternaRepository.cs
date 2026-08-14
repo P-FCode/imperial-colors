@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
@@ -232,7 +233,7 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             venda.Observacoes = string.IsNullOrWhiteSpace(observacoes) ? null : observacoes.Trim();
             venda.Subtotal = itens.Sum(i => i.Quantidade * i.PrecoUnitario);
             venda.Total = venda.Subtotal;
-            venda.AtualizadoEm = DateTime.UtcNow;
+            venda.AtualizadoEm = Relogio.Agora;
 
             await context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);

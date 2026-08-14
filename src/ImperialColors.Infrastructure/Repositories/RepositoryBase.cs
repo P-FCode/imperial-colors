@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
@@ -64,7 +65,7 @@ public class RepositoryBase<T> : IRepository<T> where T : BaseEntity
             return;
 
         entity.Ativo = false;
-        entity.AtualizadoEm = DateTime.UtcNow;
+        entity.AtualizadoEm = Relogio.Agora;
         await SalvarAlteracoesAsync(context);
     }
 

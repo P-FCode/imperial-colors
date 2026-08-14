@@ -1,3 +1,5 @@
+using ImperialColors.Domain.Helpers;
+
 namespace ImperialColors.Infrastructure.Contingency;
 
 public class VendaContingencia
@@ -59,5 +61,5 @@ public class EstoqueLocalCache
     public string Unidade { get; set; } = "UN";
     public decimal QuantidadeEstoque { get; set; }
     public decimal PrecoVenda { get; set; }
-    public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime AtualizadoEm { get; set; } = Relogio.Agora;
 }

@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
@@ -35,7 +36,7 @@ public class TributacaoProdutoRepository : ITributacaoProdutoRepository
 
         if (existente is null)
         {
-            tributacao.AtualizadoEm = DateTime.UtcNow;
+            tributacao.AtualizadoEm = Relogio.Agora;
             await context.Set<TributacaoProduto>().AddAsync(tributacao, cancellationToken);
         }
         else
@@ -70,7 +71,7 @@ public class TributacaoProdutoRepository : ITributacaoProdutoRepository
             existente.AliquotaIS = tributacao.AliquotaIS;
             existente.AliquotaIbsMunicipioDiferimento = tributacao.AliquotaIbsMunicipioDiferimento;
             existente.AliquotaIbsMunicipioReducao = tributacao.AliquotaIbsMunicipioReducao;
-            existente.AtualizadoEm = DateTime.UtcNow;
+            existente.AtualizadoEm = Relogio.Agora;
             tributacao = existente;
         }
 

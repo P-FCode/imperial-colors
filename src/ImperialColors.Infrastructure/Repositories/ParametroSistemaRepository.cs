@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Data;
@@ -34,14 +35,14 @@ public class ParametroSistemaRepository : IParametroSistemaRepository
             {
                 Chave = chave,
                 ValorData = valor.Date,
-                CriadoEm = DateTime.UtcNow
+                CriadoEm = Relogio.Agora
             };
             await context.Set<ParametroSistema>().AddAsync(parametro, cancellationToken);
         }
         else
         {
             parametro.ValorData = valor.Date;
-            parametro.AtualizadoEm = DateTime.UtcNow;
+            parametro.AtualizadoEm = Relogio.Agora;
         }
 
         await context.SaveChangesAsync(cancellationToken);
@@ -69,14 +70,14 @@ public class ParametroSistemaRepository : IParametroSistemaRepository
             {
                 Chave = chave,
                 ValorTexto = valor,
-                CriadoEm = DateTime.UtcNow
+                CriadoEm = Relogio.Agora
             };
             await context.Set<ParametroSistema>().AddAsync(parametro, cancellationToken);
         }
         else
         {
             parametro.ValorTexto = valor;
-            parametro.AtualizadoEm = DateTime.UtcNow;
+            parametro.AtualizadoEm = Relogio.Agora;
         }
 
         await context.SaveChangesAsync(cancellationToken);

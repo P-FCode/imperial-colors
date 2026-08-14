@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Entities;
@@ -21,7 +22,7 @@ public class AuditoriaService : IAuditoriaService
     {
         var log = new LogAuditoria
         {
-            DataHora = DateTime.UtcNow,
+            DataHora = Relogio.Agora,
             UsuarioId = dto.UsuarioId,
             NomeUsuario = string.IsNullOrWhiteSpace(dto.NomeUsuario) ? "Sistema" : dto.NomeUsuario.Trim(),
             Modulo = string.IsNullOrWhiteSpace(dto.Modulo) ? "Sistema" : dto.Modulo.Trim(),

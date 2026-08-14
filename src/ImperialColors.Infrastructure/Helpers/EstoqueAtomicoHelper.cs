@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Infrastructure.Data;
@@ -44,11 +45,17 @@ public static class EstoqueAtomicoHelper
         if (quantidade <= 0)
             throw new DomainException($"Quantidade inválida para '{rotulo}'.");
 
+        // Hoisted para variável: dentro da expression tree do ExecuteUpdate, um acesso a
+        // propriedade estática seria traduzido para SQL (now()) em vez de virar parâmetro —
+        // e o now() do Postgres devolve o fuso do SERVIDOR, que não é necessariamente o da
+        // estação. Como variável, o valor é calculado aqui e enviado como parâmetro.
+        var agora = Relogio.Agora;
+
         var linhasAfetadas = await context.Set<Produto>()
             .Where(p => p.Id == produtoId && p.QuantidadeEstoque >= quantidade)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.QuantidadeEstoque, p => p.QuantidadeEstoque - quantidade)
-                .SetProperty(p => p.AtualizadoEm, DateTime.UtcNow), cancellationToken);
+                .SetProperty(p => p.AtualizadoEm, agora), cancellationToken);
 
         if (linhasAfetadas == 0)
         {
@@ -84,11 +91,14 @@ public static class EstoqueAtomicoHelper
         if (quantidade <= 0)
             throw new DomainException("Quantidade de reposição de estoque inválida.");
 
+        // Ver comentário em BaixarAsync sobre o porquê da variável local.
+        var agora = Relogio.Agora;
+
         var linhasAfetadas = await context.Set<Produto>()
             .Where(p => p.Id == produtoId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.QuantidadeEstoque, p => p.QuantidadeEstoque + quantidade)
-                .SetProperty(p => p.AtualizadoEm, DateTime.UtcNow), cancellationToken);
+                .SetProperty(p => p.AtualizadoEm, agora), cancellationToken);
 
         if (linhasAfetadas == 0)
             throw new DomainException($"Produto (Id={produtoId}) não encontrado.");

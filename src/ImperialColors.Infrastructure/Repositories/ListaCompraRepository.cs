@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Data;
@@ -154,7 +155,7 @@ public class ListaCompraRepository : RepositoryBase<ListaCompra>, IListaCompraRe
 
         lista.NotaFiscalConteudo = conteudo;
         lista.NotaFiscalNomeArquivo = nomeArquivo;
-        lista.AtualizadoEm = DateTime.UtcNow;
+        lista.AtualizadoEm = Relogio.Agora;
         await SalvarAlteracoesAsync(context);
     }
 

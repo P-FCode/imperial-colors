@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Security;
@@ -101,7 +102,7 @@ public class AuthService : IAuthService
             Salt = salt,
             Status = StatusUsuario.AguardandoAprovacao,
             Permissao = PermissaoUsuario.Caixa,
-            DataCadastro = DateTime.UtcNow
+            DataCadastro = Relogio.Agora
         };
 
         var criado = await _usuarioRepository.AdicionarAsync(usuario);

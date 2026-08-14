@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Security;
@@ -56,7 +57,7 @@ public class UsuarioService : IUsuarioService
             Salt = salt,
             Status = StatusUsuario.Aprovado,
             Permissao = dto.Permissao,
-            DataCadastro = DateTime.UtcNow
+            DataCadastro = Relogio.Agora
         };
 
         var criado = await _usuarioRepository.AdicionarAsync(usuario);

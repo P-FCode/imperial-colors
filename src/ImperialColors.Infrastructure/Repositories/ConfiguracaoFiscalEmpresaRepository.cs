@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Data;
@@ -34,7 +35,7 @@ public class ConfiguracaoFiscalEmpresaRepository : IConfiguracaoFiscalEmpresaRep
 
         if (existente is null)
         {
-            configuracao.AtualizadoEm = DateTime.UtcNow;
+            configuracao.AtualizadoEm = Relogio.Agora;
             await context.Set<ConfiguracaoFiscalEmpresa>().AddAsync(configuracao, cancellationToken);
         }
         else
@@ -49,7 +50,7 @@ public class ConfiguracaoFiscalEmpresaRepository : IConfiguracaoFiscalEmpresaRep
             // por propriedade) — evita o tipo de bug em que um campo novo é esquecido
             // aqui e nunca persiste ao atualizar uma configuração já existente.
             context.Entry(existente).CurrentValues.SetValues(configuracao);
-            existente.AtualizadoEm = DateTime.UtcNow;
+            existente.AtualizadoEm = Relogio.Agora;
 
             // Lista dinâmica (add/remove pela tela) — substitui tudo em vez de tentar
             // casar item a item, mais simples e a lista é sempre pequena (por UF).

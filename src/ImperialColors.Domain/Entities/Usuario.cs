@@ -1,4 +1,5 @@
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.Helpers;
 
 namespace ImperialColors.Domain.Entities;
 
@@ -12,5 +13,5 @@ public class Usuario
     public string Salt { get; set; } = string.Empty;
     public StatusUsuario Status { get; set; } = StatusUsuario.AguardandoAprovacao;
     public PermissaoUsuario Permissao { get; set; } = PermissaoUsuario.Caixa;
-    public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
+    public DateTime DataCadastro { get; set; } = Relogio.Agora;
 }

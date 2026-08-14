@@ -1,3 +1,4 @@
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Application.Security;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
@@ -91,7 +92,7 @@ public static class UsuarioDatabaseSeeder
             Salt = novoSalt,
             Status = StatusUsuario.Aprovado,
             Permissao = PermissaoUsuario.Admin,
-            DataCadastro = DateTime.UtcNow
+            DataCadastro = Relogio.Agora
         };
 
         context.Usuarios.Add(admin);
