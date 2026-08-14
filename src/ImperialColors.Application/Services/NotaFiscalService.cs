@@ -321,7 +321,10 @@ public class NotaFiscalService : INotaFiscalService
         // (NotaFiscalPayloadBuilder.ConstruirTotal recalcula do zero a partir dos itens), mas
         // o valor persistido/exibido em listagens e usado por NotaFiscalValidator para
         // conferir "soma dos pagamentos bate com o total" ficava errado.
-        nota.VNf = nota.VProd + nota.VIcmsSt + nota.VServ + nota.VFrete + nota.VSeg + nota.VOutro + nota.VIpi - nota.VDesc;
+        // vServ NÃO entra: não existe grupo ISSQN no payload de NF-e/NFC-e, então somá-lo aqui
+        // inflava o total local (e o valor que NotaFiscalValidator exige dos pagamentos) sem
+        // inflar o vNF transmitido — divergência garantida na SEFAZ. Ver NotaFiscal.VServ.
+        nota.VNf = nota.VProd + nota.VIcmsSt + nota.VFrete + nota.VSeg + nota.VOutro + nota.VIpi - nota.VDesc;
 
         return nota;
     }

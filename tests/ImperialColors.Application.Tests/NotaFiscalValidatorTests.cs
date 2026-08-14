@@ -29,6 +29,16 @@ public class NotaFiscalValidatorTests
         VNf = 100m,
         DestinatarioDocumento = "00000000000191",
         DestinatarioIndicadorIe = IndicadorIeDestinatario.NaoContribuinte,
+        // Endereço completo: o grupo enderDest é obrigatório no leiaute 4.00 sempre que a
+        // NF-e tem destinatário, então uma nota sem ele não é "válida" — a fixture precisa
+        // refletir isso para os testes exercitarem o caminho real de emissão.
+        DestinatarioLogradouro = "Rua das Tintas",
+        DestinatarioNumero = "100",
+        DestinatarioBairro = "Centro",
+        DestinatarioCidade = "Curitiba",
+        DestinatarioCodigoMunicipioIbge = "4106902",
+        DestinatarioUf = "PR",
+        DestinatarioCep = "80530000",
         Itens = new List<ItemNotaFiscalDto> { ItemValido() },
         Pagamentos = new List<NotaFiscalPagamentoDto>
         {
@@ -421,6 +431,118 @@ public class NotaFiscalValidatorTests
     {
         var ex = Record.Exception(() =>
             NotaFiscalValidator.ValidarInutilizacao("Falha no sistema de numeracao sequencial", "100", "105"));
+        Assert.Null(ex);
+    }
+
+    // ===== Documento do destinatário (dígito verificador) =====
+    // Sem estas conferências, um dígito trocado só aparecia como rejeição da SEFAZ
+    // (cStat 207/209) — que consome o número da nota, já que numeração não volta pra fila.
+
+    [Fact]
+    public void ValidarParaEmissao_CnpjDoDestinatarioComDigitoErrado_LancaDomainException()
+    {
+        var nota = NotaValida();
+        nota.DestinatarioDocumento = "00000000000192"; // BB com o último dígito trocado
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Contains("CNPJ", ex.Message);
+        Assert.Contains("inválido", ex.Message);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_CpfDoDestinatarioComDigitoErrado_LancaDomainException()
+    {
+        var nota = NotaValida();
+        nota.DestinatarioDocumento = "11144477734"; // válido seria ...35
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Contains("CPF", ex.Message);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_CpfValidoNoDestinatario_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.DestinatarioDocumento = "111.444.777-35"; // com máscara, deve ser normalizado
+
+        var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void ValidarParaEmissao_DocumentoComTamanhoInvalido_LancaDomainException()
+    {
+        var nota = NotaValida();
+        nota.DestinatarioDocumento = "123456789"; // nem CPF (11) nem CNPJ (14)
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Contains("9 dígito", ex.Message);
+    }
+
+    // ===== Endereço do destinatário (grupo enderDest) =====
+
+    /// <summary>
+    /// Regressão: NotaFiscalPayloadBuilder.ConstruirDest só monta enderDest quando há
+    /// logradouro. Sem esta validação a NF-e saía sem o grupo e a SEFAZ derrubava por XSD.
+    /// </summary>
+    [Fact]
+    public void ValidarParaEmissao_NfeSemEnderecoDoDestinatario_LancaDomainExceptionListandoOsCampos()
+    {
+        var nota = NotaValida();
+        nota.Tipo = TipoNotaFiscal.NFe;
+        nota.DestinatarioLogradouro = null;
+        nota.DestinatarioBairro = null;
+        nota.DestinatarioCodigoMunicipioIbge = null;
+
+        var ex = Assert.Throws<DomainException>(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+
+        // Confere só o trecho "Faltando: ..." — o restante da mensagem é orientação ao
+        // operador e cita CEP/IBGE de propósito ("a busca por CEP preenche tudo").
+        var listaFaltando = ex.Message.Split("Faltando:")[1].Split('.')[0];
+        Assert.Contains("Logradouro", listaFaltando);
+        Assert.Contains("Bairro", listaFaltando);
+        Assert.Contains("Código IBGE", listaFaltando);
+        // Os que estão preenchidos não entram na lista.
+        Assert.DoesNotContain("CEP", listaFaltando);
+        Assert.DoesNotContain("UF", listaFaltando);
+    }
+
+    /// <summary>
+    /// Na NFC-e o destinatário é opcional e, quando informado (cupom com CPF), o endereço
+    /// não é exigido — é venda de balcão. Exigir aqui travaria o PDV.
+    /// </summary>
+    [Fact]
+    public void ValidarParaEmissao_NfceSemEnderecoDoDestinatario_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.Tipo = TipoNotaFiscal.NFCe;
+        nota.DestinatarioLogradouro = null;
+        nota.DestinatarioBairro = null;
+        nota.DestinatarioCidade = null;
+        nota.DestinatarioCodigoMunicipioIbge = null;
+        nota.DestinatarioUf = null;
+        nota.DestinatarioCep = null;
+
+        var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
+        Assert.Null(ex);
+    }
+
+    /// <summary>NFC-e de balcão sem cliente nenhum: não há dest, então não há endereço a exigir.</summary>
+    [Fact]
+    public void ValidarParaEmissao_NfceSemDestinatarioAlgum_NaoLancaExcecao()
+    {
+        var nota = NotaValida();
+        nota.Tipo = TipoNotaFiscal.NFCe;
+        nota.DestinatarioDocumento = null;
+        nota.DestinatarioNome = null;
+        nota.DestinatarioLogradouro = null;
+        nota.DestinatarioBairro = null;
+        nota.DestinatarioCidade = null;
+        nota.DestinatarioCodigoMunicipioIbge = null;
+        nota.DestinatarioUf = null;
+        nota.DestinatarioCep = null;
+
+        var ex = Record.Exception(() => NotaFiscalValidator.ValidarParaEmissao(nota, "PR", validarNcm: true));
         Assert.Null(ex);
     }
 }

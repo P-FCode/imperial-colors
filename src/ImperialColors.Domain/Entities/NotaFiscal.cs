@@ -68,6 +68,16 @@ public class NotaFiscal : BaseEntity
     // /total.IBSCBSTot, mesma convenção já usada em TotaisFiscaisVendaDto. ---
     public bool CalculoAutomatico { get; set; } = true;
     public decimal VProd { get; set; }
+
+    /// <summary>
+    /// ⚠️ Sempre 0 — não é transmitido e não entra em nenhum cálculo de total.
+    /// Serviços/ISSQN pertencem à NFS-e, que este módulo não emite: o payload de NF-e/NFC-e
+    /// (modelos 55/65) não tem grupo ISSQNtot. Enquanto havia campo na tela para preencher,
+    /// o valor entrava em <c>VNf</c> mas não no <c>vNF</c> do XML — a soma dos pagamentos
+    /// exigida localmente ficava maior que o total transmitido e a SEFAZ rejeitava a nota.
+    /// A coluna permanece no banco só para não exigir migration destrutiva; se a NFS-e for
+    /// implementada um dia, o grupo ISSQN precisa ir junto ao payload, não só ao total.
+    /// </summary>
     public decimal VServ { get; set; }
     public decimal VFrete { get; set; }
     public decimal VSeg { get; set; }
@@ -77,6 +87,7 @@ public class NotaFiscal : BaseEntity
     public decimal VIcmsSt { get; set; }
     public decimal VIpi { get; set; }
     public decimal VIpiDevolvido { get; set; }
+    /// <summary>⚠️ Sempre 0 — mesmo motivo de <see cref="VServ"/>: ISSQN é da NFS-e.</summary>
     public decimal VIssqn { get; set; }
     public decimal VOutro { get; set; }
     public decimal VDesc { get; set; }

@@ -413,14 +413,15 @@
                                       Checked="ChkCalculoAutomatico_Changed" Unchecked="ChkCalculoAutomatico_Changed"/>
                         </Grid>
 
-                        <UniformGrid Columns="4" Rows="6">
+                        <!-- "Total Serviços" (vServ) e "Valor ISSQN" (vIssqn) foram removidos daqui:
+                             este módulo emite NF-e/NFC-e (modelos 55/65), que não têm grupo ISSQN no
+                             payload. Enquanto existiram, qualquer valor digitado neles entrava no
+                             total local mas NÃO no vNF transmitido — a nota saía com total menor que
+                             a soma dos pagamentos e a SEFAZ rejeitava. Ver NotaFiscal.VServ. -->
+                        <UniformGrid Columns="4" Rows="5">
                             <StackPanel Margin="0,0,10,10">
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="Total Produtos"/>
                                 <TextBox x:Name="TxtVProd" Style="{StaticResource TextBoxNumerico}"/>
-                            </StackPanel>
-                            <StackPanel Margin="0,0,10,10">
-                                <TextBlock Style="{StaticResource LabelCampo}" Text="Total Serviços"/>
-                                <TextBox x:Name="TxtVServ" Style="{StaticResource TextBoxNumerico}"/>
                             </StackPanel>
                             <StackPanel Margin="0,0,10,10">
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="Valor do Frete"/>
@@ -455,10 +456,6 @@
                             <StackPanel Margin="0,0,10,10">
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="IPI Devolvido"/>
                                 <TextBox x:Name="TxtVIpiDevolvido" Style="{StaticResource TextBoxNumerico}"/>
-                            </StackPanel>
-                            <StackPanel Margin="0,0,10,10">
-                                <TextBlock Style="{StaticResource LabelCampo}" Text="Valor ISSQN"/>
-                                <TextBox x:Name="TxtVIssqn" Style="{StaticResource TextBoxNumerico}"/>
                             </StackPanel>
                             <StackPanel Margin="0,0,0,10">
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="Despesas"/>

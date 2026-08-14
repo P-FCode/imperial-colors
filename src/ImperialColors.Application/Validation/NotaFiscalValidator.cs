@@ -3,6 +3,7 @@ using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Helpers;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
+using ImperialColors.Domain.Helpers;
 
 namespace ImperialColors.Application.Validation;
 
@@ -84,6 +85,9 @@ public static class NotaFiscalValidator
                 "Se o cliente é contribuinte de ICMS, mude o indicador para 'Contribuinte de ICMS'; senão, apague a Inscrição Estadual.");
         }
 
+        ValidarDocumentoDestinatario(nota);
+        ValidarEnderecoDestinatario(nota);
+
         if (nota.Pagamentos.Count == 0)
             throw new DomainException("Informe ao menos uma forma de pagamento.");
 
@@ -104,6 +108,79 @@ public static class NotaFiscalValidator
             throw new DomainException(
                 $"A soma dos pagamentos (R$ {somaPagamentos:0.00}) não bate com o total da nota (R$ {nota.VNf:0.00}).");
     }
+
+    /// <summary>
+    /// Confere o dígito verificador do CPF/CNPJ do destinatário. O
+    /// <see cref="DocumentoFiscalHelper"/> já protegia o cadastro de Cliente e a venda de
+    /// balcão, mas a tela de NF-e permite digitar o documento direto — e um dígito trocado só
+    /// aparecia como rejeição da SEFAZ (cStat 207 "CNPJ do destinatário inválido" / 209 para
+    /// CPF), que consome o número da nota. Barrar aqui é de graça.
+    /// </summary>
+    private static void ValidarDocumentoDestinatario(NotaFiscalDto nota)
+    {
+        var documento = SomenteDigitos(nota.DestinatarioDocumento);
+        if (documento.Length == 0)
+            return;
+
+        // O tipo declarado na tela pode divergir do que foi digitado (ex.: "Pessoa Física" com
+        // um CNPJ colado no campo) — o payload decide CPF vs CNPJ pelo TAMANHO do documento
+        // (ConstruirDest), então a validação usa o mesmo critério para não divergir dele.
+        var ehCnpj = documento.Length == 14;
+        var ehCpf = documento.Length == 11;
+
+        if (!ehCnpj && !ehCpf)
+            throw new DomainException(
+                $"Destinatário: o documento '{nota.DestinatarioDocumento}' tem {documento.Length} dígito(s) — " +
+                "informe um CPF (11 dígitos) ou um CNPJ (14 dígitos).");
+
+        if (ehCnpj && !DocumentoFiscalHelper.CnpjValido(documento))
+            throw new DomainException(
+                $"Destinatário: o CNPJ '{nota.DestinatarioDocumento}' é inválido (dígito verificador não confere). " +
+                "Confira o número — a SEFAZ rejeita a nota e o número da nota é perdido.");
+
+        if (ehCpf && !DocumentoFiscalHelper.CpfValido(documento))
+            throw new DomainException(
+                $"Destinatário: o CPF '{nota.DestinatarioDocumento}' é inválido (dígito verificador não confere). " +
+                "Confira o número — a SEFAZ rejeita a nota e o número da nota é perdido.");
+    }
+
+    /// <summary>
+    /// O grupo <c>enderDest</c> é obrigatório no leiaute 4.00 sempre que existe destinatário,
+    /// mas <c>NotaFiscalPayloadBuilder.ConstruirDest</c> só o monta quando há logradouro — sem
+    /// esta checagem, um cliente cadastrado sem endereço gerava uma NF-e incompleta que a SEFAZ
+    /// derrubava por XSD, queimando o número. Espelha a conferência que
+    /// <c>NotaFiscalService.EmitirAsync</c> já fazia para o endereço do EMITENTE.
+    ///
+    /// Só vale para NF-e (modelo 55): na NFC-e o destinatário é opcional e, quando informado,
+    /// o endereço não é exigido — é venda de balcão.
+    /// </summary>
+    private static void ValidarEnderecoDestinatario(NotaFiscalDto nota)
+    {
+        if (nota.Tipo != Domain.Enums.TipoNotaFiscal.NFe)
+            return;
+
+        // Mesma condição de ConstruirDest para decidir se o grupo dest existe no payload.
+        var temDestinatario = !string.IsNullOrWhiteSpace(nota.DestinatarioDocumento) ||
+                              !string.IsNullOrWhiteSpace(nota.DestinatarioNome);
+        if (!temDestinatario)
+            return;
+
+        var faltando = new List<string>();
+        if (string.IsNullOrWhiteSpace(nota.DestinatarioLogradouro)) faltando.Add("Logradouro");
+        if (string.IsNullOrWhiteSpace(nota.DestinatarioBairro)) faltando.Add("Bairro");
+        if (string.IsNullOrWhiteSpace(nota.DestinatarioCidade)) faltando.Add("Município");
+        if (string.IsNullOrWhiteSpace(nota.DestinatarioCodigoMunicipioIbge)) faltando.Add("Código IBGE do Município");
+        if (string.IsNullOrWhiteSpace(nota.DestinatarioUf)) faltando.Add("UF");
+        if (string.IsNullOrWhiteSpace(nota.DestinatarioCep)) faltando.Add("CEP");
+
+        if (faltando.Count > 0)
+            throw new DomainException(
+                $"Destinatário: a NF-e exige o endereço completo do destinatário no XML. Faltando: {string.Join(", ", faltando)}. " +
+                "Complete no cadastro do cliente (a busca por CEP preenche tudo, inclusive o código IBGE) ou direto nesta tela.");
+    }
+
+    private static string SomenteDigitos(string? valor)
+        => valor is null ? string.Empty : new string(valor.Where(char.IsDigit).ToArray());
 
     private static void ValidarIcmsItem(ItemNotaFiscalDto item, string? crt, string rotulo)
     {

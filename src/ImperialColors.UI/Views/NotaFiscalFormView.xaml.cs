@@ -277,7 +277,6 @@ public partial class NotaFiscalFormView : Window
     private void AtualizarCamposCalculo(NotaFiscalDto n)
     {
         TxtVProd.Text = n.VProd.ToString("0.00");
-        TxtVServ.Text = n.VServ.ToString("0.00");
         TxtVFrete.Text = n.VFrete.ToString("0.00");
         TxtVSeg.Text = n.VSeg.ToString("0.00");
         TxtVBcIcms.Text = n.VBcIcms.ToString("0.00");
@@ -286,7 +285,6 @@ public partial class NotaFiscalFormView : Window
         TxtVIcmsSt.Text = n.VIcmsSt.ToString("0.00");
         TxtVIpi.Text = n.VIpi.ToString("0.00");
         TxtVIpiDevolvido.Text = n.VIpiDevolvido.ToString("0.00");
-        TxtVIssqn.Text = n.VIssqn.ToString("0.00");
         TxtVOutro.Text = n.VOutro.ToString("0.00");
         TxtVDesc.Text = n.VDesc.ToString("0.00");
         TxtVFunrural.Text = n.VFunrural.ToString("0.00");
@@ -545,8 +543,8 @@ public partial class NotaFiscalFormView : Window
     {
         foreach (var caixa in new[]
         {
-            TxtVProd, TxtVServ, TxtVFrete, TxtVSeg, TxtVBcIcms, TxtVIcms, TxtVBcIcmsSt, TxtVIcmsSt,
-            TxtVIpi, TxtVIpiDevolvido, TxtVIssqn, TxtVOutro, TxtVDesc, TxtVFunrural, TxtVAproxImp,
+            TxtVProd, TxtVFrete, TxtVSeg, TxtVBcIcms, TxtVIcms, TxtVBcIcmsSt, TxtVIcmsSt,
+            TxtVIpi, TxtVIpiDevolvido, TxtVOutro, TxtVDesc, TxtVFunrural, TxtVAproxImp,
             TxtVFcp, TxtVFcpSt, TxtVFcpStRet
         })
         {
@@ -717,7 +715,6 @@ public partial class NotaFiscalFormView : Window
         else
         {
             FormattingHelper.TryParseMoeda(TxtVProd.Text, out var vProd); _nota.VProd = vProd;
-            FormattingHelper.TryParseMoeda(TxtVServ.Text, out var vServ); _nota.VServ = vServ;
             FormattingHelper.TryParseMoeda(TxtVFrete.Text, out var vFrete); _nota.VFrete = vFrete;
             FormattingHelper.TryParseMoeda(TxtVSeg.Text, out var vSeg); _nota.VSeg = vSeg;
             FormattingHelper.TryParseMoeda(TxtVBcIcms.Text, out var vBcIcms); _nota.VBcIcms = vBcIcms;
@@ -726,7 +723,6 @@ public partial class NotaFiscalFormView : Window
             FormattingHelper.TryParseMoeda(TxtVIcmsSt.Text, out var vIcmsSt); _nota.VIcmsSt = vIcmsSt;
             FormattingHelper.TryParseMoeda(TxtVIpi.Text, out var vIpi); _nota.VIpi = vIpi;
             FormattingHelper.TryParseMoeda(TxtVIpiDevolvido.Text, out var vIpiDev); _nota.VIpiDevolvido = vIpiDev;
-            FormattingHelper.TryParseMoeda(TxtVIssqn.Text, out var vIssqn); _nota.VIssqn = vIssqn;
             FormattingHelper.TryParseMoeda(TxtVOutro.Text, out var vOutro); _nota.VOutro = vOutro;
             FormattingHelper.TryParseMoeda(TxtVDesc.Text, out var vDesc); _nota.VDesc = vDesc;
             FormattingHelper.TryParseMoeda(TxtVFunrural.Text, out var vFunrural); _nota.VFunrural = vFunrural;
@@ -735,7 +731,11 @@ public partial class NotaFiscalFormView : Window
             FormattingHelper.TryParseMoeda(TxtVFcpSt.Text, out var vFcpSt); _nota.VFcpSt = vFcpSt;
             FormattingHelper.TryParseMoeda(TxtVFcpStRet.Text, out var vFcpStRet); _nota.VFcpStRet = vFcpStRet;
             _nota.NumeroItens = _itens.Count;
-            _nota.VNf = _nota.VProd + _nota.VServ + _nota.VFrete + _nota.VSeg + _nota.VOutro + _nota.VIpi - _nota.VDesc;
+            // Fórmula oficial (GUIA_INTEGRACAO.md seção 4.8): vNF = vProd + vST + vFrete + vSeg
+            // + vOutro + vIPI − vDesc. O vST faltava aqui — o modo manual calculava um total
+            // menor que o de AplicarTotaisCalculados e que o vNF realmente transmitido sempre
+            // que a nota tinha ICMS-ST. vServ saiu da conta junto com o campo (ver NotaFiscal.VServ).
+            _nota.VNf = _nota.VProd + _nota.VIcmsSt + _nota.VFrete + _nota.VSeg + _nota.VOutro + _nota.VIpi - _nota.VDesc;
         }
         AtualizarCamposCalculo(_nota);
 
