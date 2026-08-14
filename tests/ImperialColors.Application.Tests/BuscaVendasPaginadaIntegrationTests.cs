@@ -145,20 +145,4 @@ public class BuscaVendasPaginadaIntegrationTests
 
         await tx.RollbackAsync();
     }
-
-    /// <summary>Devolve sempre o mesmo contexto (o da transação do teste), ignorando o
-    /// descarte — o repositório faz <c>await using</c> no que recebe.</summary>
-    private sealed class FactoryDeContextoFixo(AppDbContext contexto) : IDbContextFactory<AppDbContext>
-    {
-        public AppDbContext CreateDbContext() => new ContextoNaoDescartavel(contexto);
-
-        private sealed class ContextoNaoDescartavel(AppDbContext interno)
-            : AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
-                .UseNpgsql(interno.Database.GetDbConnection())
-                .Options)
-        {
-            public override void Dispose() { }
-            public override ValueTask DisposeAsync() => ValueTask.CompletedTask;
-        }
-    }
 }

@@ -60,7 +60,7 @@ public class NotaFiscalService : INotaFiscalService
             VendaId = venda.Id,
             ClienteId = venda.ClienteId,
             Serie = serie,
-            Numero = await _notaFiscalRepository.ObterProximoNumeroAsync(tipo, serie, cancellationToken),
+            Numero = await _notaFiscalRepository.ObterProximoNumeroAsync(tipo, serie, empresa.Ambiente, cancellationToken),
             DataEmissao = DateTime.Now,
             Crt = crt,
             Ambiente = empresa.Ambiente,
@@ -412,15 +412,19 @@ public class NotaFiscalService : INotaFiscalService
         };
     }
 
-    public async Task<string> ObterProximoNumeroAsync(TipoNotaFiscal tipo, string? serie = null, CancellationToken cancellationToken = default)
+    public async Task<string> ObterProximoNumeroAsync(
+        TipoNotaFiscal tipo, string? serie = null, AmbienteEmissaoFiscal? ambiente = null, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(serie))
+        if (string.IsNullOrWhiteSpace(serie) || ambiente is null)
         {
             var empresa = await _configuracaoFiscal.ObterConfiguracaoEmpresaAsync(cancellationToken);
-            serie = string.IsNullOrWhiteSpace(empresa.Serie) ? "1" : empresa.Serie;
+            serie = string.IsNullOrWhiteSpace(serie)
+                ? (string.IsNullOrWhiteSpace(empresa.Serie) ? "1" : empresa.Serie)
+                : serie;
+            ambiente ??= empresa.Ambiente;
         }
 
-        return await _notaFiscalRepository.ObterProximoNumeroAsync(tipo, serie, cancellationToken);
+        return await _notaFiscalRepository.ObterProximoNumeroAsync(tipo, serie, ambiente.Value, cancellationToken);
     }
 
     public async Task<NotaFiscalDto> EmitirAsync(int notaFiscalId, CancellationToken cancellationToken = default)
@@ -443,20 +447,6 @@ public class NotaFiscalService : INotaFiscalService
         // notas ainda editáveis: uma Indeterminada pode já ter sido aceita do lado da SEFAZ,
         // reescrever os itens dela antes de reenviar arriscaria divergir do que já foi
         // processado — o operador deve consultar status antes.
-        if (entidade.Status == StatusNotaFiscal.Rejeitada)
-        {
-            // Numeração é imutável assim que a SEFAZ (ou a própria API Fiscal, numa rejeição
-            // 422 local) responde a uma tentativa — ver StatusNotaFiscal.Rejeitada e o índice
-            // único Tipo+Serie+Numero em NotaFiscalMapping, ambos já documentando essa regra
-            // sem ela ser aplicada aqui. Reenviar com o MESMO nNF gera uma chave de acesso
-            // diferente a cada tentativa (cNF/dhEmi mudam) e, se aquele número já tinha sido
-            // respondido pela SEFAZ antes, ela recusa como duplicidade — cStat 539 "Duplicidade
-            // de NF-e, com diferença na Chave de Acesso" (seção 9.4 e "Boas práticas #2" do
-            // guia: "nNF rejeitado não volta para a fila; use o próximo"). Avança para o
-            // próximo número disponível antes de qualquer nova tentativa.
-            entidade.Numero = await _notaFiscalRepository.ObterProximoNumeroAsync(entidade.Tipo, entidade.Serie, cancellationToken);
-        }
-
         if (entidade.Status is StatusNotaFiscal.Rascunho or StatusNotaFiscal.Rejeitada)
         {
             var dtoParaSincronizar = await MapearParaDtoAsync(entidade);
@@ -519,6 +509,32 @@ public class NotaFiscalService : INotaFiscalService
 
         var (cscId, cscSecret) = ObterCscDoAmbiente(empresa, entidade.Ambiente);
 
+        // Renumeração de nota rejeitada — DEPOIS de toda a validação local, imediatamente
+        // antes de transmitir. A ordem importa: numeração é imutável assim que a SEFAZ (ou a
+        // própria API Fiscal, numa rejeição 422 local) responde a uma tentativa, então avançar
+        // o nNF é obrigatório antes de reenviar (seção 9.4 e "Boas práticas #2" do guia:
+        // "nNF rejeitado não volta para a fila; use o próximo"). Reenviar com o MESMO nNF gera
+        // uma chave diferente a cada tentativa (cNF/dhEmi mudam) e a SEFAZ recusa com cStat 539
+        // "Duplicidade de NF-e, com diferença na Chave de Acesso".
+        //
+        // O que NÃO pode acontecer é o inverso: renumerar antes de validar. Quando isso era
+        // feito no topo do método, qualquer DomainException de ValidarParaEmissao (CST×CSOSN
+        // incompatível com o CRT, alíquota faltando no produto, endereço incompleto...) já
+        // pegava a nota com o número novo gravado — sem nada ter sido transmitido. Cada clique
+        // em "Emitir" que parasse na validação queimava um número em silêncio, sem sequer
+        // registrar evento, e o operador corrigindo a tributação em Estoque ia empurrando o
+        // nNF para frente a cada tentativa. Só se avança a numeração quando ela vai de fato
+        // ser gasta em uma transmissão.
+        if (entidade.Status == StatusNotaFiscal.Rejeitada)
+        {
+            entidade.Numero = await _notaFiscalRepository.ObterProximoNumeroAsync(
+                entidade.Tipo, entidade.Serie, entidade.Ambiente, cancellationToken);
+            // Persistido antes do POST para que o número transmitido e o número gravado nunca
+            // divirjam — uma queda entre gravar e transmitir queima um número (inofensivo),
+            // enquanto o contrário deixaria a nota apontando para um nNF que não foi o enviado.
+            await _notaFiscalRepository.AtualizarAsync(entidade, cancellationToken: cancellationToken);
+        }
+
         // Gerado aqui (não mais deixado em branco pro payload builder) e enviado no
         // ide.cNF — permite reconstituir localmente a chave de 44 dígitos que ESTA
         // tentativa está usando, antes mesmo do POST. Sem isso, uma tentativa que nunca
@@ -563,13 +579,41 @@ public class NotaFiscalService : INotaFiscalService
         entidade.XMotivo = resultado.XMotivo;
         entidade.XmlAutorizado = resultado.XmlAutorizado;
         entidade.QrCodeUrl = resultado.QrCodeUrl;
-        entidade.MensagemErro = resultado.Aprovado ? null : (resultado.XMotivo ?? resultado.Erro);
+        entidade.MensagemErro = resultado.Aprovado
+            ? null
+            : ExplicarRejeicao(resultado.CStat, resultado.XMotivo ?? resultado.Erro, entidade);
 
         await _notaFiscalRepository.AtualizarAsync(entidade, cancellationToken: cancellationToken);
         await RegistrarEventoAsync(entidade.Id, TipoEventoNotaFiscal.Emissao, resultado.Aprovado,
             nProtEvento: resultado.NProt, cStat: resultado.CStat, xMotivo: resultado.XMotivo, cancellationToken: cancellationToken);
 
         return await ObterPorIdAsync(notaFiscalId, cancellationToken) ?? dtoValidacao;
+    }
+
+    /// <summary>
+    /// Acrescenta orientação ao texto cru da SEFAZ nas rejeições de duplicidade (cStat 204 e
+    /// 539). Sozinha, "Duplicidade de NF-e, com diferença na Chave de Acesso" não diz nada
+    /// acionável ao operador: o sistema já avança o nNF a cada reenvio, então ele clica
+    /// "Emitir" de novo e recebe a mesma mensagem no número seguinte.
+    ///
+    /// O caso real que motivou isto: o CNPJ já tinha histórico de NF-e em produção na mesma
+    /// série, emitido por um sistema anterior. O ERP calcula o próximo número a partir da
+    /// PRÓPRIA tabela, que começa do zero, então cada número tentado caía dentro de uma faixa
+    /// que a SEFAZ já tinha consumido anos antes — avançar de um em um nunca sairia do buraco.
+    /// A saída é o operador informar de uma vez um número acima do último usado pelo sistema
+    /// antigo, no campo Número da nota; daí em diante o MAX+1 local volta a ser suficiente.
+    /// </summary>
+    private static string? ExplicarRejeicao(string? cStat, string? motivo, NotaFiscal nota)
+    {
+        if (cStat is not ("204" or "539"))
+            return motivo;
+
+        var ambiente = nota.Ambiente == AmbienteEmissaoFiscal.Producao ? "produção" : "homologação";
+        return $"{motivo}\n\n" +
+               $"O número {nota.Numero} da série {nota.Serie} já foi usado por este CNPJ em {ambiente} na SEFAZ. " +
+               "O sistema já avançou para o próximo número automaticamente, mas se este CNPJ emitiu notas por " +
+               "outro sistema antes, a faixa inteira pode estar ocupada — nesse caso abra a nota, informe no " +
+               "campo Número um valor acima do último que o sistema anterior emitiu e emita novamente.";
     }
 
     public async Task<NotaFiscalDto> CancelarAsync(int notaFiscalId, string justificativa, CancellationToken cancellationToken = default)

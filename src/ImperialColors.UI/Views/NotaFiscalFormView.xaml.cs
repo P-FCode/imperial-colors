@@ -168,7 +168,7 @@ public partial class NotaFiscalFormView : Window
                     FormaEnvio = _empresaFiscal.FretePorContaPadrao,
                     DataEmissao = DateTime.Now
                 };
-                _nota.Numero = await _notaFiscalService.ObterProximoNumeroAsync(_tipo, _nota.Serie);
+                _nota.Numero = await _notaFiscalService.ObterProximoNumeroAsync(_tipo, _nota.Serie, _nota.Ambiente);
             }
 
             PreencherFormulario(_nota);

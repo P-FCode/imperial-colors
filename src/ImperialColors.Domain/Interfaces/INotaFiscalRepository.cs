@@ -11,8 +11,13 @@ public interface INotaFiscalRepository
 
     /// <summary>Próximo número sequencial da série — a numeração é imutável (seção 10 do
     /// GUIA_INTEGRACAO.md): mesmo uma nota rejeitada consome o número, então a consulta
-    /// ignora o filtro de soft-delete/status para nunca devolver um número já usado.</summary>
-    Task<string> ObterProximoNumeroAsync(TipoNotaFiscal tipo, string serie, CancellationToken cancellationToken = default);
+    /// ignora o filtro de soft-delete/status para nunca devolver um número já usado.
+    ///
+    /// Sequências de homologação e produção são independentes na SEFAZ (a chave de acesso
+    /// nem codifica o ambiente — ver seção 8 do guia), então <paramref name="ambiente"/>
+    /// faz parte da chave da numeração: uma nota de teste não pode consumir um número de
+    /// produção.</summary>
+    Task<string> ObterProximoNumeroAsync(TipoNotaFiscal tipo, string serie, AmbienteEmissaoFiscal ambiente, CancellationToken cancellationToken = default);
 
     /// <summary>Insere a nota com seus itens e pagamentos (rascunho novo).</summary>
     Task<NotaFiscal> CriarAsync(NotaFiscal nota, CancellationToken cancellationToken = default);

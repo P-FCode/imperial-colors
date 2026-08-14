@@ -59,20 +59,29 @@ public class NotaFiscalRepository : INotaFiscalRepository
     ///
     /// Sem filtro de soft-delete de propósito (SQL cru não aplica query filter, e é o que se
     /// quer aqui): a numeração é imutável mesmo para notas inativadas ou rejeitadas — ver o
-    /// índice único Tipo+Serie+Numero em <c>NotaFiscalMapping</c>.
+    /// índice único Tipo+Serie+Ambiente+Numero em <c>NotaFiscalMapping</c>.
     /// O <c>~ '^[0-9]+$'</c> protege o CAST de qualquer número não-numérico legado.
+    ///
+    /// O filtro por <c>ambiente</c> é obrigatório, não uma conveniência: na SEFAZ as
+    /// sequências de homologação e de produção são completamente independentes (a chave de
+    /// 44 dígitos nem tem dígito de ambiente — seção 8 do guia). Sem ele, uma nota de teste
+    /// em homologação empurrava a numeração de produção para frente e vice-versa, abrindo
+    /// buracos permanentes em ambas as séries.
     /// </summary>
-    public async Task<string> ObterProximoNumeroAsync(TipoNotaFiscal tipo, string serie, CancellationToken cancellationToken = default)
+    public async Task<string> ObterProximoNumeroAsync(
+        TipoNotaFiscal tipo, string serie, AmbienteEmissaoFiscal ambiente, CancellationToken cancellationToken = default)
     {
         await using var context = _contextFactory.CreateDbContext();
 
         var codigoTipo = (int)tipo;
+        var codigoAmbiente = (int)ambiente;
         var maiorNumero = await context.Database
             .SqlQuery<int>($"""
                 SELECT COALESCE(MAX(CAST(numero AS INTEGER)), 0) AS "Value"
                 FROM notas_fiscais
                 WHERE tipo = {codigoTipo}
                   AND serie = {serie}
+                  AND ambiente = {codigoAmbiente}
                   AND numero ~ '^[0-9]+$'
                 """)
             .SingleAsync(cancellationToken);

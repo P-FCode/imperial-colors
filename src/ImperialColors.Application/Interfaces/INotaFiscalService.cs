@@ -36,7 +36,7 @@ public interface INotaFiscalService
 
     Task<NotaFiscalDto?> ObterPorIdAsync(int id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<NotaFiscalResumoDto>> ListarAsync(TipoNotaFiscal tipo, StatusNotaFiscal? status = null, CancellationToken cancellationToken = default);
-    Task<string> ObterProximoNumeroAsync(TipoNotaFiscal tipo, string? serie = null, CancellationToken cancellationToken = default);
+    Task<string> ObterProximoNumeroAsync(TipoNotaFiscal tipo, string? serie = null, AmbienteEmissaoFiscal? ambiente = null, CancellationToken cancellationToken = default);
 
     /// <summary>Painel-resumo da tela de Nota Fiscal (hub) — contadores (NF-e + NFC-e
     /// somadas) e as últimas 10 notas emitidas, ordenadas pela emissão mais recente.</summary>

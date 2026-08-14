@@ -125,7 +125,11 @@ public class NotaFiscalMapping : IEntityTypeConfiguration<NotaFiscal>
         // numeração é imutável mesmo para notas rejeitadas/soft-deletadas (ver
         // ObterProximoNumeroAsync, que ignora o filtro de soft-delete de propósito), então
         // não há cenário legítimo de reaproveitar um número já usado.
-        builder.HasIndex(n => new { n.Tipo, n.Serie, n.Numero }).IsUnique().HasDatabaseName("IX_notas_fiscais_tipo_serie_numero");
+        //
+        // Ambiente faz parte da chave: homologação e produção são sequências independentes
+        // na SEFAZ, então o mesmo (Tipo, Serie, Numero) pode existir uma vez em cada — sem
+        // essa coluna, uma nota de teste bloqueava o número correspondente em produção.
+        builder.HasIndex(n => new { n.Tipo, n.Serie, n.Ambiente, n.Numero }).IsUnique().HasDatabaseName("IX_notas_fiscais_tipo_serie_ambiente_numero");
         builder.HasIndex(n => n.Status);
 
         builder.HasOne(n => n.Venda).WithMany().HasForeignKey(n => n.VendaId).OnDelete(DeleteBehavior.SetNull);
