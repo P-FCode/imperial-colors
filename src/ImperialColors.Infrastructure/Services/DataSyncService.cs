@@ -35,6 +35,9 @@ public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposa
     private Task? _loop;
     private DateTime? _ultimoExpurgoLogs;
 
+    /// <inheritdoc />
+    public event EventHandler<int>? PendentesAlterado;
+
     public DataSyncService(
         IDbContextFactory<ContingencyDbContext> contingencyFactory,
         IDbContextFactory<AppDbContext> appFactory,
@@ -240,7 +243,21 @@ public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposa
             }
 
             if (sincronizadas > 0)
+            {
                 await _contingencyVenda.AtualizarCacheProdutosAsync(cancellationToken);
+
+                // Avisa a UI com o que RESTOU pendente (não com o que foi sincronizado): é
+                // esse número que o operador precisa ver, e é ele que zera quando tudo sobe.
+                // Um erro em quem escuta não pode derrubar o laço de sincronização.
+                try
+                {
+                    PendentesAlterado?.Invoke(this, pendentes.Count - sincronizadas);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Falha ao notificar alteração de pendentes de contingência.");
+                }
+            }
 
             return sincronizadas;
         }

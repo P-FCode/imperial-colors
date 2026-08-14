@@ -28,6 +28,10 @@ public partial class PDVView : Window, INotifyPropertyChanged
     private readonly ISessaoService _sessaoService;
     private readonly IDatabaseHealthService _healthService;
     private readonly IContingencyVendaService _contingencyService;
+    private readonly IDataSyncService _dataSyncService;
+
+    /// <summary>Vendas gravadas só nesta máquina, ainda não replicadas para o PostgreSQL.</summary>
+    private int _pendentesSincronizacao;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -73,7 +77,8 @@ public partial class PDVView : Window, INotifyPropertyChanged
         IServiceProvider serviceProvider,
         ISessaoService sessaoService,
         IDatabaseHealthService healthService,
-        IContingencyVendaService contingencyService)
+        IContingencyVendaService contingencyService,
+        IDataSyncService dataSyncService)
     {
         InitializeComponent();
         DataContext = this;
@@ -84,6 +89,7 @@ public partial class PDVView : Window, INotifyPropertyChanged
         _sessaoService = sessaoService;
         _healthService = healthService;
         _contingencyService = contingencyService;
+        _dataSyncService = dataSyncService;
 
         DgPagamentos.ItemsSource = _pagamentos;
         for (var i = 1; i <= 12; i++)
@@ -96,8 +102,9 @@ public partial class PDVView : Window, INotifyPropertyChanged
             _suprimirTrocaEtapa = true;
             RbEtapaProdutos.IsChecked = true;
             RbConsumidorFinal.IsChecked = true;
-            AtualizarBadgeStatusRede(_healthService.IsOnline);
+            await AtualizarPendentesAsync();
             _healthService.StatusChanged += OnHealthStatusChanged;
+            _dataSyncService.PendentesAlterado += OnPendentesAlterado;
             if (_healthService.IsOnline)
             {
                 try { await _contingencyService.AtualizarCacheProdutosAsync(); }
@@ -110,28 +117,92 @@ public partial class PDVView : Window, INotifyPropertyChanged
             AtualizarResumoCliente();
         };
 
-        Closed += (_, _) => _healthService.StatusChanged -= OnHealthStatusChanged;
+        Closed += (_, _) =>
+        {
+            _healthService.StatusChanged -= OnHealthStatusChanged;
+            _dataSyncService.PendentesAlterado -= OnPendentesAlterado;
+        };
     }
 
     private void OnHealthStatusChanged(object? sender, bool online)
-        => Dispatcher.Invoke(() => AtualizarBadgeStatusRede(online));
+        => Dispatcher.Invoke(() =>
+        {
+            AtualizarBadgeStatusRede(online);
+            _ = AtualizarPendentesAsync();
+        });
 
+    /// <summary>Vem do laço de sincronização, em thread de fundo — precisa do dispatcher.</summary>
+    private void OnPendentesAlterado(object? sender, int pendentes)
+        => Dispatcher.Invoke(() =>
+        {
+            _pendentesSincronizacao = pendentes;
+            AtualizarBadgeStatusRede(_healthService.IsOnline);
+        });
+
+    /// <summary>
+    /// Lê quantas vendas ainda não subiram para o PostgreSQL. Silencioso em caso de falha: o
+    /// contador é informativo e não pode atrapalhar a operação do caixa.
+    /// </summary>
+    private async Task AtualizarPendentesAsync()
+    {
+        try
+        {
+            _pendentesSincronizacao = await _contingencyService.ContarPendentesAsync();
+            AtualizarBadgeStatusRede(_healthService.IsOnline);
+        }
+        catch
+        {
+            // Contador indisponível não muda nada do que o operador precisa fazer.
+        }
+    }
+
+    /// <summary>
+    /// O badge combina as duas informações que o operador precisa: se o sistema está gravando
+    /// direto no servidor e se sobrou alguma venda por subir.
+    ///
+    /// Mostrar pendências mesmo ONLINE é o ponto principal desta tela: sem isso, o caixa
+    /// voltava a ficar verde assim que a conexão retornava, sem nenhuma indicação de que
+    /// ainda havia vendas gravadas apenas na máquina — e ninguém sabia que faltava algo até
+    /// alguém reparar num relatório com menos vendas do que o esperado.
+    /// </summary>
     private void AtualizarBadgeStatusRede(bool online)
     {
         if (BadgeStatusRede is null || TxtStatusRede is null) return;
 
-        if (online)
+        var sufixoPendentes = _pendentesSincronizacao switch
         {
-            BadgeStatusRede.Background = new SolidColorBrush(Color.FromRgb(212, 237, 218));
-            TxtStatusRede.Text = "🟢 Online";
-            TxtStatusRede.Foreground = new SolidColorBrush(Color.FromRgb(21, 87, 36));
-        }
-        else
+            0 => string.Empty,
+            1 => " · 1 venda a sincronizar",
+            var n => $" · {n} vendas a sincronizar"
+        };
+
+        if (!online)
         {
             BadgeStatusRede.Background = new SolidColorBrush(Color.FromRgb(255, 243, 205));
-            TxtStatusRede.Text = "🟠 Offline (Contingência)";
+            TxtStatusRede.Text = $"🟠 Offline (Contingência){sufixoPendentes}";
             TxtStatusRede.Foreground = new SolidColorBrush(Color.FromRgb(133, 100, 4));
+            BadgeStatusRede.ToolTip =
+                "Sem conexão com o servidor. As vendas continuam sendo registradas nesta máquina " +
+                "e sobem sozinhas quando a conexão voltar — não feche o sistema com vendas pendentes.";
+            return;
         }
+
+        if (_pendentesSincronizacao > 0)
+        {
+            // Online mas com pendências: azul, não verde. Verde diria "está tudo resolvido".
+            BadgeStatusRede.Background = new SolidColorBrush(Color.FromRgb(207, 226, 255));
+            TxtStatusRede.Text = $"🔄 Online{sufixoPendentes}";
+            TxtStatusRede.Foreground = new SolidColorBrush(Color.FromRgb(11, 65, 141));
+            BadgeStatusRede.ToolTip =
+                "Conexão restabelecida. As vendas feitas offline estão subindo para o servidor " +
+                "automaticamente; este aviso some quando terminar.";
+            return;
+        }
+
+        BadgeStatusRede.Background = new SolidColorBrush(Color.FromRgb(212, 237, 218));
+        TxtStatusRede.Text = "🟢 Online";
+        TxtStatusRede.Foreground = new SolidColorBrush(Color.FromRgb(21, 87, 36));
+        BadgeStatusRede.ToolTip = "Conectado ao servidor. Nenhuma venda pendente de sincronização.";
     }
 
     public void PrepararFocoBusca()
@@ -1077,6 +1148,10 @@ public partial class PDVView : Window, INotifyPropertyChanged
 
             if (venda.NumeroVenda.StartsWith("OFF-", StringComparison.OrdinalIgnoreCase))
             {
+                // Acabou de entrar mais uma na fila — o badge tem que refletir isso na hora,
+                // não só quando a sincronização rodar.
+                await AtualizarPendentesAsync();
+
                 MessageBox.Show(
                     "Venda salva em modo de contingência offline.\n" +
                     "Ela será sincronizada automaticamente quando o servidor voltar.",

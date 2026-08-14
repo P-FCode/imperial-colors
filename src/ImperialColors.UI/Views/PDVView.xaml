@@ -9,7 +9,12 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/AppTheme.xaml"/>
+                <!-- URI absoluta (pack://) em vez da relativa usada pelas demais telas: a
+                     relativa resolve contra o assembly de ENTRADA, o que funciona quando o app
+                     roda mas falha quando a janela é instanciada por um teste, onde o entry
+                     é o runner. Mesmo motivo pelo qual ProdutoFormView e NomeRapidoDialogView
+                     já usam esta forma — são as outras duas telas com teste de construção. -->
+                <ResourceDictionary Source="pack://application:,,,/ImperialColors;component/Resources/AppTheme.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             <conv:MoedaConverter x:Key="MoedaConverter"/>
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
