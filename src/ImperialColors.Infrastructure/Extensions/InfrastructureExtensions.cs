@@ -3,6 +3,7 @@ using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Configuration;
+using ImperialColors.Infrastructure.Atualizacao;
 using ImperialColors.Infrastructure.Contingency;
 using ImperialColors.Infrastructure.Data;
 using ImperialColors.Infrastructure.Fiscal;
@@ -146,6 +147,19 @@ public static class InfrastructureExtensions
             client.Timeout = TimeSpan.FromSeconds(30);
         });
         services.AddTransient<IFiscalApiClient, FiscalApiClient>();
+
+        // Atualização do sistema pelas Releases do GitHub. Timeout longo porque o mesmo
+        // cliente faz a consulta (rápida) e o download do pacote self-contained, que passa
+        // de 100 MB — 30 segundos derrubariam o download em qualquer conexão de loja.
+        services.AddHttpClient<IAtualizadorSistemaService, AtualizadorSistemaService>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.github.com/");
+            client.Timeout = TimeSpan.FromMinutes(15);
+            // A API do GitHub recusa requisição sem User-Agent com 403.
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("ImperialColors-Atualizador");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+        });
 
         return services;
     }

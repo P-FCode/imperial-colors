@@ -118,6 +118,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<FiscalConfigView>();
                 services.AddTransient<NaturezaOperacaoView>();
                 services.AddTransient<NotaFiscalHubView>();
+                services.AddTransient<AtualizacaoSistemaDialogView>();
 
                 services.AddLogging(logging =>
                 {

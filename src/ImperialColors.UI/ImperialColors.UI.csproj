@@ -26,6 +26,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <AssemblyName>ImperialColors</AssemblyName>
+    <!-- Versao base para builds locais. Em release, o workflow sobrescreve com a tag do
+         GitHub (-p:Version=...). Nao existe numero de versao escrito a mao em outro lugar
+         do codigo: a tela Sobre le do assembly, e o atualizador compara com a tag. -->
+    <Version>1.2.0</Version>
     <ApplicationIcon>..\..\icons\logoimperialcolors.ico</ApplicationIcon>
   </PropertyGroup>
 

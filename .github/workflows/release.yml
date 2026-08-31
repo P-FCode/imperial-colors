@@ -1,0 +1,110 @@
+# Empacota o sistema a cada release publicada no GitHub e anexa o ZIP nela.
+#
+# É o outro lado do botão "Atualizar Sistema" (Configurações → Geral): o aplicativo instalado
+# consulta a última release, compara a tag com a própria versão e baixa o arquivo produzido
+# aqui. Os dois lados precisam concordar em duas coisas — o nome do arquivo
+# (ImperialColors-win-x64.zip) e o formato da tag (vX.Y.Z).
+#
+# Para lançar uma versão: crie a Release no GitHub com a tag vX.Y.Z. Este workflow dispara
+# sozinho, compila e anexa o pacote. O disparo manual (workflow_dispatch) serve para refazer
+# o pacote de uma release que já existe, sem precisar recriá-la.
+name: Empacotar Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag da release existente (ex: v1.3.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  empacotar:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Resolver versão a partir da tag
+        id: versao
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          if ([string]::IsNullOrWhiteSpace($tag)) { $tag = "${{ inputs.tag }}" }
+          if ([string]::IsNullOrWhiteSpace($tag)) { throw "Tag da release não encontrada." }
+
+          # Aceita v1.2.3, V1.2.3 e o erro comum v.1.2.3 — o atualizador do app tolera os
+          # mesmos formatos (ver VersaoRelease.TentarConverter).
+          $versao = $tag.Trim() -replace '^[vV]\.?', ''
+          if ($versao -notmatch '^\d+\.\d+(\.\d+)?$') {
+            throw "Tag '$tag' não é um número de versão. Use o formato v1.3.0."
+          }
+          if ($versao.Split('.').Length -eq 2) { $versao = "$versao.0" }
+
+          "tag=$tag"        >> $env:GITHUB_OUTPUT
+          "versao=$versao"  >> $env:GITHUB_OUTPUT
+          Write-Host "Tag=$tag  Versao=$versao"
+
+      - name: Publicar win-x64 (self-contained)
+        shell: pwsh
+        run: |
+          $v = "${{ steps.versao.outputs.versao }}"
+          dotnet publish "src/ImperialColors.UI/ImperialColors.UI.csproj" `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:Version=$v `
+            -p:AssemblyVersion=$v.0 `
+            -p:FileVersion=$v.0 `
+            -p:InformationalVersion=$v `
+            -p:SatelliteResourceLanguages=pt-BR `
+            -p:DebugType=none `
+            -p:DebugSymbols=false `
+            -o "publish/ImperialColors-win-x64"
+
+      - name: Conferir o pacote
+        shell: pwsh
+        run: |
+          $pasta = "publish/ImperialColors-win-x64"
+
+          # O atualizador procura exatamente este executável dentro do ZIP; se o nome mudar,
+          # a atualização falha no cliente e não aqui. Falhar aqui é muito mais barato.
+          if (-not (Test-Path "$pasta/ImperialColors.exe")) {
+            throw "ImperialColors.exe não foi gerado em $pasta."
+          }
+
+          # O .env carrega credenciais do banco e é copiado para a saída por um Target do
+          # csproj. No runner ele não existe (é gitignored), mas se algum dia passar a
+          # existir, publicar credenciais num ZIP público seria irreversível.
+          if (Test-Path "$pasta/.env") {
+            throw "O pacote contém um arquivo .env — remova antes de publicar."
+          }
+
+          $tamanho = (Get-ChildItem $pasta -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          Write-Host ("Pacote com {0:N1} MB" -f ($tamanho / 1MB))
+
+      - name: Compactar
+        shell: pwsh
+        run: |
+          $zip = "ImperialColors-win-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "publish/ImperialColors-win-x64/*" -DestinationPath $zip -Force
+          Get-Item $zip | Format-List Name, Length
+
+      - name: Anexar o ZIP na release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          gh release upload "${{ steps.versao.outputs.tag }}" "ImperialColors-win-x64.zip" --clobber

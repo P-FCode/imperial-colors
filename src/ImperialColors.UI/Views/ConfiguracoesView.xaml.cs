@@ -1,3 +1,4 @@
+using ImperialColors.Application.Interfaces;
 using ImperialColors.Infrastructure.Data;
 using ImperialColors.UI.Helpers;
 using ImperialColors.UI.Services;
@@ -28,6 +29,8 @@ public partial class ConfiguracoesView : UserControl
 
     private readonly ISessaoService _sessaoService;
 
+    private readonly IAtualizadorSistemaService _atualizador;
+
     private Button? _cardAtivo;
 
 
@@ -43,6 +46,8 @@ public partial class ConfiguracoesView : UserControl
         _sessaoService = sessaoService;
 
         _config = serviceProvider.GetRequiredService<IAppConfigService>();
+
+        _atualizador = serviceProvider.GetRequiredService<IAtualizadorSistemaService>();
 
 
 
@@ -167,9 +172,35 @@ public partial class ConfiguracoesView : UserControl
 
         TxtSobreEmpresa.Text = $"{_config.EmpresaNome} - Sistema de Gestão";
 
+        // Lida do assembly, nao escrita a mao: o workflow de release grava a versao a partir
+        // da tag do GitHub, e e essa mesma versao que o atualizador compara. Um numero fixo
+        // aqui divergiria da instalacao real na primeira atualizacao automatica.
+        TxtVersaoSistema.Text = $"Versão {_atualizador.VersaoInstaladaTexto}";
+
     }
 
 
+
+    private void BtnAtualizarSistema_Click(object sender, RoutedEventArgs e)
+    {
+        BtnAtualizarSistema.IsEnabled = false;
+        TxtStatusAtualizacao.Text = string.Empty;
+
+        try
+        {
+            var dialogo = _serviceProvider.GetRequiredService<AtualizacaoSistemaDialogView>();
+            dialogo.Owner = Window.GetWindow(this);
+            dialogo.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            TxtStatusAtualizacao.Text = ExceptionMessageHelper.ObterMensagemAmigavel(ex);
+        }
+        finally
+        {
+            BtnAtualizarSistema.IsEnabled = true;
+        }
+    }
 
     private static string FormatarCnpj(string cnpj)
     {

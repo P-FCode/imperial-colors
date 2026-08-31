@@ -392,13 +392,22 @@
 
                             <TextBlock x:Name="TxtSobreEmpresa" FontSize="14" FontWeight="Bold"/>
 
-                            <TextBlock Text="Versão 1.2.0 | Pagamentos PDV e Periféricos" FontSize="12"
+                            <TextBlock x:Name="TxtVersaoSistema" FontSize="12"
 
                                        Foreground="{StaticResource CinzaTextoBrush}" Margin="0,4,0,0"/>
 
                             <TextBlock Text=".NET 10 | WPF | PostgreSQL | Entity Framework Core"
 
                                        FontSize="11" Foreground="{StaticResource CinzaTextoBrush}"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button x:Name="BtnAtualizarSistema" Style="{StaticResource BotaoSecundario}"
+                                        Content="⭳  Atualizar Sistema"
+                                        Click="BtnAtualizarSistema_Click"/>
+                                <TextBlock x:Name="TxtStatusAtualizacao" VerticalAlignment="Center"
+                                           Margin="12,0,0,0" FontSize="11"
+                                           Foreground="{StaticResource CinzaTextoBrush}"/>
+                            </StackPanel>
 
                         </StackPanel>
 
