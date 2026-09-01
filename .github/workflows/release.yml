@@ -56,7 +56,7 @@ jobs:
           "versao=$versao"  >> $env:GITHUB_OUTPUT
           Write-Host "Tag=$tag  Versao=$versao"
 
-      - name: Publicar win-x64 (self-contained)
+      - name: Publicar win-x64 (self-contained, single-file)
         shell: pwsh
         run: |
           $v = "${{ steps.versao.outputs.versao }}"
@@ -71,6 +71,9 @@ jobs:
             -p:SatelliteResourceLanguages=pt-BR `
             -p:DebugType=none `
             -p:DebugSymbols=false `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
             -o "publish/ImperialColors-win-x64"
 
       - name: Conferir o pacote
@@ -89,6 +92,14 @@ jobs:
           # existir, publicar credenciais num ZIP público seria irreversível.
           if (Test-Path "$pasta/.env") {
             throw "O pacote contém um arquivo .env — remova antes de publicar."
+          }
+
+          # Sinal de que o single-file silenciosamente deixou de funcionar (SDK novo, flag
+          # ignorada) — sem isso o pacote voltaria a sair com ~300 DLLs soltas sem que
+          # ninguém percebesse até o próximo "a pasta ficou bagunçada de novo".
+          $dllsSoltas = Get-ChildItem "$pasta/*.dll" -ErrorAction SilentlyContinue
+          if ($dllsSoltas) {
+            throw "Publicação single-file não funcionou — $($dllsSoltas.Count) DLL(s) solta(s) em $pasta."
           }
 
           $tamanho = (Get-ChildItem $pasta -Recurse -File | Measure-Object -Property Length -Sum).Sum
