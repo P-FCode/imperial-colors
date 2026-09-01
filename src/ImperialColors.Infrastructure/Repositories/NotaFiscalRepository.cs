@@ -4,6 +4,7 @@ using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
+using ImperialColors.Domain.ReadModels;
 using ImperialColors.Infrastructure.Data;
 using ImperialColors.Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
@@ -155,19 +156,73 @@ public class NotaFiscalRepository : INotaFiscalRepository
         await SalvarAlteracoesAsync(context, cancellationToken);
     }
 
-    public async Task<(int Emitidas, int Canceladas, decimal ValorTotalEmitido)> ObterContadoresAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Três agregações pequenas em vez de trazer notas para a memória. Diferente do
+    /// dashboard de vendas (onde uma consulta ingênua materializava o mês inteiro de vendas
+    /// com seus itens — ver <c>ObterResumoDiarioAsync</c>), aqui os três round-trips não são
+    /// uma otimização contra um volume real: uma única loja emite dezenas de notas por mês,
+    /// não centenas de milhares. Três consultas simples continuam instantâneas em qualquer
+    /// volume plausível deste domínio — a divisão existe só para manter cada agregação
+    /// legível (por status, por tipo, por período), não por necessidade de performance.
+    ///
+    /// Sem índice novo em <c>data_emissao</c> pelo mesmo motivo: um sequential scan sobre a
+    /// tabela inteira de notas fiscais de uma loja é matéria de microssegundos.
+    /// </summary>
+    public async Task<EstatisticasNotasFiscais> ObterEstatisticasAsync(CancellationToken cancellationToken = default)
     {
         await using var context = _contextFactory.CreateDbContext();
 
-        var emitidas = await context.NotasFiscais.AsNoTracking()
-            .CountAsync(n => n.Status == StatusNotaFiscal.Autorizada, cancellationToken);
-        var canceladas = await context.NotasFiscais.AsNoTracking()
-            .CountAsync(n => n.Status == StatusNotaFiscal.Cancelada, cancellationToken);
-        var valorTotalEmitido = await context.NotasFiscais.AsNoTracking()
-            .Where(n => n.Status == StatusNotaFiscal.Autorizada)
-            .SumAsync(n => n.VNf, cancellationToken);
+        var porStatus = await context.NotasFiscais.AsNoTracking()
+            .GroupBy(n => n.Status)
+            .Select(g => new { Status = g.Key, Quantidade = g.Count(), Valor = g.Sum(n => n.VNf) })
+            .ToListAsync(cancellationToken);
 
-        return (emitidas, canceladas, valorTotalEmitido);
+        var porTipo = await context.NotasFiscais.AsNoTracking()
+            .Where(n => n.Status == StatusNotaFiscal.Autorizada)
+            .GroupBy(n => n.Tipo)
+            .Select(g => new { Tipo = g.Key, Quantidade = g.Count(), Valor = g.Sum(n => n.VNf) })
+            .ToListAsync(cancellationToken);
+
+        var inicioHoje = Relogio.Hoje;
+        var inicioMes = new DateTime(inicioHoje.Year, inicioHoje.Month, 1);
+
+        var porPeriodo = await context.NotasFiscais.AsNoTracking()
+            .Where(n => n.Status == StatusNotaFiscal.Autorizada)
+            .GroupBy(n => 1)
+            .Select(g => new
+            {
+                Hoje = g.Count(n => n.DataEmissao >= inicioHoje),
+                ValorHoje = g.Sum(n => n.DataEmissao >= inicioHoje ? n.VNf : 0m),
+                Mes = g.Count(n => n.DataEmissao >= inicioMes),
+                ValorMes = g.Sum(n => n.DataEmissao >= inicioMes ? n.VNf : 0m)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var autorizadas = porStatus.FirstOrDefault(s => s.Status == StatusNotaFiscal.Autorizada);
+        var nfe = porTipo.FirstOrDefault(t => t.Tipo == TipoNotaFiscal.NFe);
+        var nfce = porTipo.FirstOrDefault(t => t.Tipo == TipoNotaFiscal.NFCe);
+
+        return new EstatisticasNotasFiscais
+        {
+            TotalEmitidas = autorizadas?.Quantidade ?? 0,
+            ValorTotalEmitido = autorizadas?.Valor ?? 0m,
+
+            EmitidasHoje = porPeriodo?.Hoje ?? 0,
+            ValorEmitidoHoje = porPeriodo?.ValorHoje ?? 0m,
+            EmitidasNoMes = porPeriodo?.Mes ?? 0,
+            ValorEmitidoNoMes = porPeriodo?.ValorMes ?? 0m,
+
+            TotalCanceladas = porStatus.FirstOrDefault(s => s.Status == StatusNotaFiscal.Cancelada)?.Quantidade ?? 0,
+            TotalRejeitadas = porStatus.FirstOrDefault(s => s.Status == StatusNotaFiscal.Rejeitada)?.Quantidade ?? 0,
+            TotalDenegadas = porStatus.FirstOrDefault(s => s.Status == StatusNotaFiscal.Denegada)?.Quantidade ?? 0,
+            TotalPendentes = (porStatus.FirstOrDefault(s => s.Status == StatusNotaFiscal.Rascunho)?.Quantidade ?? 0)
+                           + (porStatus.FirstOrDefault(s => s.Status == StatusNotaFiscal.Indeterminada)?.Quantidade ?? 0),
+
+            TotalNFe = nfe?.Quantidade ?? 0,
+            ValorNFe = nfe?.Valor ?? 0m,
+            TotalNFCe = nfce?.Quantidade ?? 0,
+            ValorNFCe = nfce?.Valor ?? 0m
+        };
     }
 
     public async Task<IReadOnlyList<NotaFiscal>> ListarUltimasAsync(int quantidade, CancellationToken cancellationToken = default)

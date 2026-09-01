@@ -389,14 +389,25 @@ public class NotaFiscalService : INotaFiscalService
 
     public async Task<ResumoNotasFiscaisDto> ObterResumoAsync(CancellationToken cancellationToken = default)
     {
-        var (emitidas, canceladas, valorTotalEmitido) = await _notaFiscalRepository.ObterContadoresAsync(cancellationToken);
+        var estatisticas = await _notaFiscalRepository.ObterEstatisticasAsync(cancellationToken);
         var ultimas = await _notaFiscalRepository.ListarUltimasAsync(10, cancellationToken);
 
         return new ResumoNotasFiscaisDto
         {
-            TotalEmitidas = emitidas,
-            TotalCanceladas = canceladas,
-            ValorTotalEmitido = valorTotalEmitido,
+            TotalEmitidas = estatisticas.TotalEmitidas,
+            ValorTotalEmitido = estatisticas.ValorTotalEmitido,
+            EmitidasHoje = estatisticas.EmitidasHoje,
+            ValorEmitidoHoje = estatisticas.ValorEmitidoHoje,
+            EmitidasNoMes = estatisticas.EmitidasNoMes,
+            ValorEmitidoNoMes = estatisticas.ValorEmitidoNoMes,
+            TotalCanceladas = estatisticas.TotalCanceladas,
+            TotalRejeitadas = estatisticas.TotalRejeitadas,
+            TotalDenegadas = estatisticas.TotalDenegadas,
+            TotalPendentes = estatisticas.TotalPendentes,
+            TotalNFe = estatisticas.TotalNFe,
+            ValorNFe = estatisticas.ValorNFe,
+            TotalNFCe = estatisticas.TotalNFCe,
+            ValorNFCe = estatisticas.ValorNFCe,
             UltimasNotas = ultimas.Select(n => new NotaFiscalResumoDto
             {
                 Id = n.Id,

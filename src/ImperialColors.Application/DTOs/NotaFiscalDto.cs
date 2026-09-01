@@ -243,7 +243,28 @@ public class NotaFiscalResumoDto
 public class ResumoNotasFiscaisDto
 {
     public int TotalEmitidas { get; set; }
-    public int TotalCanceladas { get; set; }
     public decimal ValorTotalEmitido { get; set; }
+
+    public int EmitidasHoje { get; set; }
+    public decimal ValorEmitidoHoje { get; set; }
+    public int EmitidasNoMes { get; set; }
+    public decimal ValorEmitidoNoMes { get; set; }
+
+    public int TotalCanceladas { get; set; }
+    public int TotalRejeitadas { get; set; }
+    public int TotalDenegadas { get; set; }
+
+    /// <summary>Rascunho + Indeterminada — aguardando uma decisão do operador.</summary>
+    public int TotalPendentes { get; set; }
+
+    public int TotalNFe { get; set; }
+    public decimal ValorNFe { get; set; }
+    public int TotalNFCe { get; set; }
+    public decimal ValorNFCe { get; set; }
+
+    /// <summary>Nulo quando ainda não há nenhuma nota autorizada — 0/0 é indefinido, não
+    /// zero, e a tela precisa diferenciar "sem dado ainda" de "ticket médio zerado".</summary>
+    public decimal? TicketMedio => TotalEmitidas > 0 ? ValorTotalEmitido / TotalEmitidas : null;
+
     public List<NotaFiscalResumoDto> UltimasNotas { get; set; } = new();
 }

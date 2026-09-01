@@ -1,5 +1,6 @@
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.ReadModels;
 
 namespace ImperialColors.Domain.Interfaces;
 
@@ -35,11 +36,11 @@ public interface INotaFiscalRepository
     /// (só Rascunho/Rejeitada) é responsabilidade do Service, não deste repositório.</summary>
     Task ExcluirAsync(int id, CancellationToken cancellationToken = default);
 
-    /// <summary>Contadores para o painel-resumo da tela de Nota Fiscal — soma NF-e e NFC-e
-    /// juntas (sem filtro por tipo). "Emitidas" conta só <see cref="StatusNotaFiscal.Autorizada"/>
-    /// (uma rejeitada/rascunho não chegou a ser emitida de fato); o valor total soma
-    /// apenas as Autorizadas.</summary>
-    Task<(int Emitidas, int Canceladas, decimal ValorTotalEmitido)> ObterContadoresAsync(CancellationToken cancellationToken = default);
+    /// <summary>Estatísticas agregadas para o painel-resumo da tela de Nota Fiscal — soma
+    /// NF-e e NFC-e juntas. "Emitidas"/"valor emitido" contam só
+    /// <see cref="StatusNotaFiscal.Autorizada"/> (uma rejeitada/rascunho não chegou a ser
+    /// emitida de fato).</summary>
+    Task<EstatisticasNotasFiscais> ObterEstatisticasAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Últimas N notas (NF-e + NFC-e juntas), ordenadas pela data de emissão mais
     /// recente — usado no painel-resumo da tela de Nota Fiscal.</summary>
