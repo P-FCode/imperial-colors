@@ -2,6 +2,7 @@
 using ImperialColors.Domain.Helpers;
 using ImperialColors.Application.Configuration;
 using ImperialColors.Application.Extensions;
+using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Contingency;
 using ImperialColors.Infrastructure.Data;
@@ -162,6 +163,48 @@ public partial class App : System.Windows.Application
                 Shutdown();
                 return;
             }
+        }
+
+        // Trava de coordenação entre PDVs: o banco é compartilhado, mas cada caixa roda sua
+        // própria cópia dos arquivos. Se outro caixa já atualizou e abriu primeiro, ele já
+        // aplicou migrations NO BANCO — este caixa, se ainda estiver na versão antiga, pode
+        // estar rodando um modelo do EF que não conhece mais a estrutura real da tabela.
+        //
+        // Fica em bloco próprio, separado do try/catch de conexão acima: uma falha aqui é
+        // um problema de coordenação (avisar o operador), não um problema de banco fora do
+        // ar — não faz sentido reaproveitar a mensagem "Erro de Banco de Dados" para isso, e
+        // muito menos travar a abertura do sistema por causa de um aviso que falhou.
+        try
+        {
+            using var scope = _host.Services.CreateScope();
+            var coordenacao = scope.ServiceProvider.GetRequiredService<ICoordenacaoAtualizacaoBancoService>();
+            var resultadoCoordenacao = await coordenacao.VerificarERegistrarAsync();
+
+            if (resultadoCoordenacao.BancoAtualizadoPorOutraInstalacaoMaisNova)
+            {
+                var resposta = MessageBox.Show(
+                    $"Este caixa está na versão {resultadoCoordenacao.VersaoInstaladaTexto}, mas o caixa " +
+                    $"'{resultadoCoordenacao.MaquinaQueAtualizouPorUltimo}' já abriu este sistema na versão " +
+                    $"{resultadoCoordenacao.VersaoRegistradaTexto}.\n\n" +
+                    "A estrutura do banco de dados pode já ter mudado. Continuar numa versão mais antiga pode " +
+                    "causar erros ao gravar vendas ou notas fiscais.\n\n" +
+                    "Atualize este caixa (Configurações → Geral → Atualizar Sistema) antes de continuar vendendo.\n\n" +
+                    "Deseja continuar mesmo assim?",
+                    "Este caixa está desatualizado",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (resposta == MessageBoxResult.No)
+                {
+                    Shutdown();
+                    return;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            var logger = _host.Services.GetRequiredService<ILogger<App>>();
+            logger.LogWarning(ex, "Não foi possível verificar a coordenação de versão entre PDVs.");
         }
 
         try

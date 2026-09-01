@@ -52,3 +52,29 @@ public sealed class ProgressoAtualizacaoDto
     /// <summary>0 a 100 durante o download; nulo nas etapas sem percentual mensurável.</summary>
     public double? Percentual { get; init; }
 }
+
+/// <summary>
+/// Resultado da trava de coordenação entre PDVs: esta instalação está atrasada em relação à
+/// última versão que abriu o banco compartilhado?
+/// </summary>
+public sealed class ResultadoCoordenacaoBancoDto
+{
+    /// <summary>
+    /// Verdadeiro quando outra instalação, com versão mais nova, já abriu este banco — ou
+    /// seja, o schema pode ter mudado de um jeito que este código não conhece.
+    /// </summary>
+    public bool BancoAtualizadoPorOutraInstalacaoMaisNova { get; init; }
+
+    public Version VersaoInstalada { get; init; } = new(0, 0, 0);
+
+    /// <summary>Nulo quando este é o primeiro caixa a abrir este banco — nada para comparar.</summary>
+    public Version? VersaoRegistradaNoBanco { get; init; }
+
+    public string? MaquinaQueAtualizouPorUltimo { get; init; }
+
+    public string VersaoInstaladaTexto => Domain.Helpers.VersaoRelease.Formatar(VersaoInstalada);
+
+    public string? VersaoRegistradaTexto => VersaoRegistradaNoBanco is null
+        ? null
+        : Domain.Helpers.VersaoRelease.Formatar(VersaoRegistradaNoBanco);
+}

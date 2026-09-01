@@ -64,6 +64,7 @@ public static class InfrastructureExtensions
         services.AddSingleton(BackupOptions.CarregarDoAmbiente());
         services.AddSingleton<IBackupService, BackupService>();
         services.AddSingleton<IParametroSistemaRepository, ParametroSistemaRepository>();
+        services.AddSingleton<ICoordenacaoAtualizacaoBancoService, CoordenacaoAtualizacaoBancoService>();
 
         services.AddSingleton<IProdutoRepository, ProdutoRepository>();
         services.AddSingleton<IVendaRepository, VendaRepository>();

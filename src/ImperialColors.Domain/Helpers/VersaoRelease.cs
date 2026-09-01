@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace ImperialColors.Infrastructure.Atualizacao;
+namespace ImperialColors.Domain.Helpers;
 
 /// <summary>
 /// Traduz a tag de uma release do GitHub para uma <see cref="Version"/> comparável.
@@ -12,6 +12,14 @@ namespace ImperialColors.Infrastructure.Atualizacao;
 /// recente, e nunca receber a correção. Por isso a análise é tolerante com o que o autor da
 /// release erra na prática (<c>v1.2.3</c>, <c>V1.2.3</c>, <c>v.1.2.3</c>, <c>1.2</c>) e
 /// coberta por testes.
+///
+/// Vive em Domain (não em Infrastructure, onde nasceu) porque a mesma comparação de versão
+/// passou a servir dois propósitos: decidir se há uma release nova no GitHub
+/// (<c>AtualizadorSistemaService</c>, em Infrastructure) e registrar/comparar qual versão
+/// aplicou por último as migrations no banco compartilhado
+/// (<see cref="RegistroVersaoBancoHelper"/>, usado também pela Application). Duplicar a
+/// lógica de parsing em duas camadas é exatamente o tipo de coisa que gera uma delas ficar
+/// desatualizada silenciosamente.
 /// </summary>
 public static partial class VersaoRelease
 {

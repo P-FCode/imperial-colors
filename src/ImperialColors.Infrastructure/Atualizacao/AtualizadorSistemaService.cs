@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text.Json.Serialization;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
+using ImperialColors.Domain.Helpers;
 using Microsoft.Extensions.Logging;
 
 namespace ImperialColors.Infrastructure.Atualizacao;
