@@ -159,11 +159,12 @@
                     </StackPanel>
                     <StackPanel Grid.Column="4">
                         <TextBlock Style="{StaticResource LabelCampo}" Text="Unidade"/>
-                        <ComboBox x:Name="CmbUnidade" Style="{StaticResource ComboBoxModerno}"
-                                  SelectionChanged="CmbUnidade_SelectionChanged">
+                        <ComboBox x:Name="CmbUnidade" Style="{StaticResource ComboBoxModerno}">
                             <ComboBoxItem Content="UN"/>
                             <ComboBoxItem Content="GL"/>
                             <ComboBoxItem Content="BD"/>
+                            <ComboBoxItem Content="BA"/>
+                            <ComboBoxItem Content="LA"/>
                             <ComboBoxItem Content="LT"/>
                             <ComboBoxItem Content="RL"/>
                             <ComboBoxItem Content="CX"/>
@@ -172,21 +173,18 @@
                     </StackPanel>
                 </Grid>
 
-                <Grid x:Name="PainelLitragemGl" Margin="0,0,0,12" Visibility="Collapsed">
+                <Grid Margin="0,0,0,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="200"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Litragem do Galão *"/>
-                        <ComboBox x:Name="CmbLitragemGl" Style="{StaticResource ComboBoxModerno}">
-                            <ComboBoxItem Content="3,6L" Tag="3.6"/>
-                            <ComboBoxItem Content="18L" Tag="18"/>
-                        </ComboBox>
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Tamanho da Embalagem"/>
+                        <TextBox x:Name="TxtTamanhoEmbalagem" Style="{StaticResource TextBoxModerno}" MaxLength="30"/>
                     </StackPanel>
                     <TextBlock Grid.Column="1" VerticalAlignment="Bottom" Margin="12,0,0,6"
                                FontSize="12" Foreground="{StaticResource CinzaTextoBrush}"
-                               Text="Galão padrão tinta imobiliária (3,6L) ou galão industrial (18L)."
+                               Text="Opcional, texto livre — ex.: 18L, 3,6L, 25 KG. Aparece junto ao nome do produto nas telas de venda."
                                TextWrapping="Wrap"/>
                 </Grid>
 

@@ -131,6 +131,32 @@ public class ProdutoFormViewTests
         }
     }
 
+    /// <summary>O antigo <c>CmbLitragemGl</c> (dropdown fixo 3,6L/18L, só para Galão) foi
+    /// substituído por um campo de texto livre, para qualquer unidade — confirma que o
+    /// campo novo existe, aceita edição/limpeza, e que o dropdown antigo não sobrou.</summary>
+    [StaFact]
+    public void ProdutoFormView_TamanhoEmbalagemEhTextoLivrePreenchidoNaEdicaoELimpoNoNovo()
+    {
+        var form = CriarForm();
+
+        Assert.Null(form.FindName("CmbLitragemGl"));
+        Assert.Null(form.FindName("PainelLitragemGl"));
+
+        var produto = CriarProdutoExemplo();
+        produto.Unidade = "BA";
+        produto.TamanhoEmbalagem = "25 KG";
+        form.InicializarEdicao(produto);
+
+        var campo = form.FindName("TxtTamanhoEmbalagem") as TextBox;
+        Assert.NotNull(campo);
+        Assert.Equal("25 KG", campo!.Text);
+
+        form.InicializarNovo();
+        Assert.Equal(string.Empty, campo.Text);
+
+        form.Close();
+    }
+
     private static Mock<IProdutoService> CriarProdutoServiceMock()
     {
         var mock = new Mock<IProdutoService>();

@@ -10,8 +10,12 @@ public class Produto : BaseEntity
     public decimal QuantidadeEstoque { get; set; }
     public decimal EstoqueMinimo { get; set; }
     public string Unidade { get; set; } = "UN";
-    // Litragem específica para Galão (GL): 3.6 ou 18. Null para outras unidades.
-    public decimal? LitragemGl { get; set; }
+    // Tamanho/capacidade da embalagem, texto livre (ex.: "18L", "3,6L", "25 KG") — não
+    // preso a uma unidade específica nem a uma lista fechada de valores. Veio da
+    // importação do catálogo Paraná: o fornecedor descreve a mesma tinta em bombona 16L,
+    // 18L, balde de 17kg ou 25kg — um decimal fixo (como a antiga LitragemGl, restrita a
+    // GL=3,6/18) não desse conta de "kg" nem de embalagens que o cliente ainda nem usa.
+    public string? TamanhoEmbalagem { get; set; }
     public decimal? Custo { get; set; }
     public decimal PrecoVenda { get; set; }
     public bool PromocaoAtiva { get; set; }

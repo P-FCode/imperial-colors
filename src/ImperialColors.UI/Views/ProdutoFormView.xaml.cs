@@ -140,6 +140,7 @@ public partial class ProdutoFormView : Window
         TxtPrecoVenda.Text = FormattingHelper.FormatarMoedaEntrada(0m);
         TxtNome.Text = string.Empty;
         TxtCodigoBarras.Text = string.Empty;
+        TxtTamanhoEmbalagem.Text = string.Empty;
         TxtObservacoes.Text = string.Empty;
         DpValidade.SelectedDate = null;
         ChkPromocaoAtiva.IsChecked = false;
@@ -197,9 +198,7 @@ public partial class ProdutoFormView : Window
                 }
             }
 
-            AtualizarVisibilidadeLitragemGl();
-            if (produto.LitragemGl.HasValue)
-                SelecionarLitragemGl(produto.LitragemGl.Value);
+            TxtTamanhoEmbalagem.Text = produto.TamanhoEmbalagem ?? string.Empty;
         }
         finally
         {
@@ -672,44 +671,6 @@ public partial class ProdutoFormView : Window
             : Visibility.Collapsed;
     }
 
-    private void CmbUnidade_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suprimirEventosUi) return;
-        AtualizarVisibilidadeLitragemGl();
-    }
-
-    private void AtualizarVisibilidadeLitragemGl()
-    {
-        if (PainelLitragemGl is null || CmbUnidade is null) return;
-
-        var unidade = (CmbUnidade.SelectedItem as ComboBoxItem)?.Content?.ToString();
-        PainelLitragemGl.Visibility = unidade == "GL" ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void SelecionarLitragemGl(decimal litragem)
-    {
-        if (CmbLitragemGl is null) return;
-
-        foreach (ComboBoxItem item in CmbLitragemGl.Items)
-        {
-            if (item.Tag is string tag &&
-                decimal.TryParse(tag, NumberStyles.Any, CultureInfo.InvariantCulture, out var val) &&
-                val == litragem)
-            {
-                CmbLitragemGl.SelectedItem = item;
-                return;
-            }
-        }
-    }
-
-    private decimal? ObterLitragemGlSelecionada()
-    {
-        var unidade = (CmbUnidade.SelectedItem as ComboBoxItem)?.Content?.ToString();
-        if (unidade != "GL") return null;
-        var tag = (CmbLitragemGl.SelectedItem as ComboBoxItem)?.Tag?.ToString();
-        return decimal.TryParse(tag, NumberStyles.Any, CultureInfo.InvariantCulture, out var val) ? val : null;
-    }
-
     private void ChkCustoTotal_Changed(object sender, RoutedEventArgs e)
     {
         _modoCustoTotal = ChkCustoTotal.IsChecked == true;
@@ -833,7 +794,7 @@ public partial class ProdutoFormView : Window
             var marcaId = ObterIdSelecionado(CmbMarca);
             var fornecedorId = ObterIdSelecionado(CmbFornecedor);
             var unidade = (CmbUnidade.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "UN";
-            var litragemGl = ObterLitragemGlSelecionada();
+            var tamanhoEmbalagem = string.IsNullOrWhiteSpace(TxtTamanhoEmbalagem.Text) ? null : TxtTamanhoEmbalagem.Text.Trim();
 
             var tributacaoDto = MontarDtoTributacaoOuNulo();
             if (tributacaoDto is not null)
@@ -859,7 +820,7 @@ public partial class ProdutoFormView : Window
                     QuantidadeEstoque = quantidade,
                     EstoqueMinimo = estoqueMin,
                     Unidade = unidade,
-                    LitragemGl = litragemGl,
+                    TamanhoEmbalagem = tamanhoEmbalagem,
                     Custo = custo,
                     PrecoVenda = preco,
                     PromocaoAtiva = promocaoAtiva,
@@ -885,7 +846,7 @@ public partial class ProdutoFormView : Window
                     QuantidadeEstoque = quantidade,
                     EstoqueMinimo = estoqueMin,
                     Unidade = unidade,
-                    LitragemGl = litragemGl,
+                    TamanhoEmbalagem = tamanhoEmbalagem,
                     Custo = custo,
                     PrecoVenda = preco,
                     PromocaoAtiva = promocaoAtiva,
@@ -936,13 +897,6 @@ public partial class ProdutoFormView : Window
         if (!categoriaId.HasValue || !marcaId.HasValue)
         {
             ExibirErroValidacao("Selecione uma Categoria e uma Marca válidas.");
-            return false;
-        }
-
-        var unidadeValidacao = (CmbUnidade.SelectedItem as ComboBoxItem)?.Content?.ToString();
-        if (unidadeValidacao == "GL" && ObterLitragemGlSelecionada() is null)
-        {
-            ExibirErroValidacao("Selecione a litragem do Galão (3,6L ou 18L).");
             return false;
         }
 

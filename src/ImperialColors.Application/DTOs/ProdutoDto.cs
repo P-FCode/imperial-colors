@@ -15,7 +15,7 @@ public class ProdutoDto
     public decimal QuantidadeEstoque { get; set; }
     public decimal EstoqueMinimo { get; set; }
     public string Unidade { get; set; } = "UN";
-    public decimal? LitragemGl { get; set; }
+    public string? TamanhoEmbalagem { get; set; }
     public decimal? Custo { get; set; }
     public decimal PrecoVenda { get; set; }
     public bool PromocaoAtiva { get; set; }
@@ -30,9 +30,10 @@ public class ProdutoDto
     public bool EmPromocao => ProdutoPrecoHelper.EstaEmPromocao(PromocaoAtiva, PrecoPromocional, PrecoVenda);
     public decimal PrecoEfetivo => ProdutoPrecoHelper.ObterPrecoEfetivo(PrecoVenda, PromocaoAtiva, PrecoPromocional);
 
-    /// <summary>Nome para exibição com litragem (ex: "Tinta Coral - GL 18L")</summary>
-    public string NomeExibicao => Unidade == "GL" && LitragemGl.HasValue
-        ? $"{Nome} (GL {LitragemGl:G}L)"
+    /// <summary>Nome para exibição com o tamanho da embalagem (ex.: "Tinta Coral (18L)",
+    /// "Selador (25 KG)") — funciona para qualquer unidade, não só Galão.</summary>
+    public string NomeExibicao => !string.IsNullOrWhiteSpace(TamanhoEmbalagem)
+        ? $"{Nome} ({TamanhoEmbalagem})"
         : Nome;
 }
 
@@ -46,7 +47,7 @@ public class CriarProdutoDto
     public decimal QuantidadeEstoque { get; set; }
     public decimal EstoqueMinimo { get; set; }
     public string Unidade { get; set; } = "UN";
-    public decimal? LitragemGl { get; set; }
+    public string? TamanhoEmbalagem { get; set; }
     public decimal? Custo { get; set; }
     public decimal PrecoVenda { get; set; }
     public bool PromocaoAtiva { get; set; }

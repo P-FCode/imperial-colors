@@ -36,7 +36,8 @@ public static class ProdutoValidator
             throw new DomainException("Unidade de medida é obrigatória.");
 
         if (!UnidadesMedida.EhValida(dto.Unidade))
-            throw new DomainException("Unidade de medida inválida. Use: UN, GL, LT, RL, CX ou PCT.");
+            throw new DomainException(
+                $"Unidade de medida inválida. Use: {string.Join(", ", UnidadesMedida.Todas)}.");
 
         ValidarPromocao(dto.PromocaoAtiva, dto.PrecoPromocional, dto.PrecoVenda);
     }
