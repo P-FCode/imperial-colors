@@ -22,6 +22,8 @@ public class AppDbContext : DbContext
     public DbSet<Troca> Trocas { get; set; }
     public DbSet<VendaExterna> VendasExternas { get; set; }
     public DbSet<ItemVendaExterna> ItensVendaExterna { get; set; }
+    public DbSet<Orcamento> Orcamentos { get; set; }
+    public DbSet<ItemOrcamento> ItensOrcamento { get; set; }
     public DbSet<ParametroSistema> ParametrosSistema { get; set; }
     public DbSet<LogAuditoria> LogsAuditoria { get; set; }
     public DbSet<TributacaoProduto> TributacoesProduto { get; set; }

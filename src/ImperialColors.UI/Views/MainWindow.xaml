@@ -88,6 +88,14 @@
                                 </StackPanel>
                             </Button>
 
+                            <Button x:Name="BtnOrcamentos" Style="{StaticResource MenuButton}"
+                                    Click="BtnOrcamentos_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#x1F4DD;" FontSize="14" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Orçamento" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
                             <Button x:Name="BtnClientes" Style="{StaticResource MenuButton}"
                                     Click="BtnClientes_Click">
                                 <StackPanel Orientation="Horizontal">

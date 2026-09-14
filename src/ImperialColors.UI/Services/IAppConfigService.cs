@@ -24,4 +24,13 @@ public interface IAppConfigService
     string LogoSemFundoPath { get; }
 
     string ResolverCaminhoRecurso(string caminhoRelativo);
+
+    /// <summary>
+    /// Relê a configuração do processo depois que a tela de Configurações grava o .env, e
+    /// avisa quem está exibindo esses dados através de <see cref="ConfiguracoesAlteradas"/>.
+    /// </summary>
+    void Recarregar();
+
+    /// <summary>Disparado por <see cref="Recarregar"/>, na thread de quem chamou.</summary>
+    event EventHandler? ConfiguracoesAlteradas;
 }

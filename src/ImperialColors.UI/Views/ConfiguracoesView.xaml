@@ -243,145 +243,128 @@
                     <StackPanel x:Name="PainelGeral" Margin="20" Visibility="Visible">
 
                         <Border Padding="0,0,0,16" Margin="0,0,0,16"
-
                                 BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,0,0,1">
-
                             <StackPanel>
-
                                 <TextBlock Text="Banco de Dados (.env)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,15"/>
 
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="String de Conexão (senha mascarada)"/>
-
                                 <TextBox x:Name="TxtConnectionString" Style="{StaticResource TextBoxMultilinha}"
-
                                          IsReadOnly="True" Margin="0,0,0,12"/>
 
                                 <StackPanel Orientation="Horizontal">
-
                                     <Button Style="{StaticResource BotaoPrimario}" Content="Testar Conexão"
-
                                             Click="BtnTestarConexao_Click" Margin="0,0,10,0"/>
-
                                     <Button Style="{StaticResource BotaoSecundario}" Content="Abrir .env"
-
                                             Click="BtnAbrirEnv_Click"/>
-
                                 </StackPanel>
 
                                 <Border x:Name="StatusConexao" Margin="0,10,0,0" Padding="10" CornerRadius="6"
-
                                         Visibility="Collapsed">
-
-                                    <TextBlock x:Name="TxtStatusConexao" FontSize="12"/>
-
+                                    <TextBlock x:Name="TxtStatusConexao" FontSize="12" TextWrapping="Wrap"/>
                                 </Border>
-
                             </StackPanel>
-
                         </Border>
 
-
-
                         <Border Padding="0,0,0,16" Margin="0,0,0,16"
-
                                 BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,0,0,1">
-
                             <StackPanel>
-
-                                <TextBlock Text="Empresa (.env)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,15"/>
+                                <TextBlock Text="Empresa" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBlock Text="Usado no cabeçalho do cupom, dos relatórios e do orçamento. Para os dados da nota fiscal, use o cartão Fiscal."
+                                           FontSize="11" TextWrapping="Wrap" Margin="0,0,0,14"
+                                           Foreground="{StaticResource CinzaTextoBrush}"/>
 
                                 <Grid>
-
                                     <Grid.ColumnDefinitions>
-
                                         <ColumnDefinition Width="*"/>
-
                                         <ColumnDefinition Width="*"/>
-
                                     </Grid.ColumnDefinitions>
-
                                     <Grid.RowDefinitions>
-
                                         <RowDefinition Height="Auto"/>
-
                                         <RowDefinition Height="Auto"/>
-
                                         <RowDefinition Height="Auto"/>
-
                                         <RowDefinition Height="Auto"/>
-
                                         <RowDefinition Height="Auto"/>
-
                                     </Grid.RowDefinitions>
 
                                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,10">
-
-                                        <TextBlock Style="{StaticResource LabelCampo}" Text="Nome Fantasia"/>
-
-                                        <TextBox x:Name="TxtEmpresaNome" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
-
+                                        <TextBlock Style="{StaticResource LabelCampo}" Text="Nome Fantasia *"/>
+                                        <TextBox x:Name="TxtEmpresaNome" Style="{StaticResource TextBoxModerno}"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="10,0,0,10">
-
-                                        <TextBlock Style="{StaticResource LabelCampo}" Text="Razão Social"/>
-
-                                        <TextBox x:Name="TxtEmpresaRazaoSocial" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
-
+                                        <TextBlock Style="{StaticResource LabelCampo}" Text="Razão Social *"/>
+                                        <TextBox x:Name="TxtEmpresaRazaoSocial" Style="{StaticResource TextBoxModerno}"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,10,10">
-
                                         <TextBlock Style="{StaticResource LabelCampo}" Text="CNPJ"/>
-
-                                        <TextBox x:Name="TxtEmpresaCnpj" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
-
+                                        <TextBox x:Name="TxtEmpresaCnpj" Style="{StaticResource TextBoxModerno}"
+                                                 TextChanged="TxtEmpresaCnpj_TextChanged"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="1" Grid.Column="1" Margin="10,0,0,10">
-
                                         <TextBlock Style="{StaticResource LabelCampo}" Text="Subtítulo"/>
-
-                                        <TextBox x:Name="TxtEmpresaSubtitulo" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
-
+                                        <TextBox x:Name="TxtEmpresaSubtitulo" Style="{StaticResource TextBoxModerno}"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,10,10">
-
                                         <TextBlock Style="{StaticResource LabelCampo}" Text="Inscrição Estadual (IE)"/>
-
-                                        <TextBox x:Name="TxtEmpresaIe" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
-
+                                        <TextBox x:Name="TxtEmpresaIe" Style="{StaticResource TextBoxModerno}"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,10,10">
-
                                         <TextBlock Style="{StaticResource LabelCampo}" Text="Telefone"/>
-
-                                        <TextBox x:Name="TxtEmpresaTelefone" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
-
+                                        <TextBox x:Name="TxtEmpresaTelefone" Style="{StaticResource TextBoxModerno}"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="3" Grid.Column="1" Margin="10,0,0,10">
-
                                         <TextBlock Style="{StaticResource LabelCampo}" Text="E-mail"/>
-
-                                        <TextBox x:Name="TxtEmpresaEmail" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
-
+                                        <TextBox x:Name="TxtEmpresaEmail" Style="{StaticResource TextBoxModerno}"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2">
-
                                         <TextBlock Style="{StaticResource LabelCampo}" Text="Endereço"/>
-
-                                        <TextBox x:Name="TxtEmpresaEndereco" Style="{StaticResource TextBoxModerno}" IsReadOnly="True"/>
-
+                                        <TextBox x:Name="TxtEmpresaEndereco" Style="{StaticResource TextBoxModerno}"/>
                                     </StackPanel>
-
                                 </Grid>
 
-                            </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Button x:Name="BtnSalvarEmpresa" Style="{StaticResource BotaoPrimario}"
+                                            Content="Salvar Dados da Empresa"
+                                            Click="BtnSalvarEmpresa_Click" Margin="0,0,10,0"/>
+                                    <Button Style="{StaticResource BotaoSecundario}" Content="Desfazer alterações"
+                                            Click="BtnDesfazerEmpresa_Click"/>
+                                </StackPanel>
 
+                                <Border x:Name="StatusEmpresa" Margin="0,10,0,0" Padding="10" CornerRadius="6"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="TxtStatusEmpresa" FontSize="12" TextWrapping="Wrap"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Padding="0,0,0,16" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="0,0,0,1">
+                            <StackPanel>
+                                <TextBlock Text="Preferências Gerais" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,14"/>
+
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Mensagem no rodapé do cupom"/>
+                                <TextBox x:Name="TxtCupomRodape" Style="{StaticResource TextBoxModerno}" Margin="0,0,0,12"/>
+
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Pasta dos backups *"/>
+                                <TextBox x:Name="TxtPastaBackup" Style="{StaticResource TextBoxModerno}"/>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Button x:Name="BtnSalvarGerais" Style="{StaticResource BotaoPrimario}"
+                                            Content="Salvar Preferências"
+                                            Click="BtnSalvarGerais_Click"/>
+                                </StackPanel>
+
+                                <Border x:Name="StatusGerais" Margin="0,10,0,0" Padding="10" CornerRadius="6"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="TxtStatusGerais" FontSize="12" TextWrapping="Wrap"/>
+                                </Border>
+                            </StackPanel>
                         </Border>
 
 

@@ -86,6 +86,8 @@ ADMIN_EMAIL=admin@imperialcolors.local
 
 > O `.env` é copiado automaticamente para a pasta de saída no build. **Nunca** commite senhas no repositório.
 
+> A edição manual acima só é necessária na primeira instalação. Com o sistema no ar, todos esses valores podem ser alterados em **Configurações → Geral**, que grava no próprio `.env` — veja [Configurações](#configurações).
+
 ### 3.1 Dados da empresa (appsettings.json)
 
 Os dados exibidos no cupom e cabeçalhos vêm de `src/ImperialColors.UI/appsettings.json` (copiado para a pasta de saída). Edite **sem recompilar** — reinicie o app após alterar:
@@ -101,7 +103,9 @@ Os dados exibidos no cupom e cabeçalhos vêm de `src/ImperialColors.UI/appsetti
 }
 ```
 
-Variáveis de ambiente (`.env`) sobrescrevem o JSON: `EMPRESA_NOME`, `EMPRESA_CNPJ`, `EMPRESA_ENDERECO`, `EMPRESA_TELEFONE`, etc.
+Variáveis de ambiente (`.env`) sobrescrevem o JSON: `EMPRESA_NOME`, `EMPRESA_RAZAO_SOCIAL`, `EMPRESA_SUBTITULO`, `EMPRESA_CNPJ`, `EMPRESA_IE`, `EMPRESA_ENDERECO`, `EMPRESA_TELEFONE`, `EMPRESA_EMAIL`.
+
+É exatamente isso que **Configurações → Geral → Dados da empresa** grava: o JSON continua sendo o valor de fábrica e o `.env` é a camada que o cliente edita pela tela.
 
 ### 4. Executar as Migrations
 
@@ -653,6 +657,21 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - Número da venda: `EXT-yyyyMMdd-0001`
 - Tabelas PostgreSQL: `vendas_externas`, `itens_venda_externa`; movimentações de estoque vinculadas via `venda_externa_id`
 
+### Orçamentos
+- Menu lateral **Orçamento** (ícone 📝), entre **PDV** e **Clientes**
+- Proposta comercial **sem compromisso**: não reserva estoque, não gera venda e não movimenta financeiro
+- **Cliente:** digite o nome livremente (cliente avulso) ou escolha um cadastro na lista que aparece enquanto digita — duplo clique preenche nome e telefone e vincula o cadastro; editar o nome depois desfaz o vínculo e mantém só o texto digitado
+- **Itens:** dois modos, como em Vendas Externas
+  - **Buscar no estoque** — traz nome, código interno, unidade e preço de venda como sugestão (o preço continua editável)
+  - **Digitar manualmente** — para serviço, mão de obra ou item que não está cadastrado
+- Desconto em reais, observações livres e data de validade (sugere 7 dias)
+- **Situação:** `Aberto`, `Aprovado`, `Recusado` — e `Expirado`, calculado na hora a partir da validade (não é gravado)
+- **Gerar PDF:** documento A4 em formato de papel timbrado — **logo + todos os dados da empresa** no topo (nome fantasia, razão social, subtítulo, CNPJ, IE, endereço, telefone e e-mail, os mesmos de Configurações), seguido de número do orçamento, cliente, itens, totais e o aviso de que não tem valor fiscal; disponível no formulário (*Salvar e Gerar PDF*) e na listagem, para reemitir quando quiser
+- Listagem paginada no servidor, busca por número, cliente ou telefone
+- Número do orçamento: `ORC-yyyyMMdd-0001`
+- Tabelas PostgreSQL: `orcamentos`, `itens_orcamento`
+- Todas as ações (criar, editar, aprovar, recusar, excluir) entram na **Auditoria de Logs** no módulo `Orçamento`
+
 ### Clientes
 - Cadastro completo (nome, CPF, contatos, endereço com ViaCEP)
 - Campo **E-mail** com validação em tempo real (`InputSanitizer.EmailValido`) — opcional, mas deve ser válido se preenchido
@@ -699,8 +718,12 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - Variáveis `.env`: `BACKUP_PATH`, `BACKUP_INTERVALO_DIAS`, `BACKUP_PREFIXO_EMPRESA`, `PG_DUMP_PATH` (opcional)
 
 ### Configurações
-- Teste de conexão com o banco
-- Dados da empresa (incluindo **Inscrição Estadual**) exibidos somente leitura — configure via `.env` (`EMPRESA_IE`) ou `appsettings.json`
+- **Empresa e preferências gerais são editáveis na tela** — não é mais preciso abrir o `.env` por fora
+  - **Dados da empresa:** nome fantasia, razão social, subtítulo, CNPJ (com máscara e validação de dígitos), Inscrição Estadual, endereço, telefone e e-mail. Salvar aplica na hora: título da janela, cabeçalho do menu, cupons e relatórios passam a usar os novos dados sem reiniciar
+  - **Preferências gerais:** mensagem de rodapé do cupom e pasta de backup
+  - **Conexão com o banco:** continua **somente leitura**, exibida com a senha mascarada e com o botão **Testar Conexão**. Trocar servidor/porta/base é tarefa de instalação, feita direto no `.env`: um erro ali deixa o sistema sem abrir, e aí não há tela para corrigir
+  - A gravação no `.env` é atômica (arquivo temporário + troca) e preserva comentários e ordem das linhas
+  - Toda alteração entra na **Auditoria de Logs** no módulo `Configurações`
 - **Navegação por cards** para submódulos (Geral, Periféricos, Gestão de Usuários, **Auditoria de Logs**)
 - **Auditoria de Logs:** listagem paginada no servidor com filtros por período, nível, módulo e busca textual; detalhes em modal
 - **Periféricos:** seleção de impressora para cupom + teste de leitor de código de barras
@@ -808,6 +831,24 @@ O sistema utiliza tema centralizado em `Resources/AppTheme.xaml`:
 1. Acesse **Mercadorias** no menu
 2. Clique em **+ Novo Fornecedor** e preencha os dados
 
+### Gerando um orçamento
+1. Acesse **Orçamento** no menu e clique em **+ Novo Orçamento**
+2. Digite o nome do cliente — se ele já for cadastrado, aparece uma lista; duplo clique preenche nome e telefone
+3. Confira a **Validade** (vem preenchida com 7 dias)
+4. Adicione itens em **Buscar no estoque** (Enter ou duplo clique no resultado) ou em **Digitar manualmente**, para serviço/mão de obra
+5. Informe **Desconto** e **Observações** se precisar — o total no rodapé atualiza sozinho
+6. Clique em **Salvar e Gerar PDF**, escolha onde salvar e o arquivo abre em seguida
+7. Confirme em **Estoque** que a quantidade dos produtos usados **não mudou** — orçamento não baixa estoque
+8. Na listagem, use **Aprovar** / **Recusar** para registrar a resposta do cliente, e **Gerar PDF** para reemitir o documento quando quiser
+
+### Editando dados da empresa pela tela
+1. Acesse **Configurações → Geral**
+2. Altere os campos de **Dados da empresa** e clique em **Salvar** — o nome no menu e no título da janela muda na hora
+3. Faça uma venda e gere o cupom: os dados novos já aparecem, sem reiniciar
+4. Gere um orçamento em PDF: o cabeçalho traz a logo e os mesmos dados atualizados
+5. Em **Banco de Dados (.env)** a string de conexão aparece apenas para conferência (senha mascarada); use **Testar Conexão** para validar e **Abrir .env** se precisar mudar o servidor
+6. Confira em **Configurações → Auditoria de Logs** que as alterações foram registradas no módulo `Configurações`
+
 ---
 
 ## Comandos Úteis
@@ -846,6 +887,8 @@ dotnet ef migrations remove --project src/ImperialColors.Infrastructure --startu
 | `listas_compra` | Listas de compras |
 | `itens_lista_compra` | Itens de cada lista (produto de estoque ou item manual) |
 | `trocas` | Registro de trocas de produtos (vinculado à venda de origem, controle transacional) |
+| `orcamentos` | Orçamentos ao cliente (número, validade, situação, totais) — não movimenta estoque |
+| `itens_orcamento` | Itens de cada orçamento (produto do estoque ou item manual) |
 | `usuarios` | Usuários do sistema (login e permissões) |
 
 ---
@@ -918,6 +961,35 @@ dotnet ef database update --project src/ImperialColors.Infrastructure --startup-
 - Botão **"📑 Contrato de Serviços (PDF)"** disponível em Configurações → seção Documentos.
 - Gera o *Contrato Oficial de Prestação de Serviços de Desenvolvimento* com qualificação das partes, objeto detalhado, cláusula fiscal (módulo NF-e/NFC-e como escopo futuro opcional) e linhas de assinatura.
 - Numeração de páginas aplicada automaticamente via segunda passagem no PDF.
+
+---
+
+## Novidades — Versão 1.5.0
+
+### Configurações da empresa e do `.env` editáveis pela tela
+- **Antes:** os dados da empresa e as preferências gerais só existiam no `.env`; para corrigir um CNPJ era preciso abrir o arquivo por fora e reiniciar o sistema.
+- **Agora:** o painel **Geral** de Configurações grava direto no `.env`, com validação antes da escrita:
+  - `ArquivoEnvService` grava de forma atômica (arquivo temporário + troca) preservando comentários e ordem das linhas.
+  - `AppConfigService` ganhou `Recarregar()` e o evento `ConfiguracoesAlteradas`; a `MainWindow` assina esse evento e atualiza título, nome da empresa e logo na hora.
+  - `RelatorioService` passou a ler a empresa pelo `IAppConfigService` (antes era `IOptionsMonitor`), então o próximo cupom/relatório já sai com o cadastro novo, sem reiniciar.
+  - `EmpresaConfig` ganhou o campo `Email` e o override por variável de ambiente passou a distinguir "variável ausente" de "variável definida como vazia".
+- **Fora do escopo por decisão de projeto:** a **conexão com o banco** segue somente leitura na tela. Ela define se o sistema abre ou não — um valor errado gravado pela UI deixaria o cliente sem tela para corrigir. Continua no `.env`, com **Testar Conexão** e **Abrir .env** disponíveis em Configurações.
+
+### Módulo Orçamento
+- Nova entrada **Orçamento** na barra lateral, com listagem paginada, formulário e geração de PDF.
+- Itens podem vir do estoque (com código, unidade e preço sugeridos) ou ser digitados manualmente (serviço, mão de obra, item não cadastrado).
+- Cliente pode ser avulso (nome digitado) ou vinculado a um cadastro existente.
+- Situações `Aberto` / `Aprovado` / `Recusado`, com `Expirado` derivado da data de validade.
+- **Nada de estoque ou financeiro é tocado** — orçamento é proposta, não venda. Há teste de integração garantindo que nenhuma movimentação de estoque é criada e que aprovar um orçamento não gera venda.
+- **PDF em formato de papel timbrado:** o topo traz a logo e o bloco completo da empresa, sem título de relatório. O número do orçamento saiu do cabeçalho e passou para o bloco de dados, junto com emissão, cliente, telefone, validade, situação e atendente. Se o arquivo da logo não existir, o PDF continua saindo — só que centralizado e sem imagem.
+- Migration `AddOrcamentos` (tabelas `orcamentos` e `itens_orcamento`), aplicada automaticamente na abertura do sistema.
+
+### Script de atualização do código do produto (Paraná Colors)
+- `tools/gerar_update_ref_parana.py` lê a planilha de cadastro e gera um script `UPDATE` para preencher `produtos.codigo_interno` com a **REF PARANÁ** nos produtos já importados.
+- O casamento é feito por marca + nome + unidade + tamanho da embalagem, e o script é idempotente (rodar duas vezes não muda nada além da primeira).
+- **REFs repetidas na planilha** recebem um sufixo sequencial, porque o código do produto é único no banco. A REF `501010172` vinha em dois produtos e virou `5010101721` (TINTA EMBORRACHADA MARROM BURGUES CORAL) e `5010101722` (TINTA EMBORRACHADA PEDRA ALTA). O apêndice no fim do `.sql` registra a troca e já traz o comando pronto caso o fornecedor confirme outra REF.
+- Tudo roda dentro de uma transação, só toca produtos ativos da marca `Parana colors` e nunca sobrescreve um código em uso por outro produto — o que não puder ser aplicado sai no relatório final, sem quebrar nada.
+- Passo a passo para executar no cliente (backup, `psql`, leitura do relatório e solução de erros): [`tools/GUIA_ATUALIZAR_CODIGO_PRODUTO.md`](tools/GUIA_ATUALIZAR_CODIGO_PRODUTO.md).
 
 ---
 

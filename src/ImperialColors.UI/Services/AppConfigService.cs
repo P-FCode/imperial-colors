@@ -1,53 +1,58 @@
 using ImperialColors.Application.Configuration;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
 using System.IO;
 
 namespace ImperialColors.UI.Services;
 
 public class AppConfigService : IAppConfigService
 {
-    private readonly IOptionsMonitor<EmpresaConfig> _empresa;
+    private readonly IConfiguration _configuration;
+    private EmpresaConfig _empresa;
 
-    public AppConfigService(IOptionsMonitor<EmpresaConfig> empresa, IConfiguration configuration)
+    public AppConfigService(IConfiguration configuration)
     {
-        _empresa = empresa;
-        ConnectionString = MontarConnectionString();
-        CupomRodape = ObterCupomRodape(configuration);
-
-        IconPath = ResolverCaminhoRecurso(Obter("ICON_PATH", "icons/logoimperialcolors.ico"));
-        LogoPath = ResolverCaminhoRecurso(Obter("LOGO_PATH", "icons/logoimperialcolors.png"));
-        LogoSemFundoPath = ResolverCaminhoRecurso(Obter("LOGO_SEM_FUNDO_PATH", "icons/logoimperialcolors-nobg.png"));
-        BackupPath = Obter("BACKUP_PATH", @"C:\backup_sistema");
+        _configuration = configuration;
+        _empresa = MontarEmpresa();
     }
 
-    public string ConnectionString { get; }
+    public event EventHandler? ConfiguracoesAlteradas;
 
-    public string EmpresaNome => _empresa.CurrentValue.NomeFantasia;
+    // Propriedades calculadas a cada leitura (e não fixadas no construtor) para que salvar
+    // pela tela de Configurações valha na hora. A conta é trivial — leitura de variável de
+    // ambiente — e ninguém consulta isso em laço quente.
+    public string ConnectionString => MontarConnectionString();
 
-    public string EmpresaSubtitulo => _empresa.CurrentValue.Subtitulo;
+    public string EmpresaNome => _empresa.NomeFantasia;
 
-    public string EmpresaRazaoSocial => _empresa.CurrentValue.RazaoSocial;
+    public string EmpresaSubtitulo => _empresa.Subtitulo;
 
-    public string EmpresaTelefone => _empresa.CurrentValue.Telefone;
+    public string EmpresaRazaoSocial => _empresa.RazaoSocial;
 
-    public string EmpresaEmail => Obter("EMPRESA_EMAIL", string.Empty);
+    public string EmpresaTelefone => _empresa.Telefone;
 
-    public string EmpresaEndereco => _empresa.CurrentValue.Endereco;
+    public string EmpresaEmail => _empresa.Email;
 
-    public string EmpresaCnpj => _empresa.CurrentValue.CNPJ;
+    public string EmpresaEndereco => _empresa.Endereco;
 
-    public string CupomRodape { get; }
+    public string EmpresaCnpj => _empresa.CNPJ;
 
-    public string BackupPath { get; }
+    public string CupomRodape => ObterCupomRodape(_configuration);
 
-    public string IconPath { get; }
+    public string BackupPath => Obter("BACKUP_PATH", @"C:\backup_sistema");
 
-    public string LogoPath { get; }
+    public string IconPath => ResolverCaminhoRecurso(Obter("ICON_PATH", "icons/logoimperialcolors.ico"));
 
-    public string LogoSemFundoPath { get; }
+    public string LogoPath => ResolverCaminhoRecurso(Obter("LOGO_PATH", "icons/logoimperialcolors.png"));
 
-    public EmpresaConfig Empresa => _empresa.CurrentValue;
+    public string LogoSemFundoPath => ResolverCaminhoRecurso(Obter("LOGO_SEM_FUNDO_PATH", "icons/logoimperialcolors-nobg.png"));
+
+    public EmpresaConfig Empresa => _empresa;
+
+    public void Recarregar()
+    {
+        _empresa = MontarEmpresa();
+        ConfiguracoesAlteradas?.Invoke(this, EventArgs.Empty);
+    }
 
     public string ResolverCaminhoRecurso(string caminhoRelativo)
     {
@@ -62,6 +67,19 @@ public class AppConfigService : IAppConfigService
         };
 
         return candidatos.FirstOrDefault(File.Exists) ?? candidatos[0];
+    }
+
+    /// <summary>
+    /// Reproduz a mesma precedência da inicialização (defaults → appsettings.json → .env).
+    /// Antes isso vinha de <c>IOptionsMonitor</c>, que só reavalia os overrides de ambiente
+    /// quando o JSON muda — ou seja, nunca enxergaria um .env reescrito pela própria tela.
+    /// </summary>
+    private EmpresaConfig MontarEmpresa()
+    {
+        var empresa = new EmpresaConfig();
+        _configuration.GetSection(EmpresaConfig.Secao).Bind(empresa);
+        EmpresaConfigEnvironmentOverrides.Aplicar(empresa);
+        return empresa;
     }
 
     private static string ObterCupomRodape(IConfiguration configuration)

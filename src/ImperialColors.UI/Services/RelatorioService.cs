@@ -19,8 +19,6 @@ using iText.Layout.Element;
 
 using iText.Layout.Properties;
 
-using Microsoft.Extensions.Options;
-
 using System.IO;
 
 
@@ -43,23 +41,21 @@ public class RelatorioService : IRelatorioService
 
     private readonly IAppConfigService _config;
 
-    private readonly IOptionsMonitor<EmpresaConfig> _empresa;
 
 
-
-    public RelatorioService(IAppConfigService config, IOptionsMonitor<EmpresaConfig> empresa)
+    public RelatorioService(IAppConfigService config)
 
     {
 
         _config = config;
 
-        _empresa = empresa;
-
     }
 
 
 
-    private EmpresaConfig Empresa => _empresa.CurrentValue;
+    // Uma fonte só para os dados da empresa: assim um cadastro editado em Configurações já sai
+    // certo no próximo cupom/relatório, sem reiniciar o sistema.
+    private EmpresaConfig Empresa => _config.Empresa;
 
 
 
@@ -969,6 +965,187 @@ public class RelatorioService : IRelatorioService
             ws.Columns().AdjustToContents();
             workbook.SaveAs(caminhoArquivo);
         });
+    }
+
+    public Task GerarOrcamentoPdfAsync(OrcamentoDto orcamento, string caminhoArquivo)
+    {
+        ArgumentNullException.ThrowIfNull(orcamento);
+
+        return Task.Run(() =>
+        {
+            using var writer = new PdfWriter(caminhoArquivo);
+            using var pdf = new PdfDocument(writer);
+            using var document = new Document(pdf, iText.Kernel.Geom.PageSize.A4);
+            document.SetMargins(30, 30, 30, 30);
+
+            var cultura = new System.Globalization.CultureInfo("pt-BR");
+
+            AdicionarCabecalhoOrcamento(document, orcamento);
+
+            var tabela = new ITextTable(new float[] { 1.6f, 4.4f, 1f, 1f, 1.6f, 1.8f }).UseAllAvailableWidth();
+            AdicionarCabecalhoTabela(tabela, "Codigo", "Produto/Servico", "Qtd", "Un", "Vlr Unit.", "Subtotal");
+
+            foreach (var item in orcamento.Itens)
+            {
+                tabela.AddCell(CelulaTabela(string.IsNullOrWhiteSpace(item.CodigoProduto) ? "-" : item.CodigoProduto));
+                tabela.AddCell(CelulaTabela(item.NomeProduto));
+                tabela.AddCell(CelulaTabela(FormatarQuantidadeCupom(item.Quantidade), TextAlignment.RIGHT));
+                tabela.AddCell(CelulaTabela(string.IsNullOrWhiteSpace(item.Unidade) ? "UN" : item.Unidade, TextAlignment.CENTER));
+                tabela.AddCell(CelulaTabela(item.PrecoUnitario.ToString("C2", cultura), TextAlignment.RIGHT));
+                tabela.AddCell(CelulaTabela(item.Subtotal.ToString("C2", cultura), TextAlignment.RIGHT));
+            }
+
+            document.Add(tabela);
+
+            document.Add(new ITextParagraph($"Subtotal: {orcamento.Subtotal.ToString("C2", cultura)}")
+                .SetFont(ObterFonte()).SetFontSize(11).SetTextAlignment(TextAlignment.RIGHT).SetMarginTop(10));
+
+            if (orcamento.Desconto > 0)
+            {
+                document.Add(new ITextParagraph($"Desconto: -{orcamento.Desconto.ToString("C2", cultura)}")
+                    .SetFont(ObterFonte()).SetFontSize(11).SetTextAlignment(TextAlignment.RIGHT));
+            }
+
+            document.Add(new ITextParagraph($"TOTAL: {orcamento.Total.ToString("C2", cultura)}")
+                .SetFont(ObterFonte(true)).SetFontSize(15).SetTextAlignment(TextAlignment.RIGHT).SetMarginTop(4));
+
+            if (!string.IsNullOrWhiteSpace(orcamento.Observacoes))
+            {
+                document.Add(new ITextParagraph("Observacoes")
+                    .SetFont(ObterFonte(true)).SetFontSize(11).SetMarginTop(18));
+                document.Add(new ITextParagraph(orcamento.Observacoes)
+                    .SetFont(ObterFonte()).SetFontSize(10).SetMarginTop(2));
+            }
+
+            // Orçamento não gera venda, não reserva estoque e não movimenta financeiro:
+            // o aviso abaixo deixa isso explícito para o cliente que recebe o PDF.
+            document.Add(new ITextParagraph(
+                    $"Este documento e apenas uma proposta comercial, sem valor fiscal e sem compromisso de venda. " +
+                    $"Precos e condicoes validos ate {orcamento.DataValidade:dd/MM/yyyy}, sujeitos a disponibilidade de estoque.")
+                .SetFont(ObterFonte()).SetFontSize(9)
+                .SetFontColor(new DeviceRgb(108, 117, 125))
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginTop(25));
+
+            document.Add(new ITextParagraph(_config.CupomRodape)
+                .SetFont(ObterFonte(true)).SetFontSize(10)
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginTop(8));
+        });
+    }
+
+    /// <summary>
+    /// Cabecalho do orcamento: logo e dados da empresa, sem titulo de relatorio.
+    /// O orcamento vai para a mao do cliente, entao o topo funciona como papel timbrado —
+    /// o numero do documento fica no bloco de dados logo abaixo, nao no titulo.
+    /// </summary>
+    private void AdicionarCabecalhoOrcamento(Document document, OrcamentoDto orcamento)
+    {
+        var logo = CarregarLogoPdf();
+
+        if (logo is not null)
+        {
+            var topo = new ITextTable(new float[] { 1f, 3.4f }).UseAllAvailableWidth();
+            topo.AddCell(new ITextCell().Add(logo)
+                .SetBorder(iText.Layout.Borders.Border.NO_BORDER)
+                .SetVerticalAlignment(VerticalAlignment.MIDDLE)
+                .SetPadding(0));
+            topo.AddCell(new ITextCell().Add(MontarBlocoEmpresa(TextAlignment.LEFT))
+                .SetBorder(iText.Layout.Borders.Border.NO_BORDER)
+                .SetVerticalAlignment(VerticalAlignment.MIDDLE)
+                .SetPaddingLeft(12));
+            document.Add((IBlockElement)topo);
+        }
+        else
+        {
+            document.Add(MontarBlocoEmpresa(TextAlignment.CENTER));
+        }
+
+        var separador = new ITextTable(1).UseAllAvailableWidth().SetMarginTop(12).SetMarginBottom(14);
+        separador.AddCell(new ITextCell().SetHeight(2).SetBackgroundColor(new DeviceRgb(245, 194, 0))
+            .SetBorder(iText.Layout.Borders.Border.NO_BORDER));
+        document.Add((IBlockElement)separador);
+
+        var dados = new ITextTable(new float[] { 1f, 1f }).UseAllAvailableWidth().SetMarginBottom(14);
+        dados.AddCell(CelulaTabela($"Orcamento: {orcamento.NumeroOrcamento}"));
+        dados.AddCell(CelulaTabela($"Emissao: {orcamento.DataOrcamento:dd/MM/yyyy}"));
+        dados.AddCell(CelulaTabela($"Cliente: {orcamento.NomeCliente}"));
+        dados.AddCell(CelulaTabela(
+            string.IsNullOrWhiteSpace(orcamento.TelefoneCliente) ? "Telefone: -" : $"Telefone: {orcamento.TelefoneCliente}"));
+        dados.AddCell(CelulaTabela($"Validade: {orcamento.DataValidade:dd/MM/yyyy}"));
+        dados.AddCell(CelulaTabela($"Situacao: {orcamento.StatusDescricao}"));
+        dados.AddCell(CelulaTabela(
+            string.IsNullOrWhiteSpace(orcamento.Usuario) ? "Atendente: -" : $"Atendente: {orcamento.Usuario}"));
+        dados.AddCell(CelulaTabela(string.Empty));
+        document.Add((IBlockElement)dados);
+    }
+
+    /// <summary>Nome, razao social e todos os contatos preenchidos no cadastro da empresa.</summary>
+    private IBlockElement MontarBlocoEmpresa(TextAlignment alinhamento)
+    {
+        var bloco = new Div();
+
+        bloco.Add(new ITextParagraph(Empresa.NomeFantasia.ToUpperInvariant())
+            .SetFont(ObterFonte(true)).SetFontSize(18)
+            .SetFontColor(ColorConstants.BLACK).SetTextAlignment(alinhamento).SetMargin(0));
+
+        foreach (var linha in MontarLinhasEmpresa())
+        {
+            bloco.Add(new ITextParagraph(linha)
+                .SetFont(ObterFonte()).SetFontSize(9)
+                .SetFontColor(ColorConstants.BLACK).SetTextAlignment(alinhamento)
+                .SetMargin(0).SetMarginTop(2));
+        }
+
+        return bloco;
+    }
+
+    private IEnumerable<string> MontarLinhasEmpresa()
+    {
+        if (!string.IsNullOrWhiteSpace(Empresa.RazaoSocial) &&
+            !string.Equals(Empresa.RazaoSocial, Empresa.NomeFantasia, StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Empresa.RazaoSocial;
+        }
+
+        if (!string.IsNullOrWhiteSpace(Empresa.Subtitulo))
+            yield return Empresa.Subtitulo;
+
+        var documentos = new List<string>();
+        if (!string.IsNullOrWhiteSpace(Empresa.CNPJ)) documentos.Add($"CNPJ: {Empresa.CNPJ}");
+        if (!string.IsNullOrWhiteSpace(Empresa.InscricaoEstadual)) documentos.Add($"IE: {Empresa.InscricaoEstadual}");
+        if (documentos.Count > 0) yield return string.Join("   |   ", documentos);
+
+        if (!string.IsNullOrWhiteSpace(Empresa.Endereco))
+            yield return Empresa.Endereco;
+
+        var contatos = new List<string>();
+        if (!string.IsNullOrWhiteSpace(Empresa.Telefone)) contatos.Add($"Tel: {Empresa.Telefone}");
+        if (!string.IsNullOrWhiteSpace(Empresa.Email)) contatos.Add(Empresa.Email);
+        if (contatos.Count > 0) yield return string.Join("   |   ", contatos);
+    }
+
+    /// <summary>
+    /// Logo do cabecalho. Devolve null quando o arquivo nao existe ou nao e uma imagem
+    /// valida: o orcamento ainda precisa sair, so que sem a logo.
+    /// </summary>
+    private Image? CarregarLogoPdf()
+    {
+        var caminho = _config.LogoSemFundoPath;
+        if (string.IsNullOrWhiteSpace(caminho) || !File.Exists(caminho))
+            caminho = _config.LogoPath;
+
+        if (string.IsNullOrWhiteSpace(caminho) || !File.Exists(caminho))
+            return null;
+
+        try
+        {
+            return new Image(iText.IO.Image.ImageDataFactory.Create(caminho))
+                .ScaleToFit(90, 90)
+                .SetHorizontalAlignment(HorizontalAlignment.LEFT);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static int? DiasParaVencer(DateTime? dataValidade)

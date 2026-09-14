@@ -26,4 +26,6 @@ public interface IRelatorioService
 
     Task GerarRelatorioValidadePdfAsync(IEnumerable<ProdutoDto> produtos, int diasLimite, string caminhoArquivo);
     Task GerarRelatorioValidadeExcelAsync(IEnumerable<ProdutoDto> produtos, int diasLimite, string caminhoArquivo);
+
+    Task GerarOrcamentoPdfAsync(OrcamentoDto orcamento, string caminhoArquivo);
 }

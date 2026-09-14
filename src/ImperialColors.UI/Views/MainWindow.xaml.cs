@@ -64,15 +64,11 @@ public partial class MainWindow : Window
 
 
 
-        Title = $"{_config.EmpresaNome} - {_config.EmpresaSubtitulo}";
+        AplicarIdentidadeVisual();
 
-        TxtEmpresaNome.Text = _config.EmpresaNome;
-
-        TxtEmpresaSubtitulo.Text = _config.EmpresaSubtitulo;
-
-        LogoHelper.AplicarIconeJanela(this, _config.IconPath);
-
-        LogoHelper.AplicarLogo(ImgLogoMenu, _config.LogoSemFundoPath, 44, 44);
+        // A tela de Configurações grava o .env e recarrega a configuração em memória; sem este
+        // gancho o menu lateral continuaria mostrando o nome antigo até o próximo reinício.
+        _config.ConfiguracoesAlteradas += AoAlterarConfiguracoes;
 
 
 
@@ -94,8 +90,24 @@ public partial class MainWindow : Window
 
         _backupService.IniciarVerificacaoEmSegundoPlano();
 
-        Closed += (_, _) => _escopoPagina?.Dispose();
+        Closed += (_, _) =>
+        {
+            _config.ConfiguracoesAlteradas -= AoAlterarConfiguracoes;
+            _escopoPagina?.Dispose();
+        };
         PreviewKeyDown += JanelaPrincipal_PreviewKeyDown;
+    }
+
+    private void AoAlterarConfiguracoes(object? sender, EventArgs e)
+        => UiDispatcher.ExecutarNaUi(AplicarIdentidadeVisual);
+
+    private void AplicarIdentidadeVisual()
+    {
+        Title = $"{_config.EmpresaNome} - {_config.EmpresaSubtitulo}";
+        TxtEmpresaNome.Text = _config.EmpresaNome;
+        TxtEmpresaSubtitulo.Text = _config.EmpresaSubtitulo;
+        LogoHelper.AplicarIconeJanela(this, _config.IconPath);
+        LogoHelper.AplicarLogo(ImgLogoMenu, _config.LogoSemFundoPath, 44, 44);
     }
 
     private void JanelaPrincipal_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -292,6 +304,24 @@ public partial class MainWindow : Window
 
 
     private void BtnPDV_Click(object sender, RoutedEventArgs e) => AbrirPdvComFoco();
+
+
+
+    private void BtnOrcamentos_Click(object sender, RoutedEventArgs e)
+
+    {
+
+        DefinirMenuAtivo(BtnOrcamentos);
+
+        TxtTituloPagina.Text = "Orçamentos";
+
+        var vm = ObterServicosPagina().GetRequiredService<OrcamentoViewModel>();
+
+        ConteudoPrincipal.Content = new OrcamentosView(vm);
+
+        _ = vm.CarregarAsync();
+
+    }
 
 
 

@@ -88,6 +88,8 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<IAppConfigService, AppConfigService>();
                 services.AddSingleton<ISessaoService, SessaoService>();
                 services.AddSingleton<IRelatorioService, RelatorioService>();
+                services.AddSingleton<IArquivoEnvService, ArquivoEnvService>();
+                services.AddSingleton<IConfiguracoesAplicacaoService, ConfiguracoesAplicacaoService>();
                 services.AddSingleton<DocumentosPdfService>();
 
                 services.AddTransient<LoginViewModel>();
@@ -100,6 +102,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<FornecedorViewModel>();
                 services.AddTransient<ListaCompraViewModel>();
                 services.AddTransient<VendaExternaViewModel>();
+                services.AddTransient<OrcamentoViewModel>();
                 services.AddTransient<NaturezaOperacaoViewModel>();
 
                 services.AddTransient<LoginView>();
@@ -112,6 +115,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<ListaCompraFormView>();
                 services.AddTransient<TrocaFormView>();
                 services.AddTransient<VendaExternaFormView>();
+                services.AddTransient<OrcamentoFormView>();
                 services.AddTransient<CupomView>();
                 services.AddTransient<GestaoUsuariosView>();
                 services.AddTransient<AuditoriaLogsView>();
@@ -249,20 +253,7 @@ public partial class App : System.Windows.Application
 
     private static void CarregarArquivoEnv()
     {
-        var caminhos = new[]
-        {
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".env"),
-            Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".env")),
-            Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", ".env"))
-        };
-
-        foreach (var caminho in caminhos.Distinct())
-        {
-            if (File.Exists(caminho))
-            {
-                Env.Load(caminho);
-                return;
-            }
-        }
+        if (ArquivoEnvLocalizador.LocalizarExistente() is { } caminho)
+            Env.Load(caminho);
     }
 }

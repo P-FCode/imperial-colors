@@ -79,6 +79,7 @@ public static class InfrastructureExtensions
         services.AddSingleton<IUsuarioRepository, UsuarioRepository>();
         services.AddSingleton<ITrocaRepository, TrocaRepository>();
         services.AddSingleton<IVendaExternaRepository, VendaExternaRepository>();
+        services.AddSingleton<IOrcamentoRepository, OrcamentoRepository>();
         services.AddSingleton<IRelatorioAnalyticsRepository, RelatorioAnalyticsRepository>();
         services.AddSingleton<ILogAuditoriaRepository, LogAuditoriaRepository>();
         services.AddSingleton<ITributacaoProdutoRepository, TributacaoProdutoRepository>();
