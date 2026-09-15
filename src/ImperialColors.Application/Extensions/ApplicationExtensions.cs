@@ -1,6 +1,7 @@
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ImperialColors.Application.Extensions;
 
@@ -8,6 +9,7 @@ public static class ApplicationExtensions
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.TryAddSingleton<IUsuarioAtual, UsuarioAtualSistema>();
         services.AddSingleton<IProdutoService, ProdutoService>();
         services.AddSingleton<ICategoriaService, CategoriaService>();
         services.AddSingleton<IMarcaService, MarcaService>();

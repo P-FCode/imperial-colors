@@ -2,6 +2,7 @@ using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Entities;
+using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
 
@@ -11,13 +12,19 @@ public class VendaExternaService : IVendaExternaService
 {
     private readonly IVendaExternaRepository _vendaExternaRepository;
     private readonly IProdutoRepository _produtoRepository;
+    private readonly IAuditoriaService _auditoria;
+    private readonly IUsuarioAtual _usuarioAtual;
 
     public VendaExternaService(
         IVendaExternaRepository vendaExternaRepository,
-        IProdutoRepository produtoRepository)
+        IProdutoRepository produtoRepository,
+        IAuditoriaService auditoria,
+        IUsuarioAtual usuarioAtual)
     {
         _vendaExternaRepository = vendaExternaRepository;
         _produtoRepository = produtoRepository;
+        _auditoria = auditoria;
+        _usuarioAtual = usuarioAtual;
     }
 
     public async Task<IEnumerable<VendaExternaDto>> ObterTodosAsync(CancellationToken cancellationToken = default)
@@ -123,10 +130,24 @@ public class VendaExternaService : IVendaExternaService
 
     public async Task ExcluirFisicamenteAsync(int id, CancellationToken cancellationToken = default)
     {
-        _ = await _vendaExternaRepository.ObterComItensAsync(id, cancellationToken)
+        var venda = await _vendaExternaRepository.ObterComItensAsync(id, cancellationToken)
             ?? throw new DomainException($"Venda externa com Id {id} não encontrada.");
 
         await _vendaExternaRepository.ExcluirFisicamenteTransacionalAsync(id, cancellationToken);
+
+        await _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = _usuarioAtual.Nome,
+            Modulo = "Vendas Externas",
+            Acao = "VENDA_EXTERNA_EXCLUIDA",
+            Descricao = $"Venda externa {venda.NumeroVendaExterna} excluída permanentemente — Total {venda.Total:C}",
+            Nivel = NivelLogAuditoria.Warning,
+            PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                venda.Id, venda.NumeroVendaExterna, venda.DataVenda, venda.Total, venda.Usuario,
+                Itens = venda.Itens.Select(i => new { i.ProdutoId, i.NomeProduto, i.Quantidade, i.PrecoUnitario, i.Subtotal })
+            })
+        }, cancellationToken);
     }
 
     public async Task<IReadOnlyList<LinhaImportacaoVendaExternaDto>> ProcessarImportacaoTxtAsync(

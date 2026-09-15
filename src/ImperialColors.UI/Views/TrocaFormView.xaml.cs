@@ -1,4 +1,5 @@
 using ImperialColors.Application.DTOs;
+using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
@@ -49,6 +50,8 @@ public partial class TrocaFormView : Window
                 NomeExibicao = i.DescricaoTroca,
                 Quantidade = i.Quantidade,
                 PrecoUnitario = i.PrecoUnitario,
+                ValorUnitarioDevolucao = ValorDevolucaoHelper.ValorUnitarioPago(
+                    i.PrecoUnitario, i.Desconto, i.Subtotal, i.Quantidade, venda.Subtotal, venda.Desconto),
                 ProdutoId = i.ProdutoId
             })
             .ToList() ?? [];
@@ -84,6 +87,7 @@ public partial class TrocaFormView : Window
                 NomeExibicao = i.DescricaoTroca,
                 Quantidade = i.Quantidade,
                 PrecoUnitario = i.PrecoUnitario,
+                ValorUnitarioDevolucao = i.PrecoUnitario,
                 ProdutoId = i.ProdutoId
             })
             .ToList() ?? [];
@@ -117,8 +121,9 @@ public partial class TrocaFormView : Window
             return;
         }
 
-        TxtInfoItemDevolvido.Text =
-            $"Preço unitário: {FormattingHelper.FormatarMoeda(item.PrecoUnitario)}  |  Subtotal: {FormattingHelper.FormatarMoeda(item.Subtotal)}";
+        TxtInfoItemDevolvido.Text = item.ValorUnitarioDevolucao == item.PrecoUnitario
+            ? $"Preço unitário: {FormattingHelper.FormatarMoeda(item.PrecoUnitario)}  |  Subtotal: {FormattingHelper.FormatarMoeda(item.Subtotal)}"
+            : $"Preço unitário: {FormattingHelper.FormatarMoeda(item.PrecoUnitario)}  |  Pago com desconto: {FormattingHelper.FormatarMoeda(item.ValorUnitarioDevolucao)} por unidade";
     }
 
     private async void TxtBuscaNovoProduto_TextChanged(object sender, TextChangedEventArgs e)
@@ -220,7 +225,7 @@ public partial class TrocaFormView : Window
         FormattingHelper.TryParseQuantidade(TxtQtdNova.Text, out var qtdNova);
         FormattingHelper.TryParseMoeda(TxtPrecoNovoProduto.Text, out var precoNovo);
 
-        var totalDev = (itemDev?.PrecoUnitario ?? 0) * qtdDev;
+        var totalDev = (itemDev?.ValorUnitarioDevolucao ?? 0) * qtdDev;
         var totalNovo = precoNovo * qtdNova;
         var diferenca = totalNovo - totalDev;
 

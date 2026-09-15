@@ -175,12 +175,9 @@ public partial class ProdutoFormView : Window
             DefinirCodigoInternoSemMarcarManual(produto.CodigoInterno ?? string.Empty);
             TxtCodigoBarras.Text = produto.CodigoBarras ?? string.Empty;
             TxtNome.Text = produto.Nome ?? string.Empty;
-            TxtQuantidade.Text = produto.QuantidadeEstoque.ToString(
-                produto.QuantidadeEstoque % 1m == 0m ? "N0" : "N1",
-                FormattingHelper.CulturaPtBr);
-            TxtEstoqueMinimo.Text = produto.EstoqueMinimo.ToString(
-                produto.EstoqueMinimo % 1m == 0m ? "N0" : "N1",
-                FormattingHelper.CulturaPtBr);
+            // Exato: com "N1", 1,25 aparecia como 1,3 e salvar sem mexer no campo ajustava o estoque para 1,3.
+            TxtQuantidade.Text = FormattingHelper.FormatarQuantidade(produto.QuantidadeEstoque);
+            TxtEstoqueMinimo.Text = FormattingHelper.FormatarQuantidade(produto.EstoqueMinimo);
             TxtCusto.Text = FormattingHelper.FormatarMoedaEntrada(produto.Custo);
             TxtPrecoVenda.Text = FormattingHelper.FormatarMoedaEntrada(produto.PrecoVenda);
             TxtObservacoes.Text = produto.Observacoes ?? string.Empty;

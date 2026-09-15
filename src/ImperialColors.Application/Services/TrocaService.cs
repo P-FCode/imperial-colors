@@ -16,6 +16,8 @@ public class TrocaService : ITrocaService
     private readonly IVendaRepository _vendaRepository;
     private readonly IVendaExternaRepository _vendaExternaRepository;
     private readonly IProdutoRepository _produtoRepository;
+    private readonly IAuditoriaService _auditoria;
+    private readonly IUsuarioAtual _usuarioAtual;
     private readonly ILogger<TrocaService> _logger;
 
     public TrocaService(
@@ -23,12 +25,16 @@ public class TrocaService : ITrocaService
         IVendaRepository vendaRepository,
         IVendaExternaRepository vendaExternaRepository,
         IProdutoRepository produtoRepository,
+        IAuditoriaService auditoria,
+        IUsuarioAtual usuarioAtual,
         ILogger<TrocaService> logger)
     {
         _trocaRepository = trocaRepository;
         _vendaRepository = vendaRepository;
         _vendaExternaRepository = vendaExternaRepository;
         _produtoRepository = produtoRepository;
+        _auditoria = auditoria;
+        _usuarioAtual = usuarioAtual;
         _logger = logger;
     }
 
@@ -68,7 +74,9 @@ public class TrocaService : ITrocaService
             VendaOrigemId = dto.VendaOrigemId,
             ProdutoDevolvidoId = itemOrigem.ProdutoId,
             QuantidadeDevolvida = dto.QuantidadeDevolvida,
-            ValorUnitarioDevolucao = itemOrigem.PrecoUnitario,
+            ValorUnitarioDevolucao = ValorDevolucaoHelper.ValorUnitarioPago(
+                itemOrigem.PrecoUnitario, itemOrigem.Desconto, itemOrigem.Subtotal, itemOrigem.Quantidade,
+                venda.Subtotal, venda.Desconto),
             RetornarAoEstoque = dto.RetornarAoEstoque,
             ProdutoNovoId = dto.ProdutoNovoId,
             QuantidadeNova = dto.QuantidadeNova,
@@ -86,6 +94,8 @@ public class TrocaService : ITrocaService
             "Troca registrada: Venda#{VendaId}, Devolveu ProdId={ProdDevId} x{QtdDev}, Levou ProdId={ProdNovoId} x{QtdNova}, Diferença={Diferenca}",
             dto.VendaOrigemId, itemOrigem.ProdutoId, dto.QuantidadeDevolvida,
             dto.ProdutoNovoId, dto.QuantidadeNova, troca.DiferencaValor);
+
+        await RegistrarAuditoriaTrocaAsync("PDV", $"venda {venda.NumeroVenda}", troca, produtoDevolvido.Nome, produtoNovo.Nome);
 
         return MapParaDto(troca, venda.NumeroVenda, produtoDevolvido.Nome, produtoNovo.Nome);
     }
@@ -148,8 +158,28 @@ public class TrocaService : ITrocaService
             dto.VendaExternaOrigemId, itemOrigem.ProdutoId, dto.QuantidadeDevolvida,
             dto.ProdutoNovoId, dto.QuantidadeNova);
 
+        await RegistrarAuditoriaTrocaAsync("Vendas Externas", $"venda externa {venda.NumeroVendaExterna}", troca, produtoDevolvido.Nome, produtoNovo.Nome);
+
         return MapParaDto(troca, venda.NumeroVendaExterna, produtoDevolvido.Nome, produtoNovo.Nome);
     }
+
+    private Task RegistrarAuditoriaTrocaAsync(string modulo, string origem, Troca troca, string nomeDevolvido, string nomeNovo)
+        => _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = string.IsNullOrWhiteSpace(troca.Usuario) ? _usuarioAtual.Nome : troca.Usuario,
+            Modulo = modulo,
+            Acao = "TROCA_REGISTRADA",
+            Descricao = $"Troca na {origem}: devolveu {troca.QuantidadeDevolvida:0.###} × '{nomeDevolvido}' " +
+                        $"({(troca.RetornarAoEstoque ? "voltou ao estoque" : "não voltou ao estoque")}), " +
+                        $"levou {troca.QuantidadeNova:0.###} × '{nomeNovo}' — diferença {troca.DiferencaValor:C}",
+            Nivel = NivelLogAuditoria.Info,
+            PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                troca.Id, troca.VendaOrigemId, troca.VendaExternaOrigemId,
+                troca.ProdutoDevolvidoId, troca.QuantidadeDevolvida, troca.ValorUnitarioDevolucao, troca.RetornarAoEstoque,
+                troca.ProdutoNovoId, troca.QuantidadeNova, troca.ValorUnitarioNovo, troca.DiferencaValor
+            })
+        });
 
     public async Task<IEnumerable<TrocaDto>> ObterPorVendaAsync(int vendaId)
     {

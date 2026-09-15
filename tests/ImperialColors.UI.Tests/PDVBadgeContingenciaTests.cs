@@ -42,13 +42,18 @@ public class PDVBadgeContingenciaTests
     }
 
     /// <summary>Invoca o método privado que pinta o badge, com o contador já ajustado.</summary>
-    private static (string Texto, string? Dica) RenderizarBadge(bool online, int pendentes)
+    private static (string Texto, string? Dica) RenderizarBadge(
+        bool online, int pendentes, IReadOnlyList<ImperialColors.Application.DTOs.PendenciaSincronizacaoDto>? comErro = null)
     {
         var pdv = CriarPdv(online, pendentes);
 
         var campo = typeof(PDVView).GetField("_pendentesSincronizacao",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
         campo.SetValue(pdv, pendentes);
+
+        if (comErro is not null)
+            typeof(PDVView).GetField("_pendenciasComErro", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(pdv, comErro);
 
         var metodo = typeof(PDVView).GetMethod("AtualizarBadgeStatusRede",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
@@ -60,6 +65,25 @@ public class PDVBadgeContingenciaTests
 
         pdv.Close();
         return resultado;
+    }
+
+    /// <summary>
+    /// M6: venda offline recusada pelo servidor não pode aparecer como "subindo automaticamente".
+    /// O operador precisa ver qual venda está travada e o motivo, para corrigir a causa.
+    /// </summary>
+    [StaFact]
+    public void OnlineComVendaRecusada_MostraAVendaEOMotivo()
+    {
+        var (texto, dica) = RenderizarBadge(online: true, pendentes: 2, comErro:
+        [
+            new() { NumeroTemporario = "OFF-20260915-ABCD1234", DataVenda = new DateTime(2026, 9, 15, 10, 30, 0), Total = 125m,
+                    Erro = "Estoque insuficiente para 'Tinta Acrílica 18L'. Disponível: 1." }
+        ]);
+
+        Assert.Contains("1 venda(s) offline com erro", texto);
+        Assert.Contains("OFF-20260915-ABCD1234", dica);
+        Assert.Contains("Estoque insuficiente", dica);
+        Assert.DoesNotContain("automaticamente; este aviso some", dica);
     }
 
     [StaFact]

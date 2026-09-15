@@ -13,7 +13,6 @@ namespace ImperialColors.Application.Tests;
 public class ProdutoExclusaoCodigoBarrasTests
 {
     private readonly Mock<IProdutoRepository> _produtoRepository = new();
-    private readonly Mock<IMovimentacaoEstoqueRepository> _movimentacaoRepository = new();
     private readonly Mock<IRepository<Categoria>> _categoriaRepository = new();
     private readonly Mock<IRepository<Marca>> _marcaRepository = new();
 
@@ -103,11 +102,12 @@ public class ProdutoExclusaoCodigoBarrasTests
 
     private ProdutoService CriarService() => new(
         _produtoRepository.Object,
-        _movimentacaoRepository.Object,
         _categoriaRepository.Object,
         _marcaRepository.Object,
         Mock.Of<ITributacaoProdutoRepository>(),
         Mock.Of<IConfiguracaoFiscalService>(),
+        Mock.Of<IAuditoriaService>(),
+        new UsuarioAtualSistema(),
         NullLogger<ProdutoService>.Instance);
 
     private static CriarProdutoDto CriarDtoValido() => new()

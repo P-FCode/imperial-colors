@@ -13,6 +13,8 @@ using Xunit;
 
 namespace ImperialColors.Application.Tests;
 
+// Vende "o primeiro produto do banco": em paralelo, pode pegar o produto temporário de outro teste.
+[Collection(SemParalelismoCollection.Nome)]
 public class VendaPagamentoIntegrationTests
 {
     private static bool TryCarregarConfig(out ServiceProvider provider, out IDbContextFactory<AppDbContext> contextFactory)

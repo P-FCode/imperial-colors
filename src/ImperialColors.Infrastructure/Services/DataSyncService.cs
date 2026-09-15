@@ -1,6 +1,7 @@
 using ImperialColors.Domain.Helpers;
 using System.Text.Json;
 using ImperialColors.Application.DTOs;
+using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Interfaces;
@@ -224,21 +225,39 @@ public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposa
                         })
                     }, cancellationToken);
                 }
+                catch (Exception ex) when (EhQuedaDoServidor(ex))
+                {
+                    // Não é problema da venda: interrompe a rodada sem gravar erro nela; o
+                    // health-check religa e a próxima rodada tenta de novo.
+                    _logger.LogWarning(ex, "Conexão com o servidor perdida durante a sincronização de contingência.");
+                    _health.MarcarOffline();
+                    break;
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Falha ao sincronizar contingência {Id}", pendente.ContingenciaId);
+
+                    // A venda segue sendo retentada (resolve sozinha quando a causa for corrigida,
+                    // ex.: entrada de estoque), mas a auditoria só recebe o erro quando ele muda —
+                    // antes eram um registro por venda a cada 15 s.
+                    var erroNovo = !string.Equals(pendente.ErroSincronizacao, ex.Message, StringComparison.Ordinal);
                     pendente.ErroSincronizacao = ex.Message;
                     await local.SaveChangesAsync(cancellationToken);
 
-                    await _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+                    if (erroNovo)
                     {
-                        NomeUsuario = "Sistema",
-                        Modulo = "PDV",
-                        Acao = "ERRO_SINCRONIZACAO_CONTINGENCIA",
-                        Descricao = $"Falha ao sincronizar {pendente.NumeroTemporario}: {ex.Message}",
-                        Nivel = NivelLogAuditoria.Error,
-                        PayloadJson = ex.ToString()
-                    }, cancellationToken);
+                        await _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+                        {
+                            NomeUsuario = "Sistema",
+                            Modulo = "PDV",
+                            Acao = "ERRO_SINCRONIZACAO_CONTINGENCIA",
+                            Descricao = $"Falha ao sincronizar {pendente.NumeroTemporario}: {ex.Message}",
+                            Nivel = NivelLogAuditoria.Error,
+                            PayloadJson = ex.ToString()
+                        }, cancellationToken);
+
+                        NotificarPendentes(local);
+                    }
                 }
             }
 
@@ -264,6 +283,31 @@ public sealed class DataSyncService : IDataSyncService, IHostedService, IDisposa
         finally
         {
             _syncLock.Release();
+        }
+    }
+
+    // Erro de SQLite local não é queda do Postgres, mesmo sendo DbException sem SQLSTATE.
+    private static bool EhQuedaDoServidor(Exception ex)
+    {
+        for (var atual = ex; atual is not null; atual = atual.InnerException)
+        {
+            if (atual is Microsoft.Data.Sqlite.SqliteException)
+                return false;
+        }
+
+        return FalhaConectividadeHelper.EhFalhaDeConectividade(ex);
+    }
+
+    // Faz o selo do PDV reler as pendências (e o motivo do erro) assim que um erro novo aparece.
+    private void NotificarPendentes(ContingencyDbContext local)
+    {
+        try
+        {
+            PendentesAlterado?.Invoke(this, local.VendasContingencia.Count(v => v.PendenteSincronizacao));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao notificar alteração de pendentes de contingência.");
         }
     }
 

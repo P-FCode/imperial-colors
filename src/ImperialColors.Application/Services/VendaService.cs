@@ -18,7 +18,11 @@ public class VendaService : IVendaService, IVendaContingenciaSync
     private readonly IDatabaseHealthService _health;
     private readonly IContingencyVendaService _contingency;
     private readonly IAuditoriaService _auditoria;
+    private readonly IUsuarioAtual _usuarioAtual;
     private readonly ILogger<VendaService> _logger;
+
+    private const int TamanhoMaximoNomeComprador = 200;
+    private const int TamanhoMaximoDocumentoComprador = 20;
 
     public VendaService(
         IVendaRepository vendaRepository,
@@ -27,6 +31,7 @@ public class VendaService : IVendaService, IVendaContingenciaSync
         IDatabaseHealthService health,
         IContingencyVendaService contingency,
         IAuditoriaService auditoria,
+        IUsuarioAtual usuarioAtual,
         ILogger<VendaService> logger)
     {
         _vendaRepository = vendaRepository;
@@ -35,6 +40,7 @@ public class VendaService : IVendaService, IVendaContingenciaSync
         _health = health;
         _contingency = contingency;
         _auditoria = auditoria;
+        _usuarioAtual = usuarioAtual;
         _logger = logger;
     }
 
@@ -81,7 +87,7 @@ public class VendaService : IVendaService, IVendaContingenciaSync
         {
             return await CriarOnlineInternoAsync(dto, contingenciaId: null);
         }
-        catch (Exception ex) when (EhFalhaDeConectividade(ex))
+        catch (Exception ex) when (FalhaConectividadeHelper.EhFalhaDeConectividade(ex))
         {
             _health.MarcarOffline();
             _logger.LogWarning(ex, "PostgreSQL indisponível na finalização — ativando contingência offline");
@@ -143,7 +149,7 @@ public class VendaService : IVendaService, IVendaContingenciaSync
                 var item = new ItemVenda
                 {
                     ProdutoId = i.ProdutoId,
-                    Quantidade = i.Quantidade,
+                    Quantidade = ArredondamentoHelper.Quantidade(i.Quantidade),
                     PrecoUnitario = i.PrecoUnitario,
                     Desconto = i.Desconto
                 };
@@ -197,22 +203,6 @@ public class VendaService : IVendaService, IVendaContingenciaSync
         return MapParaDto(vendaCompleta!);
     }
 
-    private static bool EhFalhaDeConectividade(Exception ex)
-    {
-        for (var atual = ex; atual is not null; atual = atual.InnerException!)
-        {
-            var nomeTipo = atual.GetType().FullName ?? atual.GetType().Name;
-            if (nomeTipo.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) ||
-                atual is TimeoutException or IOException ||
-                atual.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
-                atual.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
-                atual.Message.Contains("network", StringComparison.OrdinalIgnoreCase) ||
-                atual.Message.Contains("failed to connect", StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
-    }
-
     private async Task ResolverIdentificacaoCompradorAsync(Venda venda, CriarVendaDto dto)
     {
         if (dto.ClienteId is > 0)
@@ -237,6 +227,12 @@ public class VendaService : IVendaService, IVendaContingenciaSync
 
         if (string.IsNullOrWhiteSpace(dto.NomeCompradorAvulso))
             throw new DomainException("Informe o nome do comprador ou selecione Consumidor Final.");
+
+        if (dto.NomeCompradorAvulso.Trim().Length > TamanhoMaximoNomeComprador)
+            throw new DomainException($"O nome do comprador pode ter no máximo {TamanhoMaximoNomeComprador} caracteres.");
+
+        if (dto.DocumentoCompradorAvulso?.Trim().Length > TamanhoMaximoDocumentoComprador)
+            throw new DomainException("Documento do comprador muito longo — informe só o CPF ou CNPJ.");
 
         if (!string.IsNullOrWhiteSpace(dto.DocumentoCompradorAvulso))
         {
@@ -274,15 +270,48 @@ public class VendaService : IVendaService, IVendaContingenciaSync
 
     public async Task CancelarAsync(int id)
     {
+        var venda = await _vendaRepository.ObterComItensAsync(id);
         await _vendaRepository.CancelarComEstornoAsync(id);
         _logger.LogInformation("Venda cancelada com estorno de estoque: {VendaId}", id);
+
+        await RegistrarAuditoriaExclusaoAsync(
+            "VENDA_CANCELADA",
+            $"Venda {venda?.NumeroVenda ?? $"Id {id}"} cancelada — Total {venda?.Total ?? 0:C}, estoque dos itens reposto",
+            venda, id);
     }
 
     public async Task ExcluirFisicamenteAsync(int id)
     {
+        var venda = await _vendaRepository.ObterComItensAsync(id);
         await _vendaRepository.ExcluirFisicamenteComEstornoAsync(id);
         _logger.LogWarning("Venda excluída permanentemente do banco: {VendaId}", id);
+
+        await RegistrarAuditoriaExclusaoAsync(
+            "VENDA_EXCLUIDA_PERMANENTEMENTE",
+            $"Venda {venda?.NumeroVenda ?? $"Id {id}"} excluída permanentemente — Total {venda?.Total ?? 0:C}",
+            venda, id);
     }
+
+    // O payload guarda os itens porque, na exclusão permanente, este log é o único registro que sobra da venda.
+    private Task RegistrarAuditoriaExclusaoAsync(string acao, string descricao, Venda? venda, int id)
+        => _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = _usuarioAtual.Nome,
+            Modulo = "PDV",
+            Acao = acao,
+            Descricao = descricao,
+            Nivel = NivelLogAuditoria.Warning,
+            PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                VendaId = id,
+                venda?.NumeroVenda,
+                venda?.DataVenda,
+                StatusAnterior = venda?.Status.ToString(),
+                venda?.Total,
+                venda?.Usuario,
+                Itens = venda?.Itens.Select(i => new { i.ProdutoId, Produto = i.Produto?.Nome, i.Quantidade, i.PrecoUnitario, i.Subtotal })
+            })
+        });
 
     public async Task<decimal> ObterTotalVendasDiaAsync()
         => await _vendaRepository.ObterTotalVendasDiaAsync(DateTime.Today);

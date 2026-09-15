@@ -1,4 +1,5 @@
 using ImperialColors.Domain.Entities;
+using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Interfaces;
 using ImperialColors.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,21 @@ namespace ImperialColors.Infrastructure.Repositories;
 public class ClienteRepository : RepositoryBase<Cliente>, IClienteRepository
 {
     public ClienteRepository(IDbContextFactory<AppDbContext> contextFactory) : base(contextFactory) { }
+
+    public async Task<Cliente?> ObterPorDocumentoAsync(
+        string documentoSomenteDigitos, TipoPessoa tipoPessoa, int? ignorarClienteId = null, CancellationToken cancellationToken = default)
+    {
+        await using var context = ContextFactory.CreateDbContext();
+        var query = context.Set<Cliente>()
+            .AsNoTracking()
+            .Where(c => c.TipoPessoa == tipoPessoa && (ignorarClienteId == null || c.Id != ignorarClienteId));
+
+        return tipoPessoa == TipoPessoa.Juridica
+            ? await query.FirstOrDefaultAsync(c => c.Cnpj != null &&
+                c.Cnpj.Replace(".", "").Replace("/", "").Replace("-", "").Replace(" ", "") == documentoSomenteDigitos, cancellationToken)
+            : await query.FirstOrDefaultAsync(c => c.Cpf != null &&
+                c.Cpf.Replace(".", "").Replace("-", "").Replace(" ", "") == documentoSomenteDigitos, cancellationToken);
+    }
 
     public async Task<IEnumerable<Cliente>> BuscarPorNomeAsync(string nome)
     {

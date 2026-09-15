@@ -2,6 +2,7 @@ using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.Helpers;
 using ImperialColors.UI.Helpers;
 using ImperialColors.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +33,7 @@ public partial class PDVView : Window, INotifyPropertyChanged
 
     /// <summary>Vendas gravadas só nesta máquina, ainda não replicadas para o PostgreSQL.</summary>
     private int _pendentesSincronizacao;
+    private IReadOnlyList<PendenciaSincronizacaoDto> _pendenciasComErro = [];
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -137,6 +139,7 @@ public partial class PDVView : Window, INotifyPropertyChanged
         {
             _pendentesSincronizacao = pendentes;
             AtualizarBadgeStatusRede(_healthService.IsOnline);
+            _ = AtualizarPendentesAsync();
         });
 
     /// <summary>
@@ -148,6 +151,9 @@ public partial class PDVView : Window, INotifyPropertyChanged
         try
         {
             _pendentesSincronizacao = await _contingencyService.ContarPendentesAsync();
+            _pendenciasComErro = _pendentesSincronizacao > 0
+                ? await _contingencyService.ObterPendenciasComErroAsync() ?? []
+                : [];
             AtualizarBadgeStatusRede(_healthService.IsOnline);
         }
         catch
@@ -184,6 +190,21 @@ public partial class PDVView : Window, INotifyPropertyChanged
             BadgeStatusRede.ToolTip =
                 "Sem conexão com o servidor. As vendas continuam sendo registradas nesta máquina " +
                 "e sobem sozinhas quando a conexão voltar — não feche o sistema com vendas pendentes.";
+            return;
+        }
+
+        if (_pendenciasComErro.Count > 0)
+        {
+            // Travada por regra de negócio: não sobe sozinha enquanto a causa não for resolvida.
+            BadgeStatusRede.Background = new SolidColorBrush(Color.FromRgb(248, 215, 218));
+            TxtStatusRede.Text = $"⚠ Online · {_pendenciasComErro.Count} venda(s) offline com erro";
+            TxtStatusRede.Foreground = new SolidColorBrush(Color.FromRgb(114, 28, 36));
+            BadgeStatusRede.ToolTip =
+                "Estas vendas feitas offline foram recusadas pelo servidor:\n" +
+                string.Join("\n", _pendenciasComErro.Select(p =>
+                    $"• {p.NumeroTemporario} ({p.DataVenda:dd/MM HH:mm}, {FormattingHelper.FormatarMoeda(p.Total)}): {p.Erro}")) +
+                "\n\nCorrija o motivo (por exemplo, lance a entrada do estoque que faltou). " +
+                "O sistema tenta de novo sozinho e a venda sobe assim que for aceita.";
             return;
         }
 
@@ -556,7 +577,7 @@ public partial class PDVView : Window, INotifyPropertyChanged
             }
 
             itemExistente.Quantidade += 1;
-            itemExistente.Subtotal = itemExistente.Quantidade * itemExistente.PrecoUnitario - itemExistente.Desconto;
+            RecalcularSubtotal(itemExistente);
             DgItens?.Items.Refresh();
             ReindexarItensVenda();
         }
@@ -602,11 +623,15 @@ public partial class PDVView : Window, INotifyPropertyChanged
         if ((sender as Button)?.Tag is ItemVendaDto item)
         {
             item.Quantidade += 1;
-            item.Subtotal = item.Quantidade * item.PrecoUnitario - item.Desconto;
+            RecalcularSubtotal(item);
             DgItens.Items.Refresh();
             AtualizarTotais();
         }
     }
+
+    // Mesmo arredondamento de ItemVenda.CalcularSubtotal no servidor: o total cobrado aqui é o que será gravado.
+    private static void RecalcularSubtotal(ItemVendaDto item)
+        => item.Subtotal = ArredondamentoHelper.Centavos(item.Quantidade * item.PrecoUnitario - item.Desconto);
 
     private void BtnDiminuirQtd_Click(object sender, RoutedEventArgs e)
     {
@@ -620,7 +645,7 @@ public partial class PDVView : Window, INotifyPropertyChanged
             else
             {
                 item.Quantidade -= 1;
-                item.Subtotal = item.Quantidade * item.PrecoUnitario - item.Desconto;
+                RecalcularSubtotal(item);
                 DgItens.Items.Refresh();
             }
 
@@ -631,10 +656,11 @@ public partial class PDVView : Window, INotifyPropertyChanged
     private void TxtQtdItem_LostFocus(object sender, RoutedEventArgs e)
     {
         if ((sender as TextBox)?.Tag is ItemVendaDto item
-            && decimal.TryParse(((TextBox)sender).Text, out var qtd) && qtd > 0)
+            && decimal.TryParse(((TextBox)sender).Text, out var qtdDigitada)
+            && ArredondamentoHelper.Quantidade(qtdDigitada) is var qtd && qtd > 0)
         {
             item.Quantidade = qtd;
-            item.Subtotal = item.Quantidade * item.PrecoUnitario - item.Desconto;
+            RecalcularSubtotal(item);
             DgItens.Items.Refresh();
             AtualizarTotais();
         }
@@ -1167,7 +1193,7 @@ public partial class PDVView : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Erro ao finalizar venda: {ex.Message}", "Erro",
+            MessageBox.Show($"Erro ao finalizar venda: {ExceptionMessageHelper.ObterMensagemAmigavel(ex)}", "Erro",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }

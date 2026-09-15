@@ -56,7 +56,7 @@ public class ContingencyVendaService : IContingencyVendaService
         {
             var cache = await ctx.EstoqueLocal.FindAsync([item.ProdutoId], cancellationToken);
             var nome = cache?.Nome ?? $"Produto #{item.ProdutoId}";
-            var itemSub = (item.Quantidade * item.PrecoUnitario) - item.Desconto;
+            var itemSub = ArredondamentoHelper.Centavos((item.Quantidade * item.PrecoUnitario) - item.Desconto);
             subtotal += itemSub;
             itensTemp.Add((item, nome, itemSub));
         }
@@ -213,5 +213,21 @@ public class ContingencyVendaService : IContingencyVendaService
     {
         await using var ctx = await _factory.CreateDbContextAsync(cancellationToken);
         return await ctx.VendasContingencia.CountAsync(v => v.PendenteSincronizacao, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PendenciaSincronizacaoDto>> ObterPendenciasComErroAsync(CancellationToken cancellationToken = default)
+    {
+        await using var ctx = await _factory.CreateDbContextAsync(cancellationToken);
+        return await ctx.VendasContingencia.AsNoTracking()
+            .Where(v => v.PendenteSincronizacao && v.ErroSincronizacao != null)
+            .OrderBy(v => v.DataVenda)
+            .Select(v => new PendenciaSincronizacaoDto
+            {
+                NumeroTemporario = v.NumeroTemporario,
+                DataVenda = v.DataVenda,
+                Total = v.Total,
+                Erro = v.ErroSincronizacao!
+            })
+            .ToListAsync(cancellationToken);
     }
 }

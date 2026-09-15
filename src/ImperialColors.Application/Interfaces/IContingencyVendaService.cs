@@ -8,4 +8,5 @@ public interface IContingencyVendaService
     Task AtualizarCacheProdutosAsync(CancellationToken cancellationToken = default);
     Task<decimal?> ObterEstoqueLocalAsync(int produtoId, CancellationToken cancellationToken = default);
     Task<int> ContarPendentesAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PendenciaSincronizacaoDto>> ObterPendenciasComErroAsync(CancellationToken cancellationToken = default);
 }

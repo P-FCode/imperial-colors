@@ -61,7 +61,11 @@ public static class InfrastructureExtensions
         services.AddDbContextFactory<ContingencyDbContext>(options =>
             options.UseSqlite($"Data Source={caminhoSqlite}"));
 
-        services.AddSingleton(BackupOptions.CarregarDoAmbiente());
+        // Func<BackupOptions>, não uma instância: BACKUP_PATH pode mudar em tempo real pela
+        // tela de Configurações (ArquivoEnvService), e uma instância calculada uma vez no
+        // boot nunca veria essa troca até reiniciar o processo — achado da auditoria de
+        // 15/09. BackupService chama isto a cada verificação, não guarda o resultado.
+        services.AddSingleton<Func<BackupOptions>>(_ => BackupOptions.CarregarDoAmbiente);
         services.AddSingleton<IBackupService, BackupService>();
         services.AddSingleton<IParametroSistemaRepository, ParametroSistemaRepository>();
         services.AddSingleton<ICoordenacaoAtualizacaoBancoService, CoordenacaoAtualizacaoBancoService>();

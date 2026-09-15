@@ -39,7 +39,7 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
         {
             // Nomes apenas para validar existência e compor mensagens de erro amigáveis —
             // a baixa/reposição real é feita atomicamente pelo EstoqueAtomicoHelper abaixo.
-            _ = await context.Set<Produto>()
+            var nomeProdDevolvido = await context.Set<Produto>()
                 .Where(p => p.Id == produtoDevolvido.Id)
                 .Select(p => p.Nome)
                 .FirstOrDefaultAsync(cancellationToken)
@@ -54,6 +54,19 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
             var venda = await context.Set<Venda>()
                 .FirstOrDefaultAsync(v => v.Id == troca.VendaOrigemId, cancellationToken)
                 ?? throw new Domain.Exceptions.DomainException("Venda não encontrada.");
+
+            await TravarTrocasDaOrigemAsync(context, $"troca_venda:{venda.Id}", cancellationToken);
+
+            var vendido = await context.Set<ItemVenda>()
+                .Where(i => i.VendaId == venda.Id && i.ProdutoId == produtoDevolvido.Id)
+                .SumAsync(i => i.Quantidade, cancellationToken);
+
+            var jaDevolvido = await context.Set<Troca>()
+                .IgnoreQueryFilters()
+                .Where(t => t.VendaOrigemId == venda.Id && t.ProdutoDevolvidoId == produtoDevolvido.Id)
+                .SumAsync(t => t.QuantidadeDevolvida, cancellationToken);
+
+            GarantirSaldoParaDevolucao(nomeProdDevolvido, vendido, jaDevolvido, troca.QuantidadeDevolvida);
 
             // Controle de estoque: entrada do devolvido (se checkbox ativo)
             if (retornarAoEstoque)
@@ -107,7 +120,7 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
     {
         await ExecutarEmTransacaoAsync(async context =>
         {
-            _ = await context.Set<Produto>()
+            var nomeProdDevolvido = await context.Set<Produto>()
                 .Where(p => p.Id == produtoDevolvido.Id)
                 .Select(p => p.Nome)
                 .FirstOrDefaultAsync(cancellationToken)
@@ -122,6 +135,19 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
             var vendaExterna = await context.Set<VendaExterna>()
                 .FirstOrDefaultAsync(v => v.Id == troca.VendaExternaOrigemId, cancellationToken)
                 ?? throw new Domain.Exceptions.DomainException("Venda externa não encontrada.");
+
+            await TravarTrocasDaOrigemAsync(context, $"troca_venda_externa:{vendaExterna.Id}", cancellationToken);
+
+            var vendido = await context.Set<ItemVendaExterna>()
+                .Where(i => i.VendaExternaId == vendaExterna.Id && i.ProdutoId == produtoDevolvido.Id)
+                .SumAsync(i => i.Quantidade, cancellationToken);
+
+            var jaDevolvido = await context.Set<Troca>()
+                .IgnoreQueryFilters()
+                .Where(t => t.VendaExternaOrigemId == vendaExterna.Id && t.ProdutoDevolvidoId == produtoDevolvido.Id)
+                .SumAsync(t => t.QuantidadeDevolvida, cancellationToken);
+
+            GarantirSaldoParaDevolucao(nomeProdDevolvido, vendido, jaDevolvido, troca.QuantidadeDevolvida);
 
             if (retornarAoEstoque)
             {
@@ -161,5 +187,20 @@ public class TrocaRepository : RepositoryBase<Troca>, ITrocaRepository
             await context.Set<Troca>().AddAsync(troca, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
         }, cancellationToken);
+    }
+
+    // Serializa trocas da mesma venda: duas telas abertas não podem, juntas, devolver mais do que foi vendido.
+    private static Task TravarTrocasDaOrigemAsync(AppDbContext context, string chave, CancellationToken cancellationToken)
+        => context.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({chave}))", cancellationToken);
+
+    private static void GarantirSaldoParaDevolucao(string nomeProduto, decimal vendido, decimal jaDevolvido, decimal devolvendoAgora)
+    {
+        if (jaDevolvido + devolvendoAgora <= vendido)
+            return;
+
+        var restante = Math.Max(0m, vendido - jaDevolvido);
+        throw new Domain.Exceptions.DomainException(
+            $"Não é possível devolver {devolvendoAgora:0.###} de '{nomeProduto}': foram vendidas {vendido:0.###} " +
+            $"e {jaDevolvido:0.###} já foram devolvidas em trocas anteriores. Restam {restante:0.###} para troca.");
     }
 }

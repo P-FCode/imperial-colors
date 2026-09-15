@@ -1,3 +1,5 @@
+using ImperialColors.Domain.Helpers;
+
 namespace ImperialColors.Domain.Entities;
 
 public class ItemVenda : BaseEntity
@@ -14,6 +16,6 @@ public class ItemVenda : BaseEntity
 
     public void CalcularSubtotal()
     {
-        Subtotal = (Quantidade * PrecoUnitario) - Desconto;
+        Subtotal = ArredondamentoHelper.Centavos((Quantidade * PrecoUnitario) - Desconto);
     }
 }

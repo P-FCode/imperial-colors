@@ -1,4 +1,5 @@
 using ImperialColors.Application.DTOs;
+using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Security;
 using ImperialColors.Application.Services;
 using ImperialColors.Domain.Entities;
@@ -18,7 +19,7 @@ public class AuthServiceTests
 
     public AuthServiceTests()
     {
-        _authService = new AuthService(_repository.Object, NullLogger<AuthService>.Instance);
+        _authService = new AuthService(_repository.Object, Mock.Of<IAuditoriaService>(), NullLogger<AuthService>.Instance);
     }
 
     private static Usuario CriarUsuarioAprovado(string username, string senha, string email)

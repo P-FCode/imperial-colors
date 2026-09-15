@@ -21,28 +21,31 @@ public class ProdutoService : IProdutoService
         "Este código de barras já está cadastrado para outro produto.";
 
     private readonly IProdutoRepository _produtoRepository;
-    private readonly IMovimentacaoEstoqueRepository _movimentacaoRepository;
     private readonly IRepository<Categoria> _categoriaRepository;
     private readonly IRepository<Marca> _marcaRepository;
     private readonly ITributacaoProdutoRepository _tributacaoRepository;
     private readonly IConfiguracaoFiscalService _configuracaoFiscal;
+    private readonly IAuditoriaService _auditoria;
+    private readonly IUsuarioAtual _usuarioAtual;
     private readonly ILogger<ProdutoService> _logger;
 
     public ProdutoService(
         IProdutoRepository produtoRepository,
-        IMovimentacaoEstoqueRepository movimentacaoRepository,
         IRepository<Categoria> categoriaRepository,
         IRepository<Marca> marcaRepository,
         ITributacaoProdutoRepository tributacaoRepository,
         IConfiguracaoFiscalService configuracaoFiscal,
+        IAuditoriaService auditoria,
+        IUsuarioAtual usuarioAtual,
         ILogger<ProdutoService> logger)
     {
         _produtoRepository = produtoRepository;
-        _movimentacaoRepository = movimentacaoRepository;
         _categoriaRepository = categoriaRepository;
         _marcaRepository = marcaRepository;
         _tributacaoRepository = tributacaoRepository;
         _configuracaoFiscal = configuracaoFiscal;
+        _auditoria = auditoria;
+        _usuarioAtual = usuarioAtual;
         _logger = logger;
     }
 
@@ -145,16 +148,11 @@ public class ProdutoService : IProdutoService
             Observacoes = InputSanitizer.SanitizarTexto(dto.Observacoes, 500)
         };
 
-        var criado = await _produtoRepository.InserirProdutoAsync(
-            produto,
-            permitirRegenerarCodigoInterno: !codigoManual,
-            obterProximoCodigoInternoAsync: () => RegenerarCodigoInternoAsync(produto.Nome, produto.CodigoInterno));
-
+        // Pela navegação, a movimentação entra no mesmo SaveChanges do produto: ou os dois gravam, ou nenhum.
         if (dto.QuantidadeEstoque > 0)
         {
-            await _movimentacaoRepository.AdicionarAsync(new MovimentacaoEstoque
+            produto.Movimentacoes.Add(new MovimentacaoEstoque
             {
-                ProdutoId = criado.Id,
                 Tipo = TipoMovimentacao.Entrada,
                 Quantidade = dto.QuantidadeEstoque,
                 QuantidadeAnterior = 0,
@@ -162,6 +160,11 @@ public class ProdutoService : IProdutoService
                 Motivo = "Estoque inicial"
             });
         }
+
+        var criado = await _produtoRepository.InserirProdutoAsync(
+            produto,
+            permitirRegenerarCodigoInterno: !codigoManual,
+            obterProximoCodigoInternoAsync: () => RegenerarCodigoInternoAsync(produto.Nome, produto.CodigoInterno));
 
         _logger.LogInformation("Produto criado: {Nome} ({CodigoInterno})", dto.Nome, criado.CodigoInterno);
         return MapParaDto(criado);
@@ -184,6 +187,8 @@ public class ProdutoService : IProdutoService
 
         if (await _produtoRepository.CodigoInternoExisteAsync(dto.CodigoInterno, id))
             throw new DomainException("Este código interno já está em uso por outro produto.");
+
+        var precosAntes = (produto.PrecoVenda, produto.Custo, produto.PromocaoAtiva, produto.PrecoPromocional);
 
         produto.CodigoInterno = InputSanitizer.SanitizarTexto(dto.CodigoInterno, 50);
         produto.CodigoBarras = InputSanitizer.SanitizarTexto(dto.CodigoBarras, 50);
@@ -211,12 +216,54 @@ public class ProdutoService : IProdutoService
             produto, quantidadeBaseline, dto.QuantidadeEstoque, "Ajuste manual via edição de produto", "Administrador");
 
         _logger.LogInformation("Produto atualizado: {Nome} ({Id})", dto.Nome, id);
+
+        var precosDepois = (produto.PrecoVenda, produto.Custo, produto.PromocaoAtiva, produto.PrecoPromocional);
+        if (precosDepois != precosAntes)
+        {
+            await RegistrarAuditoriaEstoqueAsync(
+                "PRODUTO_PRECO_ALTERADO",
+                $"Preços de '{produto.Nome}' alterados — venda {precosAntes.PrecoVenda:C} → {precosDepois.PrecoVenda:C}, " +
+                $"custo {precosAntes.Custo:C} → {precosDepois.Custo:C}, " +
+                $"promoção {DescreverPromocao(precosAntes.PromocaoAtiva, precosAntes.PrecoPromocional)} → " +
+                $"{DescreverPromocao(precosDepois.PromocaoAtiva, precosDepois.PrecoPromocional)}",
+                NivelLogAuditoria.Info,
+                new
+                {
+                    ProdutoId = id,
+                    Antes = new { precosAntes.PrecoVenda, precosAntes.Custo, precosAntes.PromocaoAtiva, precosAntes.PrecoPromocional },
+                    Depois = new { precosDepois.PrecoVenda, precosDepois.Custo, precosDepois.PromocaoAtiva, precosDepois.PrecoPromocional }
+                });
+        }
+
+        if (dto.QuantidadeEstoque != quantidadeBaseline)
+        {
+            await RegistrarAuditoriaEstoqueAsync(
+                "ESTOQUE_AJUSTE_EDICAO",
+                $"Estoque de '{produto.Nome}' ajustado pela edição do produto: {quantidadeBaseline:0.###} → {dto.QuantidadeEstoque:0.###}",
+                NivelLogAuditoria.Warning,
+                new { ProdutoId = id, QuantidadeNaTela = quantidadeBaseline, QuantidadeInformada = dto.QuantidadeEstoque, EstoqueFinal = atualizado.QuantidadeEstoque });
+        }
+
         return MapParaDto(atualizado);
     }
 
+    private static string DescreverPromocao(bool ativa, decimal? preco)
+        => ativa ? $"ativa ({preco:C})" : "inativa";
+
+    private Task RegistrarAuditoriaEstoqueAsync(string acao, string descricao, NivelLogAuditoria nivel, object payload, string? usuario = null)
+        => _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = string.IsNullOrWhiteSpace(usuario) ? _usuarioAtual.Nome : usuario,
+            Modulo = "Estoque",
+            Acao = acao,
+            Descricao = descricao,
+            Nivel = nivel,
+            PayloadJson = System.Text.Json.JsonSerializer.Serialize(payload)
+        });
+
     public async Task RemoverAsync(int id)
     {
-        _ = await _produtoRepository.ObterPorIdAsync(id)
+        var produto = await _produtoRepository.ObterPorIdAsync(id)
             ?? throw new DomainException($"Produto com Id {id} não encontrado.");
 
         if (await _produtoRepository.PossuiHistoricoComercialAsync(id))
@@ -228,6 +275,12 @@ public class ProdutoService : IProdutoService
             throw new DomainException("Não foi possível excluir o produto. Tente novamente.");
 
         _logger.LogInformation("Produto excluído (hard delete): Id={Id}", id);
+
+        await RegistrarAuditoriaEstoqueAsync(
+            "PRODUTO_EXCLUIDO",
+            $"Produto '{produto.Nome}' ({produto.CodigoInterno}) excluído permanentemente — estoque {produto.QuantidadeEstoque:0.###}",
+            NivelLogAuditoria.Warning,
+            new { produto.Id, produto.CodigoInterno, produto.CodigoBarras, produto.Nome, produto.QuantidadeEstoque, produto.PrecoVenda, produto.Custo });
     }
 
     public async Task<bool> CodigoBarrasExisteAsync(
@@ -268,8 +321,17 @@ public class ProdutoService : IProdutoService
         // Baixa/reposição/ajuste + registro da movimentação em uma única transação, com
         // UPDATE atômico guardado (nunca deixa o estoque negativo por concorrência com
         // uma venda simultânea no PDV — ver EstoqueAtomicoHelper).
-        await _produtoRepository.AjustarEstoqueTransacionalAsync(
+        var movimentacao = await _produtoRepository.AjustarEstoqueTransacionalAsync(
             dto.ProdutoId, dto.Tipo, dto.Quantidade, dto.Motivo, dto.Usuario);
+
+        var nome = (await _produtoRepository.ObterPorIdAsync(dto.ProdutoId))?.Nome ?? $"Id {dto.ProdutoId}";
+        await RegistrarAuditoriaEstoqueAsync(
+            "ESTOQUE_MOVIMENTACAO_MANUAL",
+            $"{dto.Tipo} manual em '{nome}': {movimentacao.QuantidadeAnterior:0.###} → {movimentacao.QuantidadeAtual:0.###}" +
+            (string.IsNullOrWhiteSpace(dto.Motivo) ? string.Empty : $" — motivo: {dto.Motivo}"),
+            NivelLogAuditoria.Warning,
+            new { dto.ProdutoId, Tipo = dto.Tipo.ToString(), dto.Quantidade, movimentacao.QuantidadeAnterior, movimentacao.QuantidadeAtual, dto.Motivo },
+            dto.Usuario);
     }
 
     public async Task<string> GerarProximoCodigoInternoAsync()

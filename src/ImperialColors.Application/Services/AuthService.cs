@@ -12,12 +12,16 @@ namespace ImperialColors.Application.Services;
 
 public class AuthService : IAuthService
 {
+    private const string ModuloAuditoria = "Usuários";
+
     private readonly IUsuarioRepository _usuarioRepository;
+    private readonly IAuditoriaService _auditoria;
     private readonly ILogger<AuthService> _logger;
 
-    public AuthService(IUsuarioRepository usuarioRepository, ILogger<AuthService> logger)
+    public AuthService(IUsuarioRepository usuarioRepository, IAuditoriaService auditoria, ILogger<AuthService> logger)
     {
         _usuarioRepository = usuarioRepository;
+        _auditoria = auditoria;
         _logger = logger;
     }
 
@@ -44,21 +48,37 @@ public class AuthService : IAuthService
         }
 
         if (usuario is null)
+        {
+            await RegistrarLoginAsync("LOGIN_FALHA", "Sistema",
+                $"Tentativa de login com usuário inexistente '{InputSanitizer.SanitizarTexto(identificador, 60)}'", NivelLogAuditoria.Warning);
             throw new DomainException("Usuário ou senha inválidos.");
+        }
 
         if (usuario.Status == StatusUsuario.AguardandoAprovacao)
+        {
+            await RegistrarLoginAsync("LOGIN_FALHA", usuario.NomeCompleto,
+                $"Login recusado para '{usuario.Username}': conta aguardando aprovação", NivelLogAuditoria.Warning);
             throw new DomainException("Sua conta está aguardando aprovação do administrador.");
+        }
 
         if (usuario.Status == StatusUsuario.Cancelado)
+        {
+            await RegistrarLoginAsync("LOGIN_FALHA", usuario.NomeCompleto,
+                $"Login recusado para '{usuario.Username}': conta cancelada", NivelLogAuditoria.Warning);
             throw new DomainException("Sua conta foi cancelada. Entre em contato com o administrador.");
+        }
 
         if (!PasswordHasher.Verificar(dto.Senha, usuario.SenhaHash, usuario.Salt))
         {
             _logger.LogWarning("Tentativa de login inválida para usuário {Username}", usuario.Username);
+            await RegistrarLoginAsync("LOGIN_FALHA", usuario.NomeCompleto,
+                $"Senha incorreta para '{usuario.Username}'", NivelLogAuditoria.Warning);
             throw new DomainException("Usuário ou senha inválidos.");
         }
 
         _logger.LogInformation("Login bem-sucedido: {Username}", usuario.Username);
+        await RegistrarLoginAsync("LOGIN_SUCESSO", usuario.NomeCompleto,
+            $"Login de '{usuario.Username}' ({usuario.Permissao})", NivelLogAuditoria.Info);
 
         return new UsuarioSessaoDto
         {
@@ -108,8 +128,21 @@ public class AuthService : IAuthService
         var criado = await _usuarioRepository.AdicionarAsync(usuario);
         _logger.LogInformation("Novo cadastro aguardando aprovação: {Username}", username);
 
+        await RegistrarLoginAsync("USUARIO_CADASTRO_SOLICITADO", criado.NomeCompleto,
+            $"Cadastro de '{criado.Username}' solicitado pela tela de login — aguardando aprovação", NivelLogAuditoria.Info);
+
         return MapParaDto(criado);
     }
+
+    private Task RegistrarLoginAsync(string acao, string nomeUsuario, string descricao, NivelLogAuditoria nivel)
+        => _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = nomeUsuario,
+            Modulo = ModuloAuditoria,
+            Acao = acao,
+            Descricao = descricao,
+            Nivel = nivel
+        });
 
     private static UsuarioDto MapParaDto(Usuario u) => new()
     {

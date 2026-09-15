@@ -42,8 +42,11 @@ public static class FormattingHelper
     public static string FormatarMoedaEntrada(decimal? valor)
         => valor.HasValue ? FormatarMoedaEntrada(valor.Value) : string.Empty;
 
+    /// <summary>Casas decimais exatas, sem zeros à direita: 1,25 → "1,25"; 2,500 → "2,5"; 10 → "10".</summary>
+    public const string FormatoQuantidade = "#,##0.##########";
+
     public static string FormatarQuantidade(decimal quantidade)
-        => quantidade.ToString(quantidade % 1m == 0m ? "N0" : "N1", CulturaPtBr);
+        => quantidade.ToString(FormatoQuantidade, CulturaPtBr);
 
     public static string FormatarData(DateTime data)
         => data.ToString("dd/MM/yyyy", CulturaPtBr);
@@ -55,10 +58,7 @@ public static class FormattingHelper
     {
         var sigla = string.IsNullOrWhiteSpace(unidade) ? "UN" : unidade.Trim().ToUpperInvariant();
         var nomeUnidade = ObterNomeUnidade(sigla, quantidade);
-        var quantidadeFormatada = quantidade.ToString(
-            quantidade % 1m == 0m ? "N0" : "N1",
-            CulturaPtBr);
-        return $"{quantidadeFormatada} {nomeUnidade}";
+        return $"{FormatarQuantidade(quantidade)} {nomeUnidade}";
     }
 
     public static bool TryParseMoeda(string? texto, out decimal valor)

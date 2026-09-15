@@ -12,12 +12,22 @@ namespace ImperialColors.Application.Services;
 
 public class UsuarioService : IUsuarioService
 {
+    private const string ModuloAuditoria = "Usuários";
+
     private readonly IUsuarioRepository _usuarioRepository;
+    private readonly IAuditoriaService _auditoria;
+    private readonly IUsuarioAtual _usuarioAtual;
     private readonly ILogger<UsuarioService> _logger;
 
-    public UsuarioService(IUsuarioRepository usuarioRepository, ILogger<UsuarioService> logger)
+    public UsuarioService(
+        IUsuarioRepository usuarioRepository,
+        IAuditoriaService auditoria,
+        IUsuarioAtual usuarioAtual,
+        ILogger<UsuarioService> logger)
     {
         _usuarioRepository = usuarioRepository;
+        _auditoria = auditoria;
+        _usuarioAtual = usuarioAtual;
         _logger = logger;
     }
 
@@ -62,6 +72,10 @@ public class UsuarioService : IUsuarioService
 
         var criado = await _usuarioRepository.AdicionarAsync(usuario);
         _logger.LogInformation("Usuário criado pelo admin: {Username} ({Permissao})", username, dto.Permissao);
+
+        await RegistrarAuditoriaAsync("USUARIO_CRIADO",
+            $"Usuário '{criado.Username}' criado com permissão {criado.Permissao}", criado);
+
         return MapParaDto(criado);
     }
 
@@ -81,6 +95,12 @@ public class UsuarioService : IUsuarioService
         if (await _usuarioRepository.EmailExisteAsync(email, dto.Id))
             throw new DomainException("E-mail já está em uso por outro usuário.");
 
+        var mudancas = new List<string>();
+        if (usuario.Permissao != dto.Permissao) mudancas.Add($"permissão {usuario.Permissao} → {dto.Permissao}");
+        if (usuario.Status != dto.Status) mudancas.Add($"situação {usuario.Status} → {dto.Status}");
+        if (usuario.NomeCompleto != nome) mudancas.Add("nome alterado");
+        if (usuario.Email != email) mudancas.Add("e-mail alterado");
+
         usuario.NomeCompleto = nome;
         usuario.Email = email;
         usuario.Permissao = dto.Permissao;
@@ -94,10 +114,16 @@ public class UsuarioService : IUsuarioService
             var (hash, salt) = PasswordHasher.HashPassword(dto.NovaSenha);
             usuario.SenhaHash = hash;
             usuario.Salt = salt;
+            mudancas.Add("senha redefinida");
         }
 
         var atualizado = await _usuarioRepository.AtualizarAsync(usuario);
         _logger.LogInformation("Usuário atualizado: {Username}", usuario.Username);
+
+        if (mudancas.Count > 0)
+            await RegistrarAuditoriaAsync("USUARIO_ALTERADO",
+                $"Usuário '{usuario.Username}' alterado: {string.Join("; ", mudancas)}", usuario, NivelLogAuditoria.Warning);
+
         return MapParaDto(atualizado);
     }
 
@@ -109,6 +135,9 @@ public class UsuarioService : IUsuarioService
         usuario.Status = StatusUsuario.Cancelado;
         await _usuarioRepository.AtualizarAsync(usuario);
         _logger.LogInformation("Usuário cancelado: {Username}", usuario.Username);
+
+        await RegistrarAuditoriaAsync("USUARIO_CANCELADO",
+            $"Usuário '{usuario.Username}' cancelado", usuario, NivelLogAuditoria.Warning);
     }
 
     public async Task AprovarAsync(Guid id)
@@ -119,6 +148,9 @@ public class UsuarioService : IUsuarioService
         usuario.Status = StatusUsuario.Aprovado;
         await _usuarioRepository.AtualizarAsync(usuario);
         _logger.LogInformation("Usuário aprovado: {Username}", usuario.Username);
+
+        await RegistrarAuditoriaAsync("USUARIO_APROVADO",
+            $"Usuário '{usuario.Username}' aprovado com permissão {usuario.Permissao}", usuario);
     }
 
     public async Task ExcluirFisicamenteAsync(Guid id, Guid usuarioLogadoId)
@@ -139,6 +171,9 @@ public class UsuarioService : IUsuarioService
 
         await _usuarioRepository.RemoverFisicamenteAsync(id);
         _logger.LogInformation("Usuário excluído permanentemente: {Username}", usuario.Username);
+
+        await RegistrarAuditoriaAsync("USUARIO_EXCLUIDO",
+            $"Usuário '{usuario.Username}' ({usuario.NomeCompleto}) excluído permanentemente", usuario, NivelLogAuditoria.Warning);
     }
 
     private static void ValidarDadosBasicos(string nome, string username, string email, string senha)
@@ -152,6 +187,22 @@ public class UsuarioService : IUsuarioService
         if (!InputSanitizer.SenhaForte(senha))
             throw new DomainException("Senha deve ter no mínimo 8 caracteres, incluindo maiúscula, minúscula e número.");
     }
+
+    private Task RegistrarAuditoriaAsync(
+        string acao, string descricao, Usuario alvo, NivelLogAuditoria nivel = NivelLogAuditoria.Info)
+        => _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = _usuarioAtual.Nome,
+            Modulo = ModuloAuditoria,
+            Acao = acao,
+            Descricao = descricao,
+            Nivel = nivel,
+            PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                alvo.Id, alvo.Username, alvo.NomeCompleto, alvo.Email,
+                Permissao = alvo.Permissao.ToString(), Status = alvo.Status.ToString()
+            })
+        });
 
     private static UsuarioDto MapParaDto(Usuario u) => new()
     {

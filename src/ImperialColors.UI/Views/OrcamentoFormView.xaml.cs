@@ -447,7 +447,7 @@ public partial class OrcamentoFormView : Window
         }
         catch (Exception ex)
         {
-            ExibirErroValidacao($"Erro ao salvar orçamento: {ex.Message}");
+            ExibirErroValidacao(ExceptionMessageHelper.ObterMensagemAmigavel(ex));
         }
         finally
         {

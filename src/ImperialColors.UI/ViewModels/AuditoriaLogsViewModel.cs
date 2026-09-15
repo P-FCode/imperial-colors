@@ -72,7 +72,7 @@ public class AuditoriaLogsViewModel : BaseViewModel
 
     public IReadOnlyList<string> Modulos { get; } =
     [
-        "Todos", "PDV", "Estoque", "Vendas Externas", "Clientes", "Configurações", "Sistema"
+        "Todos", "PDV", "Estoque", "Vendas Externas", "Orçamento", "Clientes", "Usuários", "Configurações", "Sistema"
     ];
 
     public IReadOnlyList<string> Niveis { get; } =

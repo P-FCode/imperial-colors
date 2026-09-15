@@ -54,32 +54,6 @@ public class OrcamentoRepository : RepositoryBase<Orcamento>, IOrcamentoReposito
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
     }
 
-    public async Task<string> GerarNumeroOrcamentoAsync(CancellationToken cancellationToken = default)
-    {
-        await using var context = ContextFactory.CreateDbContext();
-
-        var prefixo = $"ORC-{Relogio.Agora:yyyyMMdd}";
-
-        // IgnoreQueryFilters: um orçamento excluído continua ocupando o número (o índice único
-        // não conhece soft delete). Ignorar o filtro evita colisão ao gerar o próximo.
-        var ultimo = await context.Set<Orcamento>()
-            .IgnoreQueryFilters()
-            .Where(o => o.NumeroOrcamento.StartsWith(prefixo))
-            .OrderByDescending(o => o.NumeroOrcamento)
-            .Select(o => o.NumeroOrcamento)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        var sequencial = 1;
-        if (ultimo is not null)
-        {
-            var partes = ultimo.Split('-');
-            if (partes.Length == 3 && int.TryParse(partes[2], out var seq))
-                sequencial = seq + 1;
-        }
-
-        return $"{prefixo}-{sequencial:D4}";
-    }
-
     public async Task<Orcamento> RegistrarTransacionalAsync(
         Orcamento orcamento,
         IReadOnlyList<ItemOrcamento> itens,
@@ -87,6 +61,35 @@ public class OrcamentoRepository : RepositoryBase<Orcamento>, IOrcamentoReposito
     {
         var id = await ExecutarEmTransacaoAsync(async context =>
         {
+            var prefixo = $"ORC-{Relogio.Agora:yyyyMMdd}";
+            var chaveLock = $"orcamento_numero:{prefixo}";
+
+            // Advisory lock transacional: serializa a geração do número de orçamento entre
+            // PDVs concorrentes (liberado automaticamente no commit/rollback) — mesmo padrão
+            // usado em VendaRepository.CriarComBaixaEstoqueTransacionalAsync. Sem isto, dois
+            // registros simultâneos calculavam o mesmo próximo número e o segundo estourava
+            // com DbUpdateException por violar o índice único de NumeroOrcamento.
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtext({chaveLock}))", cancellationToken);
+
+            // IgnoreQueryFilters: um orçamento excluído continua ocupando o número (o índice
+            // único não conhece soft delete). Ignorar o filtro evita colisão ao gerar o próximo.
+            var ultimo = await context.Set<Orcamento>()
+                .IgnoreQueryFilters()
+                .Where(o => o.NumeroOrcamento.StartsWith(prefixo))
+                .OrderByDescending(o => o.NumeroOrcamento)
+                .Select(o => o.NumeroOrcamento)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var sequencial = 1;
+            if (ultimo is not null)
+            {
+                var partes = ultimo.Split('-');
+                if (partes.Length == 3 && int.TryParse(partes[2], out var seq))
+                    sequencial = seq + 1;
+            }
+
+            orcamento.NumeroOrcamento = $"{prefixo}-{sequencial:D4}";
             orcamento.Itens = itens.ToList();
 
             foreach (var item in orcamento.Itens)

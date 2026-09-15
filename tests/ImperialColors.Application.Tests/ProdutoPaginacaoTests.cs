@@ -24,11 +24,12 @@ public class ProdutoPaginacaoTests
 
         var service = new ProdutoService(
             produtoRepository.Object,
-            Mock.Of<IMovimentacaoEstoqueRepository>(),
             Mock.Of<IRepository<Categoria>>(),
             Mock.Of<IRepository<Marca>>(),
             Mock.Of<ITributacaoProdutoRepository>(),
             Mock.Of<IConfiguracaoFiscalService>(),
+            Mock.Of<IAuditoriaService>(),
+            new UsuarioAtualSistema(),
             NullLogger<ProdutoService>.Instance);
 
         var resultado = await service.ObterPaginadoAsync(2, 50);

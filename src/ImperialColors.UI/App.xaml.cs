@@ -86,7 +86,9 @@ public partial class App : System.Windows.Application
                 services.AddApplication();
 
                 services.AddSingleton<IAppConfigService, AppConfigService>();
-                services.AddSingleton<ISessaoService, SessaoService>();
+                services.AddSingleton<SessaoService>();
+                services.AddSingleton<ISessaoService>(sp => sp.GetRequiredService<SessaoService>());
+                services.AddSingleton<IUsuarioAtual>(sp => sp.GetRequiredService<SessaoService>());
                 services.AddSingleton<IRelatorioService, RelatorioService>();
                 services.AddSingleton<IArquivoEnvService, ArquivoEnvService>();
                 services.AddSingleton<IConfiguracoesAplicacaoService, ConfiguracoesAplicacaoService>();

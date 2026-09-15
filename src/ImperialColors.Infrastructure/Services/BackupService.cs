@@ -11,17 +11,17 @@ namespace ImperialColors.Infrastructure.Services;
 public class BackupService : IBackupService
 {
     private readonly IParametroSistemaRepository _parametroRepository;
-    private readonly BackupOptions _options;
+    private readonly Func<BackupOptions> _obterOptions;
     private readonly ILogger<BackupService> _logger;
     private int _executando;
 
     public BackupService(
         IParametroSistemaRepository parametroRepository,
-        BackupOptions options,
+        Func<BackupOptions> obterOptions,
         ILogger<BackupService> logger)
     {
         _parametroRepository = parametroRepository;
-        _options = options;
+        _obterOptions = obterOptions;
         _logger = logger;
     }
 
@@ -35,7 +35,7 @@ public class BackupService : IBackupService
             }
             catch (Exception ex)
             {
-                BackupLogWriter.Registrar(_options.DiretorioRaiz, "Falha inesperada na rotina de backup.", ex);
+                BackupLogWriter.Registrar(_obterOptions().DiretorioRaiz, "Falha inesperada na rotina de backup.", ex);
                 _logger.LogError(ex, "Falha inesperada na rotina de backup.");
             }
         });
@@ -48,12 +48,17 @@ public class BackupService : IBackupService
 
         try
         {
+            // Lida a cada verificação, nunca guardada em campo: se a pasta de backup foi
+            // trocada pela tela de Configurações desde a última rodada, esta leitura já
+            // enxerga o valor novo sem precisar reiniciar o sistema.
+            var options = _obterOptions();
+
             var hoje = DateTime.Today;
             var ultimoBackup = await _parametroRepository.ObterDataAsync(
                 ParametroSistemaChaves.DataUltimoBackup,
                 cancellationToken);
 
-            if (!BackupScheduleHelper.DeveExecutarBackup(ultimoBackup, hoje, _options.IntervaloDias))
+            if (!BackupScheduleHelper.DeveExecutarBackup(ultimoBackup, hoje, options.IntervaloDias))
             {
                 _logger.LogDebug("Backup automático não necessário. Último: {UltimoBackup}", ultimoBackup);
                 return;
@@ -63,7 +68,7 @@ public class BackupService : IBackupService
 
             try
             {
-                await ExecutarBackupCompletoAsync(hoje, cancellationToken);
+                await ExecutarBackupCompletoAsync(options, hoje, cancellationToken);
                 await _parametroRepository.SalvarDataAsync(
                     ParametroSistemaChaves.DataUltimoBackup,
                     hoje,
@@ -72,7 +77,7 @@ public class BackupService : IBackupService
             }
             catch (Exception ex)
             {
-                BackupLogWriter.Registrar(_options.DiretorioRaiz, "Falha ao executar backup híbrido.", ex);
+                BackupLogWriter.Registrar(options.DiretorioRaiz, "Falha ao executar backup híbrido.", ex);
                 _logger.LogError(ex, "Falha ao executar backup híbrido.");
             }
         }
@@ -82,47 +87,50 @@ public class BackupService : IBackupService
         }
     }
 
-    internal async Task ExecutarBackupCompletoAsync(DateTime dataExecucao, CancellationToken cancellationToken = default)
+    internal Task ExecutarBackupCompletoAsync(DateTime dataExecucao, CancellationToken cancellationToken = default)
+        => ExecutarBackupCompletoAsync(_obterOptions(), dataExecucao, cancellationToken);
+
+    private async Task ExecutarBackupCompletoAsync(BackupOptions options, DateTime dataExecucao, CancellationToken cancellationToken)
     {
-        var pastaDestino = BackupPathHelper.MontarPastaDestino(_options.DiretorioRaiz, dataExecucao);
+        var pastaDestino = BackupPathHelper.MontarPastaDestino(options.DiretorioRaiz, dataExecucao);
         Directory.CreateDirectory(pastaDestino);
 
-        var nomeSql = BackupPathHelper.MontarNomeArquivoSql(_options.PrefixoEmpresa, dataExecucao);
+        var nomeSql = BackupPathHelper.MontarNomeArquivoSql(options.PrefixoEmpresa, dataExecucao);
         var caminhoSql = Path.Combine(pastaDestino, nomeSql);
 
-        var pgDump = PgDumpExecutor.LocalizarPgDump(_options.PgDumpPath)
+        var pgDump = PgDumpExecutor.LocalizarPgDump(options.PgDumpPath)
             ?? throw new InvalidOperationException(
                 "Utilitário pg_dump não encontrado. Configure PG_DUMP_PATH no .env ou instale o PostgreSQL.");
 
         await PgDumpExecutor.ExecutarAsync(
             pgDump,
-            _options.Host,
-            _options.Porta,
-            _options.Usuario,
-            _options.Senha,
-            _options.Banco,
+            options.Host,
+            options.Porta,
+            options.Usuario,
+            options.Senha,
+            options.Banco,
             caminhoSql,
             cancellationToken);
 
-        CopiarArquivosLocais(pastaDestino);
+        CopiarArquivosLocais(options, pastaDestino);
     }
 
-    private void CopiarArquivosLocais(string pastaDestino)
+    private void CopiarArquivosLocais(BackupOptions options, string pastaDestino)
     {
-        if (File.Exists(_options.CaminhoAppsettings))
+        if (File.Exists(options.CaminhoAppsettings))
         {
-            File.Copy(_options.CaminhoAppsettings, Path.Combine(pastaDestino, "appsettings.json"), overwrite: true);
+            File.Copy(options.CaminhoAppsettings, Path.Combine(pastaDestino, "appsettings.json"), overwrite: true);
         }
         else
         {
-            throw new FileNotFoundException("Arquivo appsettings.json não encontrado para backup.", _options.CaminhoAppsettings);
+            throw new FileNotFoundException("Arquivo appsettings.json não encontrado para backup.", options.CaminhoAppsettings);
         }
 
-        if (!Directory.Exists(_options.PastaLogos))
-            throw new DirectoryNotFoundException($"Pasta de logos não encontrada: {_options.PastaLogos}");
+        if (!Directory.Exists(options.PastaLogos))
+            throw new DirectoryNotFoundException($"Pasta de logos não encontrada: {options.PastaLogos}");
 
         var destinoLogos = Path.Combine(pastaDestino, "logos_empresa");
-        CopiarDiretorio(_options.PastaLogos, destinoLogos);
+        CopiarDiretorio(options.PastaLogos, destinoLogos);
     }
 
     private static void CopiarDiretorio(string origem, string destino)

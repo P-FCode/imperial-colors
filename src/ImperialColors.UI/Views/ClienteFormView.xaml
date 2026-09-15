@@ -48,7 +48,7 @@
 
                     <StackPanel Margin="0,0,0,12">
                         <TextBlock Style="{StaticResource LabelCampo}" Text="Nome *"/>
-                        <TextBox x:Name="TxtNome" Style="{StaticResource TextBoxModerno}"/>
+                        <TextBox x:Name="TxtNome" Style="{StaticResource TextBoxModerno}" MaxLength="200"/>
                     </StackPanel>
 
                     <StackPanel x:Name="PanelPf" Margin="0,0,0,12">
@@ -103,7 +103,7 @@
                         <TextBlock Style="{StaticResource LabelCampo}" Text="E-mail"/>
                         <TextBox x:Name="TxtEmail"
                                  Style="{StaticResource TextBoxModerno}"
-                                 MaxLength="254"
+                                 MaxLength="200"
                                  TextChanged="TxtEmail_TextChanged"/>
                     </StackPanel>
 
@@ -131,11 +131,11 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
                             <TextBlock Style="{StaticResource LabelCampo}" Text="Logradouro"/>
-                            <TextBox x:Name="TxtLogradouro" Style="{StaticResource TextBoxModerno}"/>
+                            <TextBox x:Name="TxtLogradouro" Style="{StaticResource TextBoxModerno}" MaxLength="200"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Style="{StaticResource LabelCampo}" Text="Número"/>
-                            <TextBox x:Name="TxtNumero" Style="{StaticResource TextBoxModerno}"/>
+                            <TextBox x:Name="TxtNumero" Style="{StaticResource TextBoxModerno}" MaxLength="10"/>
                         </StackPanel>
                     </Grid>
 
@@ -147,15 +147,15 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
                             <TextBlock Style="{StaticResource LabelCampo}" Text="Complemento"/>
-                            <TextBox x:Name="TxtComplemento" Style="{StaticResource TextBoxModerno}"/>
+                            <TextBox x:Name="TxtComplemento" Style="{StaticResource TextBoxModerno}" MaxLength="100"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Style="{StaticResource LabelCampo}" Text="Bairro"/>
-                            <TextBox x:Name="TxtBairro" Style="{StaticResource TextBoxModerno}"/>
+                            <TextBox x:Name="TxtBairro" Style="{StaticResource TextBoxModerno}" MaxLength="100"/>
                         </StackPanel>
                         <StackPanel Grid.Column="4">
                             <TextBlock Style="{StaticResource LabelCampo}" Text="Cidade"/>
-                            <TextBox x:Name="TxtCidade" Style="{StaticResource TextBoxModerno}"/>
+                            <TextBox x:Name="TxtCidade" Style="{StaticResource TextBoxModerno}" MaxLength="100"/>
                         </StackPanel>
                         <StackPanel Grid.Column="6">
                             <TextBlock Style="{StaticResource LabelCampo}" Text="UF"/>
@@ -189,7 +189,7 @@
 
                     <StackPanel>
                         <TextBlock Style="{StaticResource LabelCampo}" Text="Observações"/>
-                        <TextBox x:Name="TxtObservacoes" Style="{StaticResource TextBoxModerno}"
+                        <TextBox x:Name="TxtObservacoes" Style="{StaticResource TextBoxModerno}" MaxLength="500"
                                  Height="60" TextWrapping="Wrap" AcceptsReturn="True"/>
                     </StackPanel>
                 </StackPanel>

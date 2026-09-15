@@ -415,7 +415,9 @@ public class ProdutoRepository : RepositoryBase<Produto>, IProdutoRepository
                 tentativa < maxTentativas - 1 &&
                 DatabaseExceptionHelper.EhViolacaoUnicidadeCodigoInterno(ex))
             {
-                Desanexar(context, produto);
+                // Clear em vez de desanexar só o produto: a movimentação de estoque inicial vai
+                // pendurada nele, e desanexar o principal com o dependente rastreado quebra o EF.
+                context.ChangeTracker.Clear();
                 produto.CodigoInterno = await obterProximoCodigoInternoAsync();
             }
         }

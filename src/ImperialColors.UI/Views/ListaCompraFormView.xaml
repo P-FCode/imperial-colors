@@ -174,8 +174,8 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Produto" Binding="{Binding NomeProduto}" Width="*" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Origem" Binding="{Binding OrigemDescricao}" Width="90" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Qtd. Desejada" Binding="{Binding QuantidadeDesejada, StringFormat=N1}" Width="110"/>
-                            <DataGridTextColumn Header="Qtd. Comprada" Binding="{Binding QuantidadeComprada, StringFormat=N1}" Width="110"/>
+                            <DataGridTextColumn Header="Qtd. Desejada" Binding="{Binding QuantidadeDesejada, StringFormat='#,##0.##########'}" Width="110"/>
+                            <DataGridTextColumn Header="Qtd. Comprada" Binding="{Binding QuantidadeComprada, StringFormat='#,##0.##########'}" Width="110"/>
                             <DataGridCheckBoxColumn Header="Comprado" Binding="{Binding Comprado}" Width="90"/>
                             <DataGridTemplateColumn Header="" Width="50">
                                 <DataGridTemplateColumn.CellTemplate>

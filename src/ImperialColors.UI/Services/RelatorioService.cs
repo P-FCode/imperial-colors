@@ -4,6 +4,7 @@ using ImperialColors.Application.Configuration;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Helpers;
 using ImperialColors.Domain.Enums;
+using ImperialColors.UI.Helpers;
 
 using iText.IO.Font.Constants;
 
@@ -305,7 +306,7 @@ public class RelatorioService : IRelatorioService
 
     private static string FormatarQuantidadeCupom(decimal quantidade)
 
-        => quantidade.ToString(quantidade % 1m == 0m ? "N0" : "N1", new System.Globalization.CultureInfo("pt-BR"));
+        => FormattingHelper.FormatarQuantidade(quantidade);
 
 
 

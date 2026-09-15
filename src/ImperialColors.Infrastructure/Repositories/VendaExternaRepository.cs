@@ -166,6 +166,7 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
                 ?? throw new DomainException($"Venda externa com Id {vendaId} não encontrada.");
 
             ValidarItens(itens);
+            await GarantirQueEdicaoPreservaTrocasAsync(context, vendaId, itens, cancellationToken);
 
             var itensAntigos = venda.Itens.ToDictionary(i => i.Id);
             var idsNovos = itens.Where(i => i.Id > 0).Select(i => i.Id).ToHashSet();
@@ -263,6 +264,39 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
         await using var context = ContextFactory.CreateDbContext();
         return await context.Set<Troca>()
             .AnyAsync(t => t.VendaExternaOrigemId == vendaExternaId, cancellationToken);
+    }
+
+    // Uma edição que deixa menos unidades do que já voltou por troca estornaria de novo o que a troca já repôs.
+    private static async Task GarantirQueEdicaoPreservaTrocasAsync(
+        AppDbContext context, int vendaExternaId, IReadOnlyList<ItemVendaExterna> itens, CancellationToken cancellationToken)
+    {
+        // Mesma chave usada por TrocaRepository: edição e troca da mesma venda não correm em paralelo.
+        var chaveLock = $"troca_venda_externa:{vendaExternaId}";
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtext({chaveLock}))", cancellationToken);
+
+        var devolvidos = await context.Set<Troca>()
+            .IgnoreQueryFilters()
+            .Where(t => t.VendaExternaOrigemId == vendaExternaId)
+            .GroupBy(t => t.ProdutoDevolvidoId)
+            .Select(g => new { ProdutoId = g.Key, Quantidade = g.Sum(t => t.QuantidadeDevolvida) })
+            .ToListAsync(cancellationToken);
+
+        foreach (var devolvido in devolvidos)
+        {
+            var quantidadeAposEdicao = itens.Where(i => i.ProdutoId == devolvido.ProdutoId).Sum(i => i.Quantidade);
+            if (quantidadeAposEdicao >= devolvido.Quantidade)
+                continue;
+
+            var nome = await context.Set<Produto>().IgnoreQueryFilters()
+                .Where(p => p.Id == devolvido.ProdutoId)
+                .Select(p => p.Nome)
+                .FirstOrDefaultAsync(cancellationToken) ?? $"produto Id {devolvido.ProdutoId}";
+
+            throw new DomainException(
+                $"'{nome}' já teve {devolvido.Quantidade:0.###} unidade(s) devolvida(s) em troca nesta venda externa; " +
+                $"a quantidade vendida não pode ficar abaixo disso (ficaria {quantidadeAposEdicao:0.###}).");
+        }
     }
 
     private static void ValidarItens(IReadOnlyList<ItemVendaExterna> itens)

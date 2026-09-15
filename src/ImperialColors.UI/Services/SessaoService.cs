@@ -1,4 +1,5 @@
 using ImperialColors.Application.DTOs;
+using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Enums;
 
 namespace ImperialColors.UI.Services;
@@ -15,9 +16,11 @@ public interface ISessaoService
     string ObterNomeUsuario();
 }
 
-public class SessaoService : ISessaoService
+public class SessaoService : ISessaoService, IUsuarioAtual
 {
     private UsuarioSessaoDto? _usuarioAtual;
+
+    string IUsuarioAtual.Nome => _usuarioAtual?.NomeCompleto ?? "Sistema";
 
     public UsuarioSessaoDto? UsuarioAtual => _usuarioAtual;
     public bool EstaAutenticado => _usuarioAtual is not null;

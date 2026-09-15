@@ -173,7 +173,7 @@
                             <DataGridTextColumn Header="Tipo" Binding="{Binding TipoDescricao}" Width="80" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Cód. Barras" Binding="{Binding CodigoBarras}" Width="110" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Produto" Binding="{Binding NomeProduto}" Width="*"/>
-                            <DataGridTextColumn Header="Qtd." Binding="{Binding Quantidade, StringFormat=N2}" Width="70"/>
+                            <DataGridTextColumn Header="Qtd." Binding="{Binding Quantidade, StringFormat='#,##0.##########'}" Width="70"/>
                             <DataGridTextColumn Header="Preço Base" Binding="{Binding PrecoBase, StringFormat=N2}" Width="90" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Valor Praticado" Binding="{Binding PrecoUnitario, StringFormat=N2}" Width="110"/>
                             <DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, StringFormat=N2}" Width="100" IsReadOnly="True"/>

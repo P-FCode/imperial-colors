@@ -50,7 +50,9 @@ public class OrcamentoService : IOrcamentoService
 
         var orcamento = new Orcamento
         {
-            NumeroOrcamento = await _orcamentoRepository.GerarNumeroOrcamentoAsync(cancellationToken),
+            // NumeroOrcamento é gerado dentro de RegistrarTransacionalAsync, sob advisory
+            // lock — ver OrcamentoRepository. Gerar aqui, fora da transação, foi a causa da
+            // falha sob concorrência encontrada na auditoria de 15/09.
             ClienteId = dto.ClienteId,
             NomeCliente = dto.NomeCliente.Trim(),
             TelefoneCliente = TextoOuNulo(dto.TelefoneCliente),
@@ -111,6 +113,20 @@ public class OrcamentoService : IOrcamentoService
     public async Task<OrcamentoDto> AlterarStatusAsync(
         int id, StatusOrcamento status, CancellationToken cancellationToken = default)
     {
+        var atual = await _orcamentoRepository.ObterComItensAsync(id, cancellationToken)
+            ?? throw new DomainException($"Orçamento com Id {id} não encontrado.");
+
+        // Máquina de estados: uma vez decidido (aprovado ou recusado), o orçamento não pode
+        // ser reaberto nem trocar de decisão — evita dois atendentes decidindo coisas
+        // diferentes para o mesmo cliente sem que o segundo saiba que o primeiro já decidiu.
+        if (atual.Status != StatusOrcamento.Aberto)
+            throw new DomainException(
+                $"O orçamento {atual.NumeroOrcamento} já está marcado como {atual.Status} e não pode ser alterado novamente.");
+
+        if (status == StatusOrcamento.Aprovado && atual.DataValidade.Date < Relogio.Agora.Date)
+            throw new DomainException(
+                $"O orçamento {atual.NumeroOrcamento} venceu em {atual.DataValidade:dd/MM/yyyy} e não pode mais ser aprovado. Gere um novo orçamento com os preços atuais.");
+
         var atualizado = await _orcamentoRepository.AlterarStatusAsync(id, status, cancellationToken);
 
         await RegistrarAuditoriaAsync(

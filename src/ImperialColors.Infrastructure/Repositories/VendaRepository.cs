@@ -323,6 +323,12 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
             if (venda.Status == StatusVenda.Cancelada)
                 throw new DomainException("Venda já está cancelada.");
 
+            // Os itens trocados já voltaram ao estoque pela troca; estornar a venda inteira os devolveria de novo.
+            if (await context.Set<Troca>().IgnoreQueryFilters().AnyAsync(t => t.VendaOrigemId == vendaId, cancellationToken))
+                throw new DomainException("Não é possível cancelar esta venda porque existem trocas registradas vinculadas a ela.");
+
+            await GarantirSemNotaFiscalValidaAsync(context, vendaId, "cancelar", cancellationToken);
+
             if (venda.Status == StatusVenda.Finalizada)
             {
                 foreach (var item in venda.Itens)
@@ -358,6 +364,8 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
             if (possuiTrocas)
                 throw new DomainException("Não é possível excluir esta venda porque existem trocas registradas vinculadas a ela.");
 
+            await GarantirSemNotaFiscalValidaAsync(context, vendaId, "excluir", cancellationToken);
+
             var venda = await context.Set<Venda>()
                 .IgnoreQueryFilters()
                 .Include(v => v.Itens)
@@ -387,5 +395,32 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
             context.Set<Venda>().Remove(venda);
             await context.SaveChangesAsync(cancellationToken);
         }, cancellationToken);
+    }
+
+    // Emitindo/Indeterminada entram porque a SEFAZ pode ter autorizado sem o sistema saber ainda.
+    private static readonly StatusNotaFiscal[] StatusNotaQueImpedeDesfazerVenda =
+        [StatusNotaFiscal.Autorizada, StatusNotaFiscal.Emitindo, StatusNotaFiscal.Indeterminada];
+
+    private static async Task GarantirSemNotaFiscalValidaAsync(
+        AppDbContext context, int vendaId, string operacao, CancellationToken cancellationToken)
+    {
+        var nota = await context.Set<NotaFiscal>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(n => n.VendaId == vendaId && StatusNotaQueImpedeDesfazerVenda.Contains(n.Status))
+            .Select(n => new { n.Tipo, n.Numero, n.Serie, n.Status })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (nota is null)
+            return;
+
+        var tipo = nota.Tipo == TipoNotaFiscal.NFCe ? "NFC-e" : "NF-e";
+        var situacao = nota.Status == StatusNotaFiscal.Autorizada
+            ? "autorizada"
+            : "com retorno da SEFAZ ainda não confirmado";
+
+        throw new DomainException(
+            $"Não é possível {operacao} esta venda: a {tipo} nº {nota.Numero} (série {nota.Serie}) está {situacao}. " +
+            $"Cancele ou consulte a nota fiscal antes de {operacao} a venda.");
     }
 }

@@ -227,7 +227,7 @@
                             <DataGridTextColumn Header="Código" Binding="{Binding CodigoProduto}" Width="110" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Produto/Serviço" Binding="{Binding NomeProduto}" Width="*"/>
                             <DataGridTextColumn Header="Un" Binding="{Binding Unidade}" Width="60"/>
-                            <DataGridTextColumn Header="Qtd." Binding="{Binding Quantidade, StringFormat=N2}" Width="80"/>
+                            <DataGridTextColumn Header="Qtd." Binding="{Binding Quantidade, StringFormat='#,##0.##########'}" Width="80"/>
                             <DataGridTextColumn Header="Vlr Unit." Binding="{Binding PrecoUnitario, StringFormat=N2}" Width="100"/>
                             <DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, StringFormat=N2}" Width="100" IsReadOnly="True"/>
                             <DataGridTemplateColumn Header="" Width="50">

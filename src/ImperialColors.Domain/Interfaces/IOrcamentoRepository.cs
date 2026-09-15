@@ -11,8 +11,6 @@ public interface IOrcamentoRepository : IRepository<Orcamento>
 
     Task<Orcamento?> ObterComItensAsync(int id, CancellationToken cancellationToken = default);
 
-    Task<string> GerarNumeroOrcamentoAsync(CancellationToken cancellationToken = default);
-
     Task<Orcamento> RegistrarTransacionalAsync(
         Orcamento orcamento,
         IReadOnlyList<ItemOrcamento> itens,
