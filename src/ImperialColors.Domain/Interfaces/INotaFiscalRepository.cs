@@ -10,6 +10,13 @@ public interface INotaFiscalRepository
     Task<NotaFiscal?> ObterPorChaveAcessoAsync(string chaveAcesso, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<NotaFiscal>> ListarAsync(TipoNotaFiscal tipo, StatusNotaFiscal? status = null, CancellationToken cancellationToken = default);
 
+    /// <summary>Notas (NF-e e NFC-e juntas) vinculadas a uma venda, da mais recente para a
+    /// mais antiga. A tela de Vendas usa isso para não faturar a mesma venda duas vezes e
+    /// para reabrir um rascunho que já existe em vez de criar outro — uma venda pode ter
+    /// mais de uma nota ao longo do tempo (rascunho descartado, rejeitada que queimou a
+    /// numeração, autorizada cancelada e refeita), por isso devolve a lista, não uma só.</summary>
+    Task<IReadOnlyList<NotaFiscal>> ListarPorVendaAsync(int vendaId, CancellationToken cancellationToken = default);
+
     /// <summary>Próximo número sequencial da série — a numeração é imutável (seção 10 do
     /// GUIA_INTEGRACAO.md): mesmo uma nota rejeitada consome o número, então a consulta
     /// ignora o filtro de soft-delete/status para nunca devolver um número já usado.

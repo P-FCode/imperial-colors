@@ -24,6 +24,20 @@ public partial class NotaFiscalFormView : Window
     private readonly TipoNotaFiscal _tipo;
     private readonly int? _notaFiscalId;
 
+    /// <summary>Rascunho montado fora desta tela (hoje, a partir de uma venda — ver
+    /// <see cref="INotaFiscalService.MontarRascunhoAPartirDeVendaAsync"/>) e ainda não
+    /// persistido. Quando presente, substitui a nota em branco que a tela criaria.</summary>
+    private readonly NotaFiscalDto? _rascunhoInicial;
+
+    /// <summary>Id da nota depois de salva — o chamador usa para abrir "Ações da Nota" e
+    /// emitir na sequência, sem obrigar o operador a procurar a nota na lista.</summary>
+    public int? NotaFiscalSalvaId { get; private set; }
+
+    /// <summary>Marcado pelo chamador que já encadeia "Ações da Nota" depois de salvar
+    /// (faturamento de venda). Cala o aviso de "abra Ações da Nota na lista", que só faz
+    /// sentido para quem salvou o rascunho e ficou onde estava.</summary>
+    public bool ChamadorAbreAcoesAposSalvar { get; set; }
+
     private NotaFiscalDto _nota = new();
     private readonly ObservableCollection<ItemNotaFiscalDto> _itens = new();
     private readonly ObservableCollection<PagamentoUi> _pagamentos = new();
@@ -55,6 +69,20 @@ public partial class NotaFiscalFormView : Window
 
         PopularCombos();
         Loaded += async (_, _) => await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Abre a tela já preenchida com um rascunho montado a partir de uma venda. A nota ainda
+    /// não existe no banco (Id 0): o operador revisa destinatário/itens/impostos e só então
+    /// "Salvar Rascunho" a persiste — mesmo caminho de uma nota digitada à mão daqui para
+    /// frente.
+    /// </summary>
+    public NotaFiscalFormView(IServiceProvider serviceProvider, NotaFiscalDto rascunhoDeVenda, string numeroVenda)
+        : this(serviceProvider, rascunhoDeVenda.Tipo, notaFiscalId: null)
+    {
+        _rascunhoInicial = rascunhoDeVenda;
+        ChamadorAbreAcoesAposSalvar = true;
+        TxtTitulo.Text = $"{(rascunhoDeVenda.Tipo == TipoNotaFiscal.NFCe ? "NFC-e" : "NF-e")} da venda #{numeroVenda}";
     }
 
     private void PopularCombos()
@@ -153,6 +181,13 @@ public partial class NotaFiscalFormView : Window
                 // Cancelada/Indeterminada são documento fiscal ou já em trânsito com a SEFAZ).
                 if (_nota.Status is StatusNotaFiscal.Rascunho or StatusNotaFiscal.Rejeitada)
                     _nota = await _notaFiscalService.SincronizarTributacaoComCadastroAtualAsync(_nota);
+            }
+            else if (_rascunhoInicial is not null)
+            {
+                // Já vem completo do Service (destinatário, itens com tributação atual,
+                // pagamentos, numeração e totais) — só falta a revisão do operador. Repetir
+                // aqui a montagem da nota em branco sobrescreveria tudo isso.
+                _nota = _rascunhoInicial;
             }
             else
             {
@@ -625,10 +660,16 @@ public partial class NotaFiscalFormView : Window
             _nota = _nota.Id == 0
                 ? await _notaFiscalService.CriarRascunhoAsync(_nota)
                 : await _notaFiscalService.AtualizarRascunhoAsync(_nota);
+            NotaFiscalSalvaId = _nota.Id;
 
-            MessageBox.Show(
-                "Nota salva como rascunho.\n\nPara emitir, abra \"Ações da Nota\" na lista e clique em Emitir.",
-                "Rascunho salvo", MessageBoxButton.OK, MessageBoxImage.Information);
+            // Quem abriu a tela a partir de uma venda já encadeia "Ações da Nota" na
+            // sequência (ver VendaViewModel.EmitirNota) — repetir a instrução de procurar a
+            // nota na lista só confundiria nesse caminho.
+            if (!ChamadorAbreAcoesAposSalvar)
+                MessageBox.Show(
+                    "Nota salva como rascunho.\n\nPara emitir, abra \"Ações da Nota\" na lista e clique em Emitir.",
+                    "Rascunho salvo", MessageBoxButton.OK, MessageBoxImage.Information);
+
             DialogResult = true;
             Close();
         }

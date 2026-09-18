@@ -7,8 +7,17 @@ public interface INotaFiscalService
 {
     /// <summary>Monta (em memória, sem persistir) um rascunho a partir de uma venda já
     /// registrada — autopreenche destinatário, itens e pagamentos. O operador revisa e
-    /// confirma com <see cref="CriarRascunhoAsync"/>.</summary>
+    /// confirma com <see cref="CriarRascunhoAsync"/>.
+    ///
+    /// Recusa venda que não esteja finalizada e venda que já tenha documento fiscal vivo
+    /// (ver <see cref="ListarPorVendaAsync"/>) — faturar a mesma venda duas vezes é dobrar
+    /// imposto sobre uma receita que só existiu uma vez.</summary>
     Task<NotaFiscalDto> MontarRascunhoAPartirDeVendaAsync(int vendaId, TipoNotaFiscal tipo, CancellationToken cancellationToken = default);
+
+    /// <summary>Notas (NF-e + NFC-e) já vinculadas a uma venda, da mais recente para a mais
+    /// antiga — a tela de Vendas usa para mostrar a situação fiscal da venda e para reabrir
+    /// um rascunho existente em vez de criar outro.</summary>
+    Task<IReadOnlyList<NotaFiscalResumoDto>> ListarPorVendaAsync(int vendaId, CancellationToken cancellationToken = default);
 
     /// <summary>Monta (em memória) um item a partir de um produto do estoque — usado pela
     /// busca de produto na aba "Produtos ou serviços" da tela de emissão.</summary>

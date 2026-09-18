@@ -29,6 +29,9 @@
                 <TextBlock Style="{StaticResource TituloModulo}" Text="Histórico de Vendas"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Style="{StaticResource BotaoSecundario}" Command="{Binding EmitirNotaCommand}"
+                        Margin="0,0,10,0" Content="📄  Emitir Nota"
+                        ToolTip="Gera a NF-e ou NFC-e desta venda a partir dos itens e pagamentos já registrados."/>
                 <Button Style="{StaticResource BotaoSecundario}" Command="{Binding ImprimirCupomCommand}"
                         Margin="0,0,10,0" Content="🧾  Cupom"/>
                 <Button Style="{StaticResource BotaoSecundario}" Command="{Binding RegistrarTrocaCommand}"

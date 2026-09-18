@@ -1,0 +1,83 @@
+<Window x:Class="ImperialColors.UI.Views.SelecionarTipoNotaDialogView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Emitir Nota Fiscal" Width="620" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <ResourceDictionary Source="pack://application:,,,/ImperialColors;component/Resources/AppTheme.xaml"/>
+    </Window.Resources>
+
+    <Border Background="White" CornerRadius="8" BorderBrush="#E8E8E8" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="18" ShadowDepth="2" Opacity="0.18" Color="#000000"/>
+        </Border.Effect>
+
+        <Grid Background="{StaticResource CinzaClaroBrush}" Margin="24,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <TextBlock x:Name="TxtTitulo" Text="Emitir nota fiscal" FontSize="16" FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource PretoPrimarioBrush}"/>
+                <Button HorizontalAlignment="Right" VerticalAlignment="Center" Width="32" Height="32"
+                        Background="Transparent" BorderThickness="0" Cursor="Hand" Click="BtnCancelar_Click">
+                    <TextBlock Text="✕" FontSize="14" Foreground="{StaticResource CinzaTextoBrush}"/>
+                </Button>
+            </Grid>
+
+            <TextBlock x:Name="TxtResumoVenda" Grid.Row="1" Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{StaticResource CinzaTextoBrush}"/>
+
+            <!-- Aviso de nota já existente para a venda (rascunho/rejeitada a retomar). -->
+            <Border x:Name="PainelAviso" Grid.Row="2" Margin="0,14,0,0" Padding="12,10" CornerRadius="6"
+                    Background="#FFF3CD" BorderBrush="#F0DFA8" BorderThickness="1" Visibility="Collapsed">
+                <TextBlock x:Name="TxtAviso" TextWrapping="Wrap" FontSize="12" Foreground="#856404"/>
+            </Border>
+
+            <Grid Grid.Row="3" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="BtnNFe" Grid.Column="0" Style="{StaticResource SubmoduloCard}" Margin="0"
+                        Click="BtnNFe_Click">
+                    <StackPanel>
+                        <TextBlock Text="&#x1F4C4;" FontSize="26"/>
+                        <TextBlock Text="NF-e (modelo 55)" FontSize="14" FontWeight="Bold" Margin="0,8,0,0"
+                                   Foreground="{StaticResource PretoPrimarioBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="Cliente identificado, B2B/atacado. Exige destinatário completo (CNPJ/CPF e endereço)."
+                                   FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource CinzaTextoBrush}"/>
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="BtnNFCe" Grid.Column="2" Style="{StaticResource SubmoduloCard}" Margin="0"
+                        Click="BtnNFCe_Click">
+                    <StackPanel>
+                        <TextBlock Text="&#x1F9FE;" FontSize="26"/>
+                        <TextBlock Text="NFC-e (modelo 65)" FontSize="14" FontWeight="Bold" Margin="0,8,0,0"
+                                   Foreground="{StaticResource PretoPrimarioBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="Venda de balcão ao consumidor. Destinatário opcional (CPF só se o comprador pedir)."
+                                   FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource CinzaTextoBrush}"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="BtnCancelar_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

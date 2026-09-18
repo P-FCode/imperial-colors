@@ -1,6 +1,7 @@
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.Helpers;
 using ImperialColors.UI.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.ObjectModel;
@@ -12,6 +13,7 @@ public class VendaViewModel : BaseViewModel
     public const int ItensPorPaginaPadrao = 50;
 
     private readonly IVendaService _vendaService;
+    private readonly INotaFiscalService _notaFiscalService;
     private readonly IServiceScopeFactory _scopeFactory;
     private CancellationTokenSource? _buscaCts;
     private readonly SemaphoreSlim _buscaSemaforo = new(1, 1);
@@ -28,6 +30,7 @@ public class VendaViewModel : BaseViewModel
             SetProperty(ref _vendaSelecionada, value);
             OnPropertyChanged(nameof(TemSelecao));
             OnPropertyChanged(nameof(PodeCancelarVenda));
+            OnPropertyChanged(nameof(PodeEmitirNota));
             OnPropertyChanged(nameof(PodeRegistrarTroca));
             OnPropertyChanged(nameof(PodeExcluirVenda));
             NotifyCanExecuteChanged();
@@ -36,6 +39,10 @@ public class VendaViewModel : BaseViewModel
 
     public bool TemSelecao => VendaSelecionada is not null;
     public bool PodeCancelarVenda => TemSelecao && VendaSelecionada?.Status == StatusVenda.Finalizada;
+    /// <summary>Venda aberta ainda não tem total definitivo e venda cancelada não tem fato
+    /// gerador — nenhuma das duas pode virar nota (o Service recusa; aqui o botão já nasce
+    /// desabilitado para o operador não descobrir isso por mensagem de erro).</summary>
+    public bool PodeEmitirNota => TemSelecao && VendaSelecionada?.Status == StatusVenda.Finalizada;
     public bool PodeRegistrarTroca => TemSelecao && VendaSelecionada?.Status == StatusVenda.Finalizada;
     public bool PodeExcluirVenda => TemSelecao && VendaSelecionada?.Status != StatusVenda.Aberta;
 
@@ -95,13 +102,15 @@ public class VendaViewModel : BaseViewModel
     public AsyncRelayCommand ExcluirVendaCommand { get; }
     public AsyncRelayCommand RegistrarTrocaCommand { get; }
     public AsyncRelayCommand ImprimirCupomCommand { get; }
+    public AsyncRelayCommand EmitirNotaCommand { get; }
     public AsyncRelayCommand FiltrarCommand { get; }
     public AsyncRelayCommand PaginaAnteriorCommand { get; }
     public AsyncRelayCommand PaginaProximaCommand { get; }
 
-    public VendaViewModel(IVendaService vendaService, IServiceScopeFactory scopeFactory)
+    public VendaViewModel(IVendaService vendaService, INotaFiscalService notaFiscalService, IServiceScopeFactory scopeFactory)
     {
         _vendaService = vendaService;
+        _notaFiscalService = notaFiscalService;
         _scopeFactory = scopeFactory;
 
         CarregarCommand = new AsyncRelayCommand(CarregarAsync);
@@ -111,6 +120,7 @@ public class VendaViewModel : BaseViewModel
         ExcluirVendaCommand = new AsyncRelayCommand(ExcluirVenda, () => PodeExcluirVenda && !Carregando);
         RegistrarTrocaCommand = new AsyncRelayCommand(AbrirRegistrarTroca, () => PodeRegistrarTroca && !Carregando);
         ImprimirCupomCommand = new AsyncRelayCommand(ImprimirCupom, () => TemSelecao);
+        EmitirNotaCommand = new AsyncRelayCommand(EmitirNota, () => PodeEmitirNota && !Carregando);
         FiltrarCommand = new AsyncRelayCommand(FiltrarAsync);
         PaginaAnteriorCommand = new AsyncRelayCommand(IrPaginaAnterior, () => PodePaginaAnterior);
         PaginaProximaCommand = new AsyncRelayCommand(IrPaginaProxima, () => PodePaginaProxima);
@@ -322,6 +332,100 @@ public class VendaViewModel : BaseViewModel
         using var escopo = _scopeFactory.CreateScope();
         await WindowHelper.ExibirCupomAsync(escopo.ServiceProvider, VendaSelecionada);
     }
+
+    /// <summary>
+    /// Faturamento da venda: escolher NF-e ou NFC-e, revisar o rascunho montado a partir da
+    /// venda (destinatário, itens com a tributação atual do cadastro e os pagamentos) e
+    /// seguir direto para "Ações da Nota", onde a emissão de fato acontece.
+    ///
+    /// O cupom impresso pelo PDV não é documento fiscal — é este fluxo que gera a nota.
+    /// </summary>
+    private async Task EmitirNota()
+    {
+        if (!ValidarSelecao(
+                VendaSelecionada,
+                entidade: "venda",
+                mensagem: "Por favor, selecione uma venda na lista antes de clicar em Emitir Nota."))
+            return;
+
+        var venda = VendaSelecionada!;
+
+        if (venda.Status != StatusVenda.Finalizada)
+        {
+            MostrarErro("Somente vendas finalizadas podem ser faturadas em nota fiscal.");
+            return;
+        }
+
+        try
+        {
+            var notasDaVenda = await _notaFiscalService.ListarPorVendaAsync(venda.Id);
+
+            if (notasDaVenda.FirstOrDefault(n => NotaFiscalSituacaoHelper.BloqueiaNovaNota(n.Status)) is { } emitida)
+            {
+                // Nota viva cobrindo a venda: emitir outra seria imposto em dobro sobre a
+                // mesma receita. O caminho útil aqui é ir para as ações da nota que existe
+                // (DANFE, XML, cancelamento), não criar outra.
+                if (ConfirmarAcao(
+                        $"A venda #{venda.NumeroVenda} já tem a {DescricaoNota(emitida)}.\n\n" +
+                        "Deseja abrir as ações dessa nota (DANFE, XML, cancelamento)?"))
+                    AbrirAcoesDaNota(emitida.Id);
+                return;
+            }
+
+            if (notasDaVenda.FirstOrDefault(n => NotaFiscalSituacaoHelper.PodeRetomar(n.Status)) is { } pendente &&
+                ConfirmarAcao(
+                    $"A venda #{venda.NumeroVenda} já tem a {DescricaoNota(pendente)}.\n\n" +
+                    "Deseja retomar essa nota? (Não = criar outra do zero)"))
+            {
+                AbrirNotaExistente(pendente);
+                return;
+            }
+
+            using var escopo = _scopeFactory.CreateScope();
+
+            var dialogoTipo = new Views.SelecionarTipoNotaDialogView(venda, notasDaVenda);
+            if (ModalWindowHelper.ExibirDialogo(dialogoTipo) != true || dialogoTipo.TipoSelecionado is not { } tipo)
+                return;
+
+            // Monta em memória (nada é gravado ainda) — o operador revisa no formulário e é o
+            // "Salvar Rascunho" dele que persiste a nota.
+            var rascunho = await _notaFiscalService.MontarRascunhoAPartirDeVendaAsync(venda.Id, tipo);
+
+            var form = new Views.NotaFiscalFormView(escopo.ServiceProvider, rascunho, venda.NumeroVenda);
+            if (ModalWindowHelper.ExibirDialogo(form) != true || form.NotaFiscalSalvaId is not { } notaId)
+                return;
+
+            AbrirAcoesDaNota(notaId);
+        }
+        catch (Exception ex)
+        {
+            MostrarErro(ExceptionMessageHelper.ObterMensagemAmigavel(ex));
+        }
+    }
+
+    private void AbrirNotaExistente(NotaFiscalResumoDto nota)
+    {
+        using var escopo = _scopeFactory.CreateScope();
+        var form = new Views.NotaFiscalFormView(escopo.ServiceProvider, nota.Tipo, nota.Id)
+        {
+            ChamadorAbreAcoesAposSalvar = true
+        };
+        if (ModalWindowHelper.ExibirDialogo(form) == true && form.NotaFiscalSalvaId is { } notaId)
+            AbrirAcoesDaNota(notaId);
+    }
+
+    /// <summary>"Ações da Nota" é onde a emissão acontece de fato (e depois DANFE, XML,
+    /// cancelamento) — a tela de cadastro só grava o rascunho. Encadear as duas evita que o
+    /// operador saia de Vendas e vá procurar a nota recém-criada no módulo fiscal.</summary>
+    private void AbrirAcoesDaNota(int notaFiscalId)
+    {
+        using var escopo = _scopeFactory.CreateScope();
+        ModalWindowHelper.ExibirDialogo(new Views.NotaFiscalAcoesView(escopo.ServiceProvider, notaFiscalId));
+    }
+
+    private static string DescricaoNota(NotaFiscalResumoDto nota)
+        => $"{(nota.Tipo == TipoNotaFiscal.NFCe ? "NFC-e" : "NF-e")} {nota.Serie}/{nota.Numero} " +
+           $"({NotaFiscalStatusHelper.Descricao(nota.Status)})";
 
     private bool SetPropertyIfChanged<T>(ref T field, T value, [System.Runtime.CompilerServices.CallerMemberName] string propertyName = "")
     {

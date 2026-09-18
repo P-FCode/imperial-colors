@@ -46,6 +46,16 @@ public class NotaFiscalRepository : INotaFiscalRepository
         return await query.OrderByDescending(n => n.DataEmissao).ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<NotaFiscal>> ListarPorVendaAsync(int vendaId, CancellationToken cancellationToken = default)
+    {
+        await using var context = _contextFactory.CreateDbContext();
+        return await context.NotasFiscais.AsNoTracking()
+            .Include(n => n.Cliente)
+            .Where(n => n.VendaId == vendaId)
+            .OrderByDescending(n => n.DataEmissao)
+            .ToListAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Próximo número livre da série, resolvido com um <c>MAX</c> no banco.
     ///

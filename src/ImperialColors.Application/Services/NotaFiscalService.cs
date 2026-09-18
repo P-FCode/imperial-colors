@@ -50,6 +50,20 @@ public class NotaFiscalService : INotaFiscalService
         var venda = await _vendaRepository.ObterComItensAsync(vendaId)
             ?? throw new DomainException($"Venda com Id {vendaId} não encontrada.");
 
+        // Venda aberta ainda está sendo montada no PDV (não tem total definitivo) e venda
+        // cancelada é receita que deixou de existir — nenhuma das duas tem fato gerador para
+        // documentar. Emitir a partir delas produz nota que não corresponde a nada.
+        if (venda.Status != StatusVenda.Finalizada)
+            throw new DomainException(
+                $"Só é possível emitir nota de venda finalizada — a venda #{venda.NumeroVenda} está {venda.Status.ToString().ToLowerInvariant()}.");
+
+        var notasExistentes = await _notaFiscalRepository.ListarPorVendaAsync(vendaId, cancellationToken);
+        var bloqueio = notasExistentes.FirstOrDefault(n => NotaFiscalSituacaoHelper.BloqueiaNovaNota(n.Status));
+        if (bloqueio is not null)
+            throw new DomainException(
+                $"A venda #{venda.NumeroVenda} já tem a {DescricaoTipo(bloqueio.Tipo)} {bloqueio.Serie}/{bloqueio.Numero} " +
+                $"({bloqueio.Status}). Cancele essa nota antes de emitir outra para a mesma venda.");
+
         var empresa = await _configuracaoFiscal.ObterConfiguracaoEmpresaAsync(cancellationToken);
         var crt = await _configuracaoFiscal.ObterCodigoCrtAsync(cancellationToken);
         var serie = string.IsNullOrWhiteSpace(empresa.Serie) ? "1" : empresa.Serie;
@@ -67,7 +81,14 @@ public class NotaFiscalService : INotaFiscalService
             ConsumidorFinal = tipo == TipoNotaFiscal.NFCe || venda.ClienteId is null,
             IndicadorPresenca = empresa.IndicadorPresencaPadrao,
             FormaEnvio = empresa.FretePorContaPadrao,
-            Observacoes = venda.Observacoes
+            Observacoes = venda.Observacoes,
+            // O desconto da venda é de cabeçalho (venda.Total = Subtotal − Desconto), então
+            // vai para o vDesc da nota — o payload o coloca em prod.vDesc do item 1 e em
+            // ICMSTot.vDesc (ver NotaFiscalPayloadBuilder.ConstruirItem/ConstruirTotal).
+            // Sem isso, vNF saía igual ao SUBTOTAL enquanto os pagamentos copiados somavam o
+            // total já descontado, e toda venda com desconto era barrada na emissão por
+            // "A soma dos pagamentos não bate com o total da nota" (NotaFiscalValidator).
+            VDesc = venda.Desconto
         };
 
         if (venda.ClienteId.HasValue)
@@ -90,23 +111,48 @@ public class NotaFiscalService : INotaFiscalService
         foreach (var itemVenda in venda.Itens)
         {
             var item = await MontarItemAPartirDeProdutoAsync(itemVenda.ProdutoId, itemVenda.Quantidade, interestadual, cancellationToken);
+            // O preço que vale na nota é o que foi cobrado na venda, não o de tabela: o PDV
+            // permite negociar o valor do item, e a nota documenta a operação que aconteceu.
             item.ValorUnitario = itemVenda.PrecoUnitario;
             item.ValorTotal = itemVenda.Subtotal;
             nota.Itens.Add(item);
         }
 
-        foreach (var pagamentoVenda in venda.Pagamentos)
+        if (venda.Pagamentos.Count > 0)
         {
+            foreach (var pagamentoVenda in venda.Pagamentos)
+            {
+                nota.Pagamentos.Add(new NotaFiscalPagamentoDto
+                {
+                    FormaPagamento = pagamentoVenda.FormaPagamento,
+                    Valor = pagamentoVenda.Valor,
+                    QuantidadeParcelas = pagamentoVenda.QuantidadeParcelas,
+                    Ordem = pagamentoVenda.Ordem
+                });
+            }
+        }
+        else
+        {
+            // Venda anterior ao pagamento composto (forma única gravada só no cabeçalho da
+            // venda, sem linhas em venda_pagamentos). Sem este fallback a nota nasceria sem
+            // nenhum pagamento e a emissão parava em "Informe ao menos uma forma de
+            // pagamento" (NotaFiscalValidator), sem nada na tela explicando o motivo.
             nota.Pagamentos.Add(new NotaFiscalPagamentoDto
             {
-                FormaPagamento = pagamentoVenda.FormaPagamento,
-                Valor = pagamentoVenda.Valor,
-                QuantidadeParcelas = pagamentoVenda.QuantidadeParcelas,
-                Ordem = pagamentoVenda.Ordem
+                FormaPagamento = venda.FormaPagamento,
+                Valor = venda.Total,
+                QuantidadeParcelas = venda.QuantidadeParcelas,
+                Ordem = 1
             });
         }
 
-        return RecalcularTotais(nota);
+        // Refaz a tributação DEPOIS de trocar o preço de tabela pelo preço praticado na
+        // venda: MontarItemAPartirDeProdutoAsync calcula bases e impostos em cima do valor
+        // que o item tinha naquele momento (o do cadastro), então um item com desconto ou
+        // preço negociado saía com vBC/vICMS/PIS/COFINS calculados sobre o valor errado —
+        // imposto destacado a maior, na nota que vai para a SEFAZ. Também recalcula os
+        // totais da nota ao final.
+        return await SincronizarTributacaoComCadastroAtualAsync(nota, empresa, cancellationToken);
     }
 
     public async Task<ItemNotaFiscalDto> MontarItemAPartirDeProdutoAsync(
@@ -373,19 +419,31 @@ public class NotaFiscalService : INotaFiscalService
         TipoNotaFiscal tipo, StatusNotaFiscal? status = null, CancellationToken cancellationToken = default)
     {
         var notas = await _notaFiscalRepository.ListarAsync(tipo, status, cancellationToken);
-        return notas.Select(n => new NotaFiscalResumoDto
-        {
-            Id = n.Id,
-            Tipo = n.Tipo,
-            Serie = n.Serie,
-            Numero = n.Numero,
-            DataEmissao = n.DataEmissao,
-            Status = n.Status,
-            ClienteNome = n.Cliente?.Nome ?? n.DestinatarioNome,
-            VNf = n.VNf,
-            ChaveAcesso = n.ChaveAcesso
-        }).ToList();
+        return notas.Select(MapearResumo).ToList();
     }
+
+    public async Task<IReadOnlyList<NotaFiscalResumoDto>> ListarPorVendaAsync(
+        int vendaId, CancellationToken cancellationToken = default)
+    {
+        var notas = await _notaFiscalRepository.ListarPorVendaAsync(vendaId, cancellationToken);
+        return notas.Select(MapearResumo).ToList();
+    }
+
+    private static NotaFiscalResumoDto MapearResumo(NotaFiscal n) => new()
+    {
+        Id = n.Id,
+        Tipo = n.Tipo,
+        Serie = n.Serie,
+        Numero = n.Numero,
+        DataEmissao = n.DataEmissao,
+        Status = n.Status,
+        ClienteNome = n.Cliente?.Nome ?? n.DestinatarioNome,
+        VNf = n.VNf,
+        ChaveAcesso = n.ChaveAcesso
+    };
+
+    private static string DescricaoTipo(TipoNotaFiscal tipo)
+        => tipo == TipoNotaFiscal.NFCe ? "NFC-e" : "NF-e";
 
     public async Task<ResumoNotasFiscaisDto> ObterResumoAsync(CancellationToken cancellationToken = default)
     {
@@ -408,18 +466,7 @@ public class NotaFiscalService : INotaFiscalService
             ValorNFe = estatisticas.ValorNFe,
             TotalNFCe = estatisticas.TotalNFCe,
             ValorNFCe = estatisticas.ValorNFCe,
-            UltimasNotas = ultimas.Select(n => new NotaFiscalResumoDto
-            {
-                Id = n.Id,
-                Tipo = n.Tipo,
-                Serie = n.Serie,
-                Numero = n.Numero,
-                DataEmissao = n.DataEmissao,
-                Status = n.Status,
-                ClienteNome = n.Cliente?.Nome ?? n.DestinatarioNome,
-                VNf = n.VNf,
-                ChaveAcesso = n.ChaveAcesso
-            }).ToList()
+            UltimasNotas = ultimas.Select(MapearResumo).ToList()
         };
     }
 
