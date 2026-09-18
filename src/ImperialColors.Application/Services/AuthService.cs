@@ -54,6 +54,19 @@ public class AuthService : IAuthService
             throw new DomainException("Usuário ou senha inválidos.");
         }
 
+        // A senha vem ANTES da situação da conta de propósito: checar o status primeiro
+        // confirmava a existência do usuário e ainda dizia em que situação a conta estava para
+        // quem só chutou o login. Quem não acerta a senha recebe sempre a mesma resposta; o
+        // recado específico ("aguardando aprovação", "cancelada") só vai para quem provou ser
+        // o dono da conta.
+        if (!PasswordHasher.Verificar(dto.Senha, usuario.SenhaHash, usuario.Salt))
+        {
+            _logger.LogWarning("Tentativa de login inválida para usuário {Username}", usuario.Username);
+            await RegistrarLoginAsync("LOGIN_FALHA", usuario.NomeCompleto,
+                $"Senha incorreta para '{usuario.Username}'", NivelLogAuditoria.Warning);
+            throw new DomainException("Usuário ou senha inválidos.");
+        }
+
         if (usuario.Status == StatusUsuario.AguardandoAprovacao)
         {
             await RegistrarLoginAsync("LOGIN_FALHA", usuario.NomeCompleto,
@@ -66,14 +79,6 @@ public class AuthService : IAuthService
             await RegistrarLoginAsync("LOGIN_FALHA", usuario.NomeCompleto,
                 $"Login recusado para '{usuario.Username}': conta cancelada", NivelLogAuditoria.Warning);
             throw new DomainException("Sua conta foi cancelada. Entre em contato com o administrador.");
-        }
-
-        if (!PasswordHasher.Verificar(dto.Senha, usuario.SenhaHash, usuario.Salt))
-        {
-            _logger.LogWarning("Tentativa de login inválida para usuário {Username}", usuario.Username);
-            await RegistrarLoginAsync("LOGIN_FALHA", usuario.NomeCompleto,
-                $"Senha incorreta para '{usuario.Username}'", NivelLogAuditoria.Warning);
-            throw new DomainException("Usuário ou senha inválidos.");
         }
 
         _logger.LogInformation("Login bem-sucedido: {Username}", usuario.Username);

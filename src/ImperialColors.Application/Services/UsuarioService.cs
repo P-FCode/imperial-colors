@@ -95,6 +95,11 @@ public class UsuarioService : IUsuarioService
         if (await _usuarioRepository.EmailExisteAsync(email, dto.Id))
             throw new DomainException("E-mail já está em uso por outro usuário.");
 
+        await GarantirQueSobraAdministradorAsync(usuario,
+            continuaAdministradorAtivo: dto.Permissao == PermissaoUsuario.Admin && dto.Status == StatusUsuario.Aprovado,
+            "Não é possível tirar a permissão de administrador do único administrador aprovado do sistema. " +
+            "Cadastre outro administrador antes.");
+
         var mudancas = new List<string>();
         if (usuario.Permissao != dto.Permissao) mudancas.Add($"permissão {usuario.Permissao} → {dto.Permissao}");
         if (usuario.Status != dto.Status) mudancas.Add($"situação {usuario.Status} → {dto.Status}");
@@ -132,6 +137,10 @@ public class UsuarioService : IUsuarioService
         var usuario = await _usuarioRepository.ObterPorIdAsync(id)
             ?? throw new DomainException("Usuário não encontrado.");
 
+        await GarantirQueSobraAdministradorAsync(usuario, continuaAdministradorAtivo: false,
+            "Não é possível cancelar o único administrador aprovado do sistema. " +
+            "Cadastre outro administrador antes.");
+
         usuario.Status = StatusUsuario.Cancelado;
         await _usuarioRepository.AtualizarAsync(usuario);
         _logger.LogInformation("Usuário cancelado: {Username}", usuario.Username);
@@ -161,19 +170,34 @@ public class UsuarioService : IUsuarioService
         var usuario = await _usuarioRepository.ObterPorIdAsync(id)
             ?? throw new DomainException("Usuário não encontrado.");
 
-        if (usuario.Permissao == PermissaoUsuario.Admin &&
-            usuario.Status == StatusUsuario.Aprovado &&
-            await _usuarioRepository.ContarAdminsAprovadosAsync() <= 1)
-        {
-            throw new DomainException(
-                "Não é possível excluir o único administrador aprovado do sistema. Cadastre outro administrador antes.");
-        }
+        await GarantirQueSobraAdministradorAsync(usuario, continuaAdministradorAtivo: false,
+            "Não é possível excluir o único administrador aprovado do sistema. Cadastre outro administrador antes.");
 
         await _usuarioRepository.RemoverFisicamenteAsync(id);
         _logger.LogInformation("Usuário excluído permanentemente: {Username}", usuario.Username);
 
         await RegistrarAuditoriaAsync("USUARIO_EXCLUIDO",
             $"Usuário '{usuario.Username}' ({usuario.NomeCompleto}) excluído permanentemente", usuario, NivelLogAuditoria.Warning);
+    }
+
+    /// <summary>
+    /// Impede o lockout da loja: quem já é administrador aprovado só pode deixar de ser — por
+    /// rebaixamento de permissão, mudança de situação, cancelamento ou exclusão — se houver
+    /// outro administrador aprovado. Sem isso ninguém mais abre a Gestão de Usuários e não
+    /// sobra tela para voltar atrás.
+    /// </summary>
+    private async Task GarantirQueSobraAdministradorAsync(
+        Usuario usuario, bool continuaAdministradorAtivo, string mensagem)
+    {
+        var eraAdministradorAtivo =
+            usuario.Permissao == PermissaoUsuario.Admin && usuario.Status == StatusUsuario.Aprovado;
+
+        if (!eraAdministradorAtivo || continuaAdministradorAtivo)
+            return;
+
+        // O próprio usuário ainda entra na contagem: 1 significa que ele é o último.
+        if (await _usuarioRepository.ContarAdminsAprovadosAsync() <= 1)
+            throw new DomainException(mensagem);
     }
 
     private static void ValidarDadosBasicos(string nome, string username, string email, string senha)
