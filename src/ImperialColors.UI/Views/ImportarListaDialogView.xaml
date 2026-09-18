@@ -1,0 +1,98 @@
+<Window x:Class="ImperialColors.UI.Views.ImportarListaDialogView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Importar Lista" Width="660" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <ResourceDictionary Source="pack://application:,,,/ImperialColors;component/Resources/AppTheme.xaml"/>
+    </Window.Resources>
+
+    <Border Background="White" CornerRadius="8" BorderBrush="#E8E8E8" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="18" ShadowDepth="2" Opacity="0.18" Color="#000000"/>
+        </Border.Effect>
+
+        <Grid Background="{StaticResource CinzaClaroBrush}" Margin="24,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <TextBlock x:Name="TxtTitulo" Text="Importar lista de produtos" FontSize="16" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Foreground="{StaticResource PretoPrimarioBrush}"/>
+                <Button HorizontalAlignment="Right" VerticalAlignment="Center" Width="32" Height="32"
+                        Background="Transparent" BorderThickness="0" Cursor="Hand" Click="BtnCancelar_Click">
+                    <TextBlock Text="✕" FontSize="14" Foreground="{StaticResource CinzaTextoBrush}"/>
+                </Button>
+            </Grid>
+
+            <TextBlock Grid.Row="1" Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{StaticResource CinzaTextoBrush}"
+                       Text="Escolha o formato do arquivo. As colunas são as mesmas nos três: código de barras, nome do produto e quantidade."/>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,16,0,0">
+                <RadioButton x:Name="RbXlsx" GroupName="FormatoImportacao" Content="Excel (.xlsx)"
+                             IsChecked="True" Margin="0,0,24,0" Checked="Formato_Changed"/>
+                <RadioButton x:Name="RbCsv" GroupName="FormatoImportacao" Content="CSV (.csv)"
+                             Margin="0,0,24,0" Checked="Formato_Changed"/>
+                <RadioButton x:Name="RbTxt" GroupName="FormatoImportacao" Content="Texto (.txt)"
+                             Checked="Formato_Changed"/>
+            </StackPanel>
+
+            <!-- Tutorial do formato selecionado -->
+            <Border Grid.Row="3" Margin="0,14,0,0" Padding="14,12" CornerRadius="6"
+                    Background="White" BorderBrush="{StaticResource CinzaMedioBrush}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock x:Name="TxtComoMontar" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource PretoPrimarioBrush}"/>
+
+                    <Border Margin="0,10,0,0" Padding="12,10" CornerRadius="4"
+                            Background="{StaticResource CinzaClaroBrush}">
+                        <TextBlock x:Name="TxtExemplo" FontFamily="Consolas, Courier New" FontSize="12"
+                                   Foreground="{StaticResource PretoPrimarioBrush}"/>
+                    </Border>
+
+                    <TextBlock Margin="0,10,0,0" FontSize="11" TextWrapping="Wrap"
+                               Foreground="{StaticResource CinzaTextoBrush}"
+                               Text="Valem para qualquer formato: sem código de barras, deixe a primeira coluna vazia — o item entra como manual, para você digitar o preço na grade. Código que não está cadastrado no estoque também entra como manual. A quantidade aceita decimal (1,5). Nada é salvo na importação: a grade abre para conferência e você ainda revisa antes de concluir a venda."/>
+                </StackPanel>
+            </Border>
+
+            <!-- Seleção do arquivo -->
+            <Grid Grid.Row="4" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="BtnSelecionarArquivo" Grid.Column="0" Content="📂  Selecionar arquivo..."
+                        Style="{StaticResource BotaoSecundario}" Click="BtnSelecionarArquivo_Click"/>
+
+                <TextBlock x:Name="TxtArquivoSelecionado" Grid.Column="2" VerticalAlignment="Center"
+                           FontSize="12" TextTrimming="CharacterEllipsis"
+                           Foreground="{StaticResource CinzaTextoBrush}"
+                           Text="Nenhum arquivo selecionado"/>
+            </Grid>
+
+            <TextBlock x:Name="TxtErro" Grid.Row="5" Margin="0,12,0,0" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{StaticResource VermelhoErroBrush}" Visibility="Collapsed"/>
+
+            <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                        Margin="0,0,10,0" Click="BtnCancelar_Click"/>
+                <Button x:Name="BtnImportar" Content="Importar" Style="{StaticResource BotaoPrimario}"
+                        IsEnabled="False" Click="BtnImportar_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

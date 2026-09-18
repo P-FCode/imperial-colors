@@ -641,13 +641,22 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
   - Toda a operação roda em uma única `IDbContextTransaction` — se qualquer etapa falhar, nada é salvo
   - Movimentações de estoque registradas automaticamente com rastreabilidade (`Troca vinculada à Venda ID X`)
 - Impressão/visualização de cupom
+- Botão **Emitir Nota** — fatura a venda selecionada (só vendas finalizadas):
+  - Escolha entre **NF-e** (modelo 55, cliente identificado) e **NFC-e** (modelo 65, balcão)
+  - A tela de emissão abre já preenchida com destinatário (cliente ou comprador do cupom), itens com a tributação atual do cadastro e as formas de pagamento da venda
+  - Após salvar o rascunho, abre direto em **Ações da Nota** para transmitir à SEFAZ
+  - A venda fica vinculada à nota: com NF-e/NFC-e autorizada, o botão passa a abrir as ações da nota existente (DANFE, XML, cancelamento) em vez de faturar de novo
 
 ### Vendas Externas
 - Menu lateral **Vendas externas** (ícone 🚚), posicionado logo abaixo de **Vendas**
 - Consolida vendas realizadas fora do estabelecimento físico
 - **Fluxo A – Produto cadastrado:** busca por código de barras ou texto; preenche nome e preço base; informa quantidade e valor praticado na rua; ao concluir, dá baixa automática no estoque
 - **Fluxo B – Item manual:** nome, quantidade e valor unitário livres, sem vínculo com produto — computado apenas no faturamento, sem baixa de estoque
-- **Importador TXT:** formato `CODIGO_DE_BARRAS;NOME_DO_PRODUTO;QUANTIDADE` — grade de conferência editável antes da aprovação
+- **Importar Lista:** o botão abre um diálogo para escolher o formato, com o tutorial e um exemplo do layout esperado logo abaixo da opção marcada; em seguida seleciona-se o arquivo. Grade de conferência editável antes da aprovação
+  - **Excel (.xlsx):** primeira aba, três colunas — A = código de barras, B = nome do produto, C = quantidade
+  - **CSV (.csv):** campos separados por `;` (padrão do Excel em português) ou `,`; nome com o separador dentro deve vir entre aspas
+  - **Texto (.txt):** formato `CODIGO_DE_BARRAS;NOME_DO_PRODUTO;QUANTIDADE`; linhas iniciadas com `#` são ignoradas
+  - Comum aos três: a linha de cabeçalho pode ficar no arquivo (se a quantidade não for um número, é ignorada); sem código de barras — ou com código não cadastrado — o item entra como manual; a quantidade aceita decimal (`1,5`)
 - Botão **Aprovar e Concluir Venda** grava venda + baixas em uma única transação (`IDbContextTransaction`); falha de estoque ou validação faz rollback completo
 - **Pós-venda (gerenciamento completo):**
   - **Editar:** reabre a grade de itens; altere quantidades, preços ou adicione novos itens — o estoque é recalculado automaticamente (aumento baixa diferença, redução repõe diferença; itens manuais só afetam faturamento)

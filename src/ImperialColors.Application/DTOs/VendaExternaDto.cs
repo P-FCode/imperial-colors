@@ -65,6 +65,20 @@ public class RegistrarItemVendaExternaDto
     public decimal PrecoUnitario { get; set; }
 }
 
+/// <summary>
+/// Uma linha do arquivo importado ainda em texto cru, antes de qualquer validação — é o
+/// formato comum em que TXT, CSV e planilha chegam ao <c>VendaExternaImportHelper</c>. A
+/// quantidade é string de propósito: quem decide se "2", "1,5" ou "Quantidade" (cabeçalho)
+/// é um número válido é o helper, com a mensagem de erro apontando a linha do arquivo.
+/// </summary>
+public class LinhaBrutaImportacaoDto
+{
+    public int NumeroLinha { get; set; }
+    public string? CodigoBarras { get; set; }
+    public string? NomeProduto { get; set; }
+    public string? Quantidade { get; set; }
+}
+
 public class LinhaImportacaoVendaExternaDto
 {
     public int NumeroLinha { get; set; }

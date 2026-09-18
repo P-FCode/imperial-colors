@@ -150,12 +150,27 @@ public class VendaExternaService : IVendaExternaService
         }, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<LinhaImportacaoVendaExternaDto>> ProcessarImportacaoTxtAsync(
+    public Task<IReadOnlyList<LinhaImportacaoVendaExternaDto>> ProcessarImportacaoTextoAsync(
         string conteudoArquivo,
+        FormatoImportacaoLista formato,
         CancellationToken cancellationToken = default)
-    {
-        var linhas = VendaExternaTxtImportHelper.ParseArquivo(conteudoArquivo);
+        => VincularProdutosAsync(VendaExternaImportHelper.ParseTexto(conteudoArquivo, formato));
 
+    public Task<IReadOnlyList<LinhaImportacaoVendaExternaDto>> ProcessarImportacaoPlanilhaAsync(
+        IReadOnlyList<LinhaBrutaImportacaoDto> celulas,
+        CancellationToken cancellationToken = default)
+        => VincularProdutosAsync(VendaExternaImportHelper.ParseCelulas(celulas));
+
+    /// <summary>
+    /// Completa cada linha do arquivo com o produto do estoque correspondente ao código de
+    /// barras — é isso que traz nome e preço de tabela e faz o item entrar na venda como
+    /// "Estoque" (com baixa) em vez de "Manual". Linha sem código, ou com código que não
+    /// está cadastrado, continua valendo: entra como item manual, com o nome que veio no
+    /// arquivo e preço a ser digitado na grade de conferência.
+    /// </summary>
+    private async Task<IReadOnlyList<LinhaImportacaoVendaExternaDto>> VincularProdutosAsync(
+        IReadOnlyList<LinhaImportacaoVendaExternaDto> linhas)
+    {
         foreach (var linha in linhas)
         {
             if (string.IsNullOrWhiteSpace(linha.CodigoBarras))

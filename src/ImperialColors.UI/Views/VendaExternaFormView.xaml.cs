@@ -1,9 +1,9 @@
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
+using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.UI.Helpers;
 using ImperialColors.UI.Models;
-using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -43,7 +43,7 @@ public partial class VendaExternaFormView : Window
         _usuario = usuario;
         Title = "Registrar Venda Externa";
         TxtTituloModulo.Text = "Registrar Venda Externa";
-        TxtSubtituloModulo.Text = "Adicione itens do estoque, digite manualmente ou importe uma lista TXT para conferência";
+        TxtSubtituloModulo.Text = "Adicione itens do estoque, digite manualmente ou importe uma lista (Excel, CSV ou TXT) para conferência";
         BtnAprovar.Content = "Aprovar e Concluir Venda";
         TxtObservacoes.Text = string.Empty;
         RbModoEstoque.IsChecked = true;
@@ -288,23 +288,23 @@ public partial class VendaExternaFormView : Window
         LimparCamposItem();
     }
 
-    private async void BtnImportarTxt_Click(object sender, RoutedEventArgs e)
+    private async void BtnImportarLista_Click(object sender, RoutedEventArgs e)
     {
         LimparErroValidacao();
 
-        var dialog = new OpenFileDialog
-        {
-            Filter = "Arquivo de texto (*.txt)|*.txt",
-            Title = "Selecionar lista de produtos"
-        };
-
-        if (dialog.ShowDialog() != true)
+        var dialogo = new ImportarListaDialogView();
+        if (ModalWindowHelper.ExibirDialogo(dialogo, this) != true || dialogo.CaminhoArquivo is not { } caminho)
             return;
 
         try
         {
-            var conteudo = await File.ReadAllTextAsync(dialog.FileName);
-            var linhas = await _vendaExternaService.ProcessarImportacaoTxtAsync(conteudo);
+            // Planilha e texto se separam só na leitura do arquivo (o ClosedXML mora aqui na
+            // apresentação); daqui para frente os três formatos seguem pelo mesmo caminho de
+            // validação e vínculo com o estoque.
+            var linhas = dialogo.Formato == FormatoImportacaoLista.Xlsx
+                ? await _vendaExternaService.ProcessarImportacaoPlanilhaAsync(ImportacaoArquivoHelper.LerXlsx(caminho))
+                : await _vendaExternaService.ProcessarImportacaoTextoAsync(
+                    await ImportacaoArquivoHelper.LerTextoAsync(caminho), dialogo.Formato);
 
             foreach (var linha in linhas)
             {
@@ -320,7 +320,8 @@ public partial class VendaExternaFormView : Window
             }
 
             MessageBox.Show(
-                $"{linhas.Count} item(ns) importado(s). Revise a grade antes de concluir a venda.",
+                $"{linhas.Count} item(ns) importado(s) de {Path.GetFileName(caminho)}. " +
+                "Revise a grade antes de concluir a venda.",
                 "Importação concluída",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);

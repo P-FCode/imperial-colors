@@ -25,7 +25,7 @@
             <StackPanel>
                 <TextBlock x:Name="TxtTituloModulo" Text="Registrar Venda Externa"
                            FontSize="18" FontWeight="Bold" Foreground="{StaticResource PretoPrimarioBrush}"/>
-                <TextBlock x:Name="TxtSubtituloModulo" Text="Adicione itens do estoque, digite manualmente ou importe uma lista TXT para conferência"
+                <TextBlock x:Name="TxtSubtituloModulo" Text="Adicione itens do estoque, digite manualmente ou importe uma lista (Excel, CSV ou TXT) para conferência"
                            FontSize="12" Foreground="{StaticResource CinzaTextoBrush}" Margin="0,3,0,0"/>
             </StackPanel>
         </Border>
@@ -43,8 +43,9 @@
                     <StackPanel>
                         <Grid Margin="0,0,0,12">
                             <TextBlock Text="Adicionar item" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Button Content="Importar Lista (TXT)" Style="{StaticResource BotaoSecundario}"
-                                    HorizontalAlignment="Right" Click="BtnImportarTxt_Click"/>
+                            <Button Content="Importar Lista" Style="{StaticResource BotaoSecundario}"
+                                    HorizontalAlignment="Right" Click="BtnImportarLista_Click"
+                                    ToolTip="Importa uma lista de conferência em Excel (.xlsx), CSV ou TXT."/>
                         </Grid>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
