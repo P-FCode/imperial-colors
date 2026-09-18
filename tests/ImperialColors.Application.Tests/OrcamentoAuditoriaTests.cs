@@ -138,14 +138,16 @@ public class OrcamentoAuditoriaTests
     }
 
     /// <summary>
-    /// ACHADO ESPERADO: <c>ProdutoService.CriarAsync</c> passa <c>Nome</c>/<c>Observacoes</c>
-    /// por <c>InputSanitizer.SanitizarTexto</c> (remove <c>&lt; &gt; &amp; " '</c>).
-    /// <c>OrcamentoService</c> só faz <c>.Trim()</c> — o mesmo dado (nome de cliente digitado
-    /// no balcão) sai higienizado num cadastro e cru no outro, e o PDF do orçamento imprime
-    /// exatamente o que foi digitado.
+    /// REVISTO (segunda rodada). A recomendação original era aplicar
+    /// <c>InputSanitizer.SanitizarTexto</c> aqui, porque o sanitizador apagava
+    /// <c>&lt; &gt; &amp; " '</c> nos cadastros e o Orçamento só fazia <c>.Trim()</c>.
+    /// A divergência foi resolvida no outro sentido: o sanitizador parou de apagar esses
+    /// caracteres (ver <c>Auditoria2CadastroTests.SanitizarTexto_NaoDeveApagarCaracteresLegitimosDeCadastro</c>),
+    /// porque são dado legítimo e o app não tem superfície HTML. O contrato agora é o mesmo
+    /// nos dois lados: o nome digitado no balcão chega íntegro ao orçamento e ao PDF.
     /// </summary>
     [Fact]
-    public async Task NomeClienteComCaracteresPerigosos_DeveriaSerSanitizado()
+    public async Task NomeClienteComCaracteresEspeciais_DeveChegarIntegroAoOrcamento()
     {
         if (!TryConfigurar(out var provider)) return;
         await using var scope = provider.CreateAsyncScope();
@@ -161,8 +163,7 @@ public class OrcamentoAuditoriaTests
 
         try
         {
-            Assert.DoesNotContain('<', orcamento.NomeCliente);
-            Assert.DoesNotContain('"', orcamento.NomeCliente);
+            Assert.Equal("<script>alert(1)</script> João \"Pintor\"", orcamento.NomeCliente);
         }
         finally
         {
