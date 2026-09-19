@@ -356,8 +356,8 @@ public class RelatorioService : IRelatorioService
 
             AdicionarCabecalhoRelatorio(document, "Relatorio de Estoque", $"Gerado em: {DateTime.Now:dd/MM/yyyy HH:mm}");
 
-            var tabela = new ITextTable(new float[] { 1.5f, 3, 2, 1.5f, 1, 1.5f, 1.5f }).UseAllAvailableWidth();
-            AdicionarCabecalhoTabela(tabela, "Codigo", "Nome", "Categoria", "Marca", "Estoque", "Un", "Preco");
+            var tabela = new ITextTable(new float[] { 1.4f, 2.8f, 1.8f, 1.3f, 1, 0.7f, 1.2f, 1.4f }).UseAllAvailableWidth();
+            AdicionarCabecalhoTabela(tabela, "Codigo", "Nome", "Categoria", "Marca", "Estoque", "Un", "Peso", "Preco");
 
             foreach (var produto in produtos)
             {
@@ -370,6 +370,11 @@ public class RelatorioService : IRelatorioService
                 else if (produto.EstoqueBaixo) celEstoque.SetFontColor(new DeviceRgb(253, 126, 20));
                 tabela.AddCell(celEstoque);
                 tabela.AddCell(CelulaTabela(produto.Unidade));
+                // Peso legível ("5,5 kg", "800 g") — no PDF o valor é para conferir na mão,
+                // não para somar; quem precisa de total usa a exportação em Excel, onde a
+                // mesma coluna sai como número em quilos.
+                var peso = produto.PesoFormatado;
+                tabela.AddCell(CelulaTabela(peso.Length == 0 ? "-" : peso, TextAlignment.RIGHT));
                 tabela.AddCell(CelulaTabela(produto.PrecoVenda.ToString("C2", new System.Globalization.CultureInfo("pt-BR")), TextAlignment.RIGHT));
             }
 
@@ -435,9 +440,12 @@ public class RelatorioService : IRelatorioService
             ws.Cell(1, 1).Value = $"{_config.EmpresaNome} - Relatorio de Estoque";
             ws.Cell(1, 1).Style.Font.Bold = true;
             ws.Cell(1, 1).Style.Font.FontSize = 14;
-            ws.Range(1, 1, 1, 7).Merge();
+            ws.Range(1, 1, 1, 8).Merge();
 
-            var headers = new[] { "Codigo", "Nome", "Categoria", "Marca", "Estoque", "Unidade", "Preco Venda" };
+            // Peso sai em QUILOS e como número (não como o texto "5,5 kg" do PDF): numa
+            // planilha o valor existe para ser somado e filtrado — peso total da carga,
+            // produtos acima de X kg —, e quilo é a unidade em que esse total é lido.
+            var headers = new[] { "Codigo", "Nome", "Categoria", "Marca", "Estoque", "Unidade", "Peso (kg)", "Preco Venda" };
             for (int i = 0; i < headers.Length; i++)
             {
                 var cell = ws.Cell(3, i + 1);
@@ -455,8 +463,13 @@ public class RelatorioService : IRelatorioService
                 ws.Cell(row, 4).Value = p.MarcaNome ?? "-";
                 ws.Cell(row, 5).Value = p.QuantidadeEstoque;
                 ws.Cell(row, 6).Value = p.Unidade;
-                ws.Cell(row, 7).Value = p.PrecoVenda;
-                ws.Cell(row, 7).Style.NumberFormat.Format = "R$ #,##0.00";
+                if (PesoProdutoHelper.EmQuilos(p.PesoGramas) is { } pesoKg)
+                {
+                    ws.Cell(row, 7).Value = pesoKg;
+                    ws.Cell(row, 7).Style.NumberFormat.Format = "#,##0.###";
+                }
+                ws.Cell(row, 8).Value = p.PrecoVenda;
+                ws.Cell(row, 8).Style.NumberFormat.Format = "R$ #,##0.00";
 
                 if (p.SemEstoque) ws.Cell(row, 5).Style.Font.FontColor = XLColor.Red;
                 else if (p.EstoqueBaixo) ws.Cell(row, 5).Style.Font.FontColor = XLColor.Orange;

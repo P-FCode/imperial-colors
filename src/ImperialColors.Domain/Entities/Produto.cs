@@ -16,6 +16,20 @@ public class Produto : BaseEntity
     // 18L, balde de 17kg ou 25kg — um decimal fixo (como a antiga LitragemGl, restrita a
     // GL=3,6/18) não desse conta de "kg" nem de embalagens que o cliente ainda nem usa.
     public string? TamanhoEmbalagem { get; set; }
+
+    /// <summary>
+    /// Peso da unidade em GRAMAS, inteiro. A unidade é fixa (e está no nome da propriedade)
+    /// de propósito: o campo só serve para somar carga e alimentar o peso bruto/líquido da
+    /// NF-e se cada produto estiver na mesma escala — com "peso" livre, um operador digita
+    /// 5500 pensando em gramas e outro digita 5,5 pensando em quilos, e a soma não vale
+    /// nada. Gramas em vez de quilos com decimal porque o operador digita um inteiro, sem
+    /// vírgula para errar; a tela mostra o equivalente em kg ao lado.
+    ///
+    /// Nulo para produto sem peso cadastrado — é o caso de todo o catálogo existente, e de
+    /// itens em que o peso não faz sentido (serviço, pincel avulso).
+    /// </summary>
+    public int? PesoGramas { get; set; }
+
     public decimal? Custo { get; set; }
     public decimal PrecoVenda { get; set; }
     public bool PromocaoAtiva { get; set; }

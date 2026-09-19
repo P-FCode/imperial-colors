@@ -188,6 +188,26 @@
                                TextWrapping="Wrap"/>
                 </Grid>
 
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Style="{StaticResource LabelCampo}" Text="Peso (gramas)"/>
+                        <TextBox x:Name="TxtPesoGramas" Style="{StaticResource TextBoxNumerico}" MaxLength="7"
+                                 TextChanged="TxtPesoGramas_TextChanged"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="12,0,0,6">
+                        <TextBlock x:Name="TxtPesoEquivalente" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{StaticResource PretoPrimarioBrush}"
+                                   Visibility="Collapsed" Margin="0,0,0,2"/>
+                        <TextBlock FontSize="12" Foreground="{StaticResource CinzaTextoBrush}"
+                                   Text="Opcional, número inteiro em gramas — ex.: 5500 para uma lata de 5,5 kg."
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+
                 <StackPanel Margin="0,0,0,12">
                     <CheckBox x:Name="ChkCustoTotal"
                               Content="Informar Valor Total da Compra"

@@ -139,6 +139,7 @@ public class ProdutoService : IProdutoService
             EstoqueMinimo = dto.EstoqueMinimo,
             Unidade = unidade,
             TamanhoEmbalagem = InputSanitizer.SanitizarTexto(dto.TamanhoEmbalagem, 30),
+            PesoGramas = dto.PesoGramas,
             Custo = dto.Custo,
             PrecoVenda = dto.PrecoVenda,
             PromocaoAtiva = dto.PromocaoAtiva,
@@ -199,6 +200,7 @@ public class ProdutoService : IProdutoService
         var unidadeAtualizada = UnidadesMedida.Normalizar(dto.Unidade);
         produto.Unidade = unidadeAtualizada;
         produto.TamanhoEmbalagem = InputSanitizer.SanitizarTexto(dto.TamanhoEmbalagem, 30);
+        produto.PesoGramas = dto.PesoGramas;
         produto.Custo = dto.Custo;
         produto.PrecoVenda = dto.PrecoVenda;
         produto.PromocaoAtiva = dto.PromocaoAtiva;
@@ -502,6 +504,7 @@ public class ProdutoService : IProdutoService
         EstoqueMinimo = p.EstoqueMinimo,
         Unidade = p.Unidade,
         TamanhoEmbalagem = p.TamanhoEmbalagem,
+        PesoGramas = p.PesoGramas,
         Custo = p.Custo,
         PrecoVenda = p.PrecoVenda,
         PromocaoAtiva = p.PromocaoAtiva,

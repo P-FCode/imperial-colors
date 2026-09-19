@@ -614,6 +614,7 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - **Unidades de Medida suportadas:** UN, GL (Galão), BD (Balde), LT (Litro), RL (Rolo), CX (Caixa), PCT (Pacote)
 - **Galão (GL):** ao selecionar GL, o campo **Litragem** aparece automaticamente com opções **3,6L** ou **18L** — salvo na coluna `litragem_gl` do banco e exibido no estoque e PDV (ex: `Tinta Coral (GL 18L)`)
 - **Balde (BD):** nova unidade para tintas vendidas em balde, disponível em todo o sistema
+- **Peso (gramas):** campo opcional no cadastro do produto, número inteiro (ex.: `5500`). Ao lado do campo aparece o equivalente em quilos enquanto se digita (`= 5,5 kg`), o que evita um zero a mais passar batido. Recusa zero/negativo e valores acima de 1 tonelada por unidade. Sai como coluna no relatório de estoque
 
 ### PDV - Ponto de Venda
 - Atalho no menu: **PDV - Nova venda (F2)**
@@ -710,7 +711,7 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
   - **Mais Vendidos** — ranking por volume (balcão + vendas externas)
   - **Menos Vendidos** — itens com saída no período, ordenados do menor para o maior
   - **Nunca Vendidos (Encalhados)** — produtos com estoque e zero vendas no intervalo
-- Estoque completo (PDF e Excel)
+- Estoque completo (PDF e Excel) — inclui a coluna **Peso**: no PDF em formato de leitura (`5,5 kg`, `800 g`, `-` quando não cadastrado) e no Excel como número em quilos, para somar o peso da carga e filtrar por faixa
 - Produtos com estoque baixo
 - Produtos sem estoque
 

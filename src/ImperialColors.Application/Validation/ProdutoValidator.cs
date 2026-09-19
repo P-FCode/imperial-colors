@@ -1,4 +1,5 @@
 using ImperialColors.Application.DTOs;
+using ImperialColors.Application.Helpers;
 using ImperialColors.Domain.Constants;
 using ImperialColors.Domain.Exceptions;
 
@@ -39,7 +40,28 @@ public static class ProdutoValidator
             throw new DomainException(
                 $"Unidade de medida inválida. Use: {string.Join(", ", UnidadesMedida.Todas)}.");
 
+        ValidarPeso(dto.PesoGramas);
         ValidarPromocao(dto.PromocaoAtiva, dto.PrecoPromocional, dto.PrecoVenda);
+    }
+
+    /// <summary>
+    /// O peso é opcional, mas quando informado tem que ser um peso plausível. Zero ou
+    /// negativo não é "sem peso" — é campo preenchido errado, e guardado assim estraga
+    /// qualquer soma de carga. O teto pega o engano de digitar preço ou código de barras
+    /// no campo de peso, que passaria despercebido até alguém ver uma nota fiscal com
+    /// sete toneladas de tinta.
+    /// </summary>
+    private static void ValidarPeso(int? pesoGramas)
+    {
+        if (pesoGramas is null)
+            return;
+
+        if (pesoGramas <= 0)
+            throw new DomainException("Peso, quando informado, deve ser maior que zero.");
+
+        if (pesoGramas > PesoProdutoHelper.PesoMaximoGramas)
+            throw new DomainException(
+                $"Peso acima do limite ({PesoProdutoHelper.PesoMaximoGramas / PesoProdutoHelper.GramasPorQuilo} kg por unidade) — confira se digitou em gramas.");
     }
 
     private static void ValidarPromocao(bool promocaoAtiva, decimal? precoPromocional, decimal precoVenda)

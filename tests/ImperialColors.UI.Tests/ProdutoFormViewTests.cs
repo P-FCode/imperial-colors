@@ -3,6 +3,7 @@ using ImperialColors.Application.Interfaces;
 using ImperialColors.UI.Helpers;
 using ImperialColors.UI.Views;
 using Moq;
+using System.Windows;
 using System.Windows.Controls;
 using Xunit;
 
@@ -153,6 +154,40 @@ public class ProdutoFormViewTests
 
         form.InicializarNovo();
         Assert.Equal(string.Empty, campo.Text);
+
+        form.Close();
+    }
+
+    /// <summary>O peso é guardado em gramas, mas conferido em quilos — o eco ao lado do
+    /// campo é o que impede um zero a mais (55000) de passar batido. Cobre também a volta
+    /// ao formulário em branco, para o peso do produto anterior não ficar na tela.</summary>
+    [StaFact]
+    public void ProdutoFormView_PesoEmGramasEcoaOEquivalenteEmQuilos()
+    {
+        var form = CriarForm();
+
+        var produto = CriarProdutoExemplo();
+        produto.PesoGramas = 5500;
+        form.InicializarEdicao(produto);
+
+        var campo = form.FindName("TxtPesoGramas") as TextBox;
+        var eco = form.FindName("TxtPesoEquivalente") as TextBlock;
+        Assert.NotNull(campo);
+        Assert.NotNull(eco);
+        Assert.Equal("5500", campo!.Text);
+        Assert.Equal("= 5,5 kg", eco!.Text);
+        Assert.Equal(Visibility.Visible, eco.Visibility);
+
+        campo.Text = "800";
+        Assert.Equal("= 800 g", eco.Text);
+
+        // Texto que não é peso não ecoa nada — quem barra de fato é a validação ao salvar.
+        campo.Text = "abc";
+        Assert.Equal(Visibility.Collapsed, eco.Visibility);
+
+        form.InicializarNovo();
+        Assert.Equal(string.Empty, campo.Text);
+        Assert.Equal(Visibility.Collapsed, eco.Visibility);
 
         form.Close();
     }

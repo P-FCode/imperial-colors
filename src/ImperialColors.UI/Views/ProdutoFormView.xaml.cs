@@ -1,4 +1,5 @@
 using ImperialColors.Application.DTOs;
+using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Application.Services;
 using ImperialColors.Application.Validation;
@@ -141,6 +142,7 @@ public partial class ProdutoFormView : Window
         TxtNome.Text = string.Empty;
         TxtCodigoBarras.Text = string.Empty;
         TxtTamanhoEmbalagem.Text = string.Empty;
+        TxtPesoGramas.Text = string.Empty;
         TxtObservacoes.Text = string.Empty;
         DpValidade.SelectedDate = null;
         ChkPromocaoAtiva.IsChecked = false;
@@ -196,6 +198,8 @@ public partial class ProdutoFormView : Window
             }
 
             TxtTamanhoEmbalagem.Text = produto.TamanhoEmbalagem ?? string.Empty;
+            TxtPesoGramas.Text = produto.PesoGramas?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+            AtualizarPesoEquivalente();
         }
         finally
         {
@@ -793,6 +797,12 @@ public partial class ProdutoFormView : Window
             var unidade = (CmbUnidade.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "UN";
             var tamanhoEmbalagem = string.IsNullOrWhiteSpace(TxtTamanhoEmbalagem.Text) ? null : TxtTamanhoEmbalagem.Text.Trim();
 
+            if (!TentarLerPesoGramas(out var pesoGramas))
+            {
+                ExibirErroValidacao("Peso inválido — informe só o número em gramas (ex.: 5500) ou deixe em branco.");
+                return;
+            }
+
             var tributacaoDto = MontarDtoTributacaoOuNulo();
             if (tributacaoDto is not null)
                 TributacaoProdutoValidator.Validar(tributacaoDto, _regimeAtual);
@@ -818,6 +828,7 @@ public partial class ProdutoFormView : Window
                     EstoqueMinimo = estoqueMin,
                     Unidade = unidade,
                     TamanhoEmbalagem = tamanhoEmbalagem,
+                    PesoGramas = pesoGramas,
                     Custo = custo,
                     PrecoVenda = preco,
                     PromocaoAtiva = promocaoAtiva,
@@ -844,6 +855,7 @@ public partial class ProdutoFormView : Window
                     EstoqueMinimo = estoqueMin,
                     Unidade = unidade,
                     TamanhoEmbalagem = tamanhoEmbalagem,
+                    PesoGramas = pesoGramas,
                     Custo = custo,
                     PrecoVenda = preco,
                     PromocaoAtiva = promocaoAtiva,
@@ -984,6 +996,44 @@ public partial class ProdutoFormView : Window
         ExibirErroValidacao(ProdutoService.MensagemCodigoBarrasDuplicado);
         TxtCodigoBarras.Focus();
         return false;
+    }
+
+    private void TxtPesoGramas_TextChanged(object sender, TextChangedEventArgs e)
+        => AtualizarPesoEquivalente();
+
+    /// <summary>
+    /// Eco em quilos ao lado do campo, enquanto o operador digita. O peso é guardado em
+    /// gramas, mas é em quilos que ele confere com a balança e com a embalagem — sem o eco,
+    /// um zero a mais ou a menos (550 / 55000) passa sem ninguém notar.
+    /// </summary>
+    private void AtualizarPesoEquivalente()
+    {
+        // TxtPesoEquivalente ainda é null enquanto o XAML está sendo montado, e o
+        // TextChanged do TextBox dispara antes disso.
+        if (TxtPesoEquivalente is null)
+            return;
+
+        var formatado = TentarLerPesoGramas(out var gramas) ? PesoProdutoHelper.Formatar(gramas) : string.Empty;
+
+        TxtPesoEquivalente.Text = formatado.Length == 0 ? string.Empty : $"= {formatado}";
+        TxtPesoEquivalente.Visibility = formatado.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>Campo vazio é peso não informado (válido, devolve null); qualquer outra
+    /// coisa que não seja um inteiro de gramas é erro de digitação.</summary>
+    private bool TentarLerPesoGramas(out int? pesoGramas)
+    {
+        pesoGramas = null;
+
+        var texto = TxtPesoGramas.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(texto))
+            return true;
+
+        if (!int.TryParse(texto, NumberStyles.Integer, CultureInfo.InvariantCulture, out var gramas) || gramas <= 0)
+            return false;
+
+        pesoGramas = gramas;
+        return true;
     }
 
     private static int? ObterIdSelecionado(ComboBox combo)

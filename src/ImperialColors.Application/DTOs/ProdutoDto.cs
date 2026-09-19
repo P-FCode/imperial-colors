@@ -16,6 +16,8 @@ public class ProdutoDto
     public decimal EstoqueMinimo { get; set; }
     public string Unidade { get; set; } = "UN";
     public string? TamanhoEmbalagem { get; set; }
+    /// <summary>Peso da unidade em gramas — ver <see cref="Domain.Entities.Produto.PesoGramas"/>.</summary>
+    public int? PesoGramas { get; set; }
     public decimal? Custo { get; set; }
     public decimal PrecoVenda { get; set; }
     public bool PromocaoAtiva { get; set; }
@@ -35,6 +37,9 @@ public class ProdutoDto
     public string NomeExibicao => !string.IsNullOrWhiteSpace(TamanhoEmbalagem)
         ? $"{Nome} ({TamanhoEmbalagem})"
         : Nome;
+
+    /// <summary>Peso para leitura ("5,5 kg", "800 g") — vazio quando não cadastrado.</summary>
+    public string PesoFormatado => PesoProdutoHelper.Formatar(PesoGramas);
 }
 
 public class CriarProdutoDto
@@ -48,6 +53,8 @@ public class CriarProdutoDto
     public decimal EstoqueMinimo { get; set; }
     public string Unidade { get; set; } = "UN";
     public string? TamanhoEmbalagem { get; set; }
+    /// <summary>Peso da unidade em gramas — ver <see cref="Domain.Entities.Produto.PesoGramas"/>.</summary>
+    public int? PesoGramas { get; set; }
     public decimal? Custo { get; set; }
     public decimal PrecoVenda { get; set; }
     public bool PromocaoAtiva { get; set; }
