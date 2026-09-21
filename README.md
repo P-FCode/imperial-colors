@@ -174,6 +174,8 @@ Reinicie o app. A senha do `ADMIN_USERNAME` será redefinida para `ADMIN_PASSWOR
 
 O Imperial Colors foi projetado para que **vários computadores** (balcões, PDV, escritório) acessem o **mesmo banco de dados** ao mesmo tempo. Todos enxergam produtos, estoque e vendas em tempo real.
 
+> **Instalando no dia?** O [**Guia de Instalação — Segundo PC**](GUIA_INSTALACAO_SEGUNDO_PC.md) cobre o mesmo assunto em formato de passo a passo para seguir na hora, com o que conferir em cada etapa, como fixar o IP do servidor e o que fazer quando dá errado. A seção abaixo é a referência técnica.
+
 ### Como funciona (visão geral)
 
 ```
