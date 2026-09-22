@@ -41,4 +41,18 @@ public class BackupPathHelperTests
 
         Assert.Equal("backup_imperialcolors_20_06_2026.sql", nome);
     }
+
+    /// <summary>O .dump e o .sql do mesmo dia são o mesmo backup em dois formatos — o nome-base
+    /// idêntico é o que deixa isso óbvio para quem abre a pasta.</summary>
+    [Fact]
+    public void MontarNomeArquivoDump_UsaOMesmoNomeBaseDoSqlDoMesmoDia()
+    {
+        var data = new DateTime(2026, 6, 20);
+
+        var dump = BackupPathHelper.MontarNomeArquivoDump("Imperial Colors", data);
+        var sql = BackupPathHelper.MontarNomeArquivoSql("Imperial Colors", data);
+
+        Assert.Equal("backup_imperialcolors_20_06_2026.dump", dump);
+        Assert.Equal(Path.GetFileNameWithoutExtension(sql), Path.GetFileNameWithoutExtension(dump));
+    }
 }

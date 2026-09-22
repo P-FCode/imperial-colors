@@ -723,9 +723,26 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - Executa backup se nunca rodou ou se passaram **≥ 7 dias** (`BACKUP_INTERVALO_DIAS` no `.env`)
 - Destino padrão: `C:\backup_sistema\{mes-ano}\{dd-MM-yyyy}\` (ex.: `C:\backup_sistema\junho-2026\20-06-2026\`)
 - Conteúdo do backup diário:
-  - `backup_imperial_dd_MM_yyyy.sql` — dump completo via `pg_dump` (janela oculta)
+  - `backup_imperial_dd_MM_yyyy.dump` — banco completo no formato custom do `pg_dump` (`-F c`): comprimido e restaurável tabela por tabela
+  - `backup_imperial_dd_MM_yyyy.sql` — o mesmo banco em script SQL de texto, legível no Bloco de Notas
   - `appsettings.json` — configurações locais
   - `logos_empresa\` — pasta de ícones/logos da interface e cupons
+- **Os dois arquivos do banco são o mesmo instante:** o `pg_dump` lê o banco uma vez só e gera o `.dump`; o `.sql` é convertido a partir dele pelo `pg_restore`, sem nova leitura. Essa conversão também prova que o `.dump` está legível no dia em que foi gerado. O `pg_restore` usado é o da mesma pasta do `pg_dump`
+- Para restaurar:
+
+  ```powershell
+  # Banco inteiro, a partir do .dump
+  pg_restore -h localhost -U postgres -d imperial_colors --no-owner --no-acl backup_imperial_dd_MM_yyyy.dump
+
+  # Banco inteiro, a partir do .sql
+  psql -h localhost -U postgres -d imperial_colors -v ON_ERROR_STOP=1 -f backup_imperial_dd_MM_yyyy.sql
+
+  # Só uma tabela (ex.: produtos apagados por engano), num banco à parte, sem mexer no de produção
+  createdb -h localhost -U postgres imperial_recuperacao
+  pg_restore -h localhost -U postgres -d imperial_recuperacao -t produtos backup_imperial_dd_MM_yyyy.dump
+  ```
+
+  O banco de destino precisa existir e estar **vazio** (`createdb`) — restaurar por cima do banco em uso duplica ou conflita com os dados atuais
 - Em caso de falha: log silencioso em `C:\backup_sistema\backup_erros.log`; tenta novamente na próxima abertura
 - Variáveis `.env`: `BACKUP_PATH`, `BACKUP_INTERVALO_DIAS`, `BACKUP_PREFIXO_EMPRESA`, `PG_DUMP_PATH` (opcional)
 

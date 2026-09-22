@@ -95,22 +95,31 @@ public class BackupService : IBackupService
         var pastaDestino = BackupPathHelper.MontarPastaDestino(options.DiretorioRaiz, dataExecucao);
         Directory.CreateDirectory(pastaDestino);
 
-        var nomeSql = BackupPathHelper.MontarNomeArquivoSql(options.PrefixoEmpresa, dataExecucao);
-        var caminhoSql = Path.Combine(pastaDestino, nomeSql);
+        var caminhoDump = Path.Combine(pastaDestino, BackupPathHelper.MontarNomeArquivoDump(options.PrefixoEmpresa, dataExecucao));
+        var caminhoSql = Path.Combine(pastaDestino, BackupPathHelper.MontarNomeArquivoSql(options.PrefixoEmpresa, dataExecucao));
 
         var pgDump = PgDumpExecutor.LocalizarPgDump(options.PgDumpPath)
             ?? throw new InvalidOperationException(
                 "Utilitário pg_dump não encontrado. Configure PG_DUMP_PATH no .env ou instale o PostgreSQL.");
 
-        await PgDumpExecutor.ExecutarAsync(
+        // Localizado ANTES de ler o banco: faltando o pg_restore, o backup falha de cara, em
+        // vez de deixar na pasta um .dump sem o .sql e o dia marcado como "feito pela metade".
+        var pgRestore = PgDumpExecutor.LocalizarPgRestore(pgDump)
+            ?? throw new InvalidOperationException(
+                $"Utilitário pg_restore não encontrado junto do pg_dump ({pgDump}). Reinstale o PostgreSQL ou ajuste PG_DUMP_PATH.");
+
+        // Uma leitura do banco, dois arquivos — ver o sumário de PgDumpExecutor.
+        await PgDumpExecutor.ExportarAsync(
             pgDump,
             options.Host,
             options.Porta,
             options.Usuario,
             options.Senha,
             options.Banco,
-            caminhoSql,
+            caminhoDump,
             cancellationToken);
+
+        await PgDumpExecutor.ConverterParaSqlAsync(pgRestore, caminhoDump, caminhoSql, cancellationToken);
 
         CopiarArquivosLocais(options, pastaDestino);
     }
