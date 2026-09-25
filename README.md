@@ -604,6 +604,7 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - Alertas de estoque baixo e zerado
 - Top 3 produtos mais vendidos
 - Resumo financeiro e últimas vendas
+- **Balcão e vendas externas somados:** faturamento, custo, lucro, margem, ticket médio, quantidade de vendas, o gráfico dos últimos 7 dias e os destaques de "Maiores Vendas do Mês" contam as duas origens — os mesmos números do Relatório Consolidado de Vendas. Venda externa não registra cliente nem forma de pagamento, então aparece nos destaques identificada pelo número, com o pagamento em branco
 
 ### Estoque
 - Cadastro completo de produtos (código interno, código de barras, categoria, marca, etc.)

@@ -85,9 +85,36 @@ public class DashboardServiceTests
         return (vendaMock, produtoMock, produtoServiceMock, analyticsMock);
     }
 
+    /// <summary>Venda externa entra no mesmo formato agregado do balcão. Sem
+    /// <paramref name="diasDeVendaExterna"/>, a loja não teve venda de rua no período.</summary>
+    private static Mock<IVendaExternaRepository> CriarMockVendaExterna(params ResumoVendasDiario[] diasDeVendaExterna)
+    {
+        var mock = new Mock<IVendaExternaRepository>();
+        mock.Setup(r => r.ObterResumoDiarioAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns((DateTime inicio, DateTime fimExclusivo, CancellationToken _) =>
+                Task.FromResult<IReadOnlyList<ResumoVendasDiario>>(
+                    diasDeVendaExterna.Where(d => d.Data >= inicio && d.Data < fimExclusivo).ToList()));
+        mock.Setup(r => r.ObterPorPeriodoAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VendaExterna>());
+        return mock;
+    }
+
+    /// <summary>Mock da lista de vendas externas do mês — usado pelos destaques
+    /// ("Maiores Vendas do Mês"), que trabalham com a venda inteira, não com o resumo.</summary>
+    private static Mock<IVendaExternaRepository> CriarMockVendaExternaComVendas(params VendaExterna[] vendasExternas)
+    {
+        var mock = CriarMockVendaExterna();
+        mock.Setup(r => r.ObterPorPeriodoAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns((DateTime inicio, DateTime fim, CancellationToken _) =>
+                Task.FromResult<IEnumerable<VendaExterna>>(
+                    vendasExternas.Where(v => v.DataVenda >= inicio && v.DataVenda <= fim).ToList()));
+        return mock;
+    }
+
     private static DashboardService CriarServico(
-        Mock<IVendaRepository> venda, Mock<IProdutoRepository> produto, Mock<IProdutoService> produtoService, Mock<IRelatorioAnalyticsService> analytics)
-        => new(venda.Object, produto.Object, produtoService.Object, analytics.Object);
+        Mock<IVendaRepository> venda, Mock<IProdutoRepository> produto, Mock<IProdutoService> produtoService, Mock<IRelatorioAnalyticsService> analytics,
+        Mock<IVendaExternaRepository>? vendaExterna = null)
+        => new(venda.Object, (vendaExterna ?? CriarMockVendaExterna()).Object, produto.Object, produtoService.Object, analytics.Object);
 
     [Fact]
     public async Task ObterDadosDashboardAsync_CalculaLucroECustoAPartirDoCustoDoProduto()
@@ -322,5 +349,143 @@ public class DashboardServiceTests
         var esperado = ImperialColors.Application.Helpers.PagamentoHelper.ObterDescricao(
             ImperialColors.Domain.Enums.FormaPagamento.CartaoCredito, 3);
         Assert.Equal(esperado, dados.MaioresVendas[0].FormaPagamentoDescricao);
+    }
+
+    // ===== Venda externa no painel financeiro =====
+    // Para o lojista o dinheiro que entrou no dia é um só. Antes, a venda de rua não entrava
+    // em nada do Dashboard, e o faturamento exibido divergia do Relatório Consolidado de
+    // Vendas, que sempre somou as duas origens.
+
+    [Fact]
+    public async Task ObterDadosDashboardAsync_SomaFaturamentoCustoEQuantidadeDaVendaExterna()
+    {
+        var hoje = DateTime.Today;
+        // Balcão: R$ 100 de faturamento, R$ 60 de custo.
+        var balcao = CriarVenda(hoje.AddHours(10), 100m, (custo: 60m, quantidade: 1m));
+        // Rua no mesmo dia: R$ 300 de faturamento, R$ 180 de custo.
+        var externa = new ResumoVendasDiario
+        {
+            Data = hoje,
+            QuantidadeVendas = 1,
+            Faturamento = 300m,
+            Custo = 180m
+        };
+
+        var (vendaMock, produtoMock, produtoServiceMock, analyticsMock) = CriarMocks(new List<Venda> { balcao });
+        var service = CriarServico(vendaMock, produtoMock, produtoServiceMock, analyticsMock, CriarMockVendaExterna(externa));
+
+        var dados = await service.ObterDadosDashboardAsync();
+
+        Assert.Equal(400m, dados.TotalVendasHoje);
+        Assert.Equal(400m, dados.TotalVendasMes);
+        Assert.Equal(240m, dados.CustoHoje);
+        Assert.Equal(160m, dados.LucroHoje);   // 400 − 240
+        Assert.Equal(2, dados.QuantidadeVendasHoje);
+        Assert.Equal(2, dados.QuantidadeVendasMes);
+        Assert.Equal(200m, dados.TicketMedioMes); // 400 / 2 vendas
+    }
+
+    /// <summary>Dia que teve SÓ venda de rua tem que aparecer — é uma linha nova no resumo,
+    /// não um dia sem movimento.</summary>
+    [Fact]
+    public async Task ObterDadosDashboardAsync_DiaSoComVendaExterna_ApareceNoFaturamento()
+    {
+        var hoje = DateTime.Today;
+        var externa = new ResumoVendasDiario { Data = hoje, QuantidadeVendas = 2, Faturamento = 250m, Custo = 100m };
+
+        var (vendaMock, produtoMock, produtoServiceMock, analyticsMock) = CriarMocks(new List<Venda>());
+        var service = CriarServico(vendaMock, produtoMock, produtoServiceMock, analyticsMock, CriarMockVendaExterna(externa));
+
+        var dados = await service.ObterDadosDashboardAsync();
+
+        Assert.Equal(250m, dados.TotalVendasHoje);
+        Assert.Equal(150m, dados.LucroHoje);
+        Assert.Equal(2, dados.QuantidadeVendasHoje);
+        Assert.Equal(60m, dados.MargemLucroHoje); // 150 / 250
+    }
+
+    /// <summary>Item avulso da rua (digitado sem produto do estoque) não tem custo — o aviso
+    /// de lucro subestimado precisa contá-lo junto com os do balcão.</summary>
+    [Fact]
+    public async Task ObterDadosDashboardAsync_ItensSemCustoDaRua_SomamComOsDoBalcao()
+    {
+        var hoje = DateTime.Today;
+        var balcao = CriarVenda(hoje.AddHours(9), 50m, (custo: null, quantidade: 1m));
+        var externa = new ResumoVendasDiario { Data = hoje, QuantidadeVendas = 1, Faturamento = 80m, Custo = 0m, ItensSemCusto = 2 };
+
+        var (vendaMock, produtoMock, produtoServiceMock, analyticsMock) = CriarMocks(new List<Venda> { balcao });
+        var service = CriarServico(vendaMock, produtoMock, produtoServiceMock, analyticsMock, CriarMockVendaExterna(externa));
+
+        var dados = await service.ObterDadosDashboardAsync();
+
+        Assert.Equal(3, dados.ItensSemCustoCadastradoMes);
+    }
+
+    /// <summary>O gráfico dos últimos 7 dias sai do mesmo resumo — se a rua não entrasse
+    /// nele, a barra do dia mostraria menos do que o card de faturamento do mesmo dia.</summary>
+    [Fact]
+    public async Task ObterDadosDashboardAsync_GraficoDosUltimos7Dias_IncluiAVendaExterna()
+    {
+        var hoje = DateTime.Today;
+        var ontem = hoje.AddDays(-1);
+        var balcao = CriarVenda(ontem.AddHours(15), 100m, (custo: 40m, quantidade: 1m));
+        var externa = new ResumoVendasDiario { Data = ontem, QuantidadeVendas = 1, Faturamento = 200m, Custo = 50m };
+
+        var (vendaMock, produtoMock, produtoServiceMock, analyticsMock) = CriarMocks(new List<Venda> { balcao });
+        var service = CriarServico(vendaMock, produtoMock, produtoServiceMock, analyticsMock, CriarMockVendaExterna(externa));
+
+        var dados = await service.ObterDadosDashboardAsync();
+
+        var diaDeOntem = dados.LucroUltimos7Dias.Single(d => d.Data == ontem);
+        Assert.Equal(300m, diaDeOntem.Faturamento);
+        Assert.Equal(90m, diaDeOntem.Custo);
+        Assert.Equal(210m, diaDeOntem.Lucro);
+    }
+
+    /// <summary>
+    /// "Maiores Vendas do Mês" disputa entre as duas origens: com o card de faturamento logo
+    /// acima já somando a rua, uma venda externa maior que todas as de balcão não podia ficar
+    /// de fora da lista.
+    /// </summary>
+    [Fact]
+    public async Task ObterVisaoVendasAsync_VendaExternaMaiorQueAsDeBalcao_LideraOsDestaques()
+    {
+        var hoje = DateTime.Today;
+        var balcao = CriarVenda(hoje.AddHours(10), 100m);
+        var externa = new VendaExterna
+        {
+            NumeroVendaExterna = "VE-0007",
+            DataVenda = hoje.AddHours(11),
+            Total = 900m
+        };
+
+        var (vendaMock, produtoMock, produtoServiceMock, analyticsMock) = CriarMocks(new List<Venda> { balcao });
+        var service = CriarServico(vendaMock, produtoMock, produtoServiceMock, analyticsMock, CriarMockVendaExternaComVendas(externa));
+
+        var dados = await service.ObterVisaoVendasAsync();
+
+        Assert.Equal(2, dados.MaioresVendas.Count);
+        Assert.Equal(900m, dados.MaioresVendas[0].Total);
+        Assert.Equal("Venda externa VE-0007", dados.MaioresVendas[0].ClienteNome);
+        // Venda externa não registra forma de pagamento — a coluna fica em branco em vez de
+        // exibir um valor que ninguém informou.
+        Assert.Equal("—", dados.MaioresVendas[0].FormaPagamentoDescricao);
+    }
+
+    /// <summary>Sem venda de rua no período, o resultado é o mesmo de antes da mudança.</summary>
+    [Fact]
+    public async Task ObterDadosDashboardAsync_SemVendaExterna_NaoAlteraOsNumerosDoBalcao()
+    {
+        var hoje = DateTime.Today;
+        var balcao = CriarVenda(hoje.AddHours(10), 100m, (custo: 60m, quantidade: 1m));
+
+        var (vendaMock, produtoMock, produtoServiceMock, analyticsMock) = CriarMocks(new List<Venda> { balcao });
+        var service = CriarServico(vendaMock, produtoMock, produtoServiceMock, analyticsMock);
+
+        var dados = await service.ObterDadosDashboardAsync();
+
+        Assert.Equal(100m, dados.TotalVendasHoje);
+        Assert.Equal(40m, dados.LucroHoje);
+        Assert.Equal(1, dados.QuantidadeVendasHoje);
     }
 }

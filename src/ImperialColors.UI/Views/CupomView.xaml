@@ -9,7 +9,10 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/AppTheme.xaml"/>
+                <!-- URI absoluta (pack://): a relativa resolve contra o assembly de ENTRADA,
+                     o que funciona com o app rodando mas quebra ao construir a tela em teste
+                     (mesmo padrão de NotaFiscalHubView, PDVView e VendasExternasView). -->
+                <ResourceDictionary Source="pack://application:,,,/ImperialColors;component/Resources/AppTheme.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             <conv:MoedaConverter x:Key="MoedaConverter"/>
             <conv:QuantidadeConverter x:Key="QuantidadeConverter"/>
@@ -85,8 +88,19 @@
                     TextOptions.TextRenderingMode="ClearType"
                     TextOptions.TextFormattingMode="Display">
                 <StackPanel x:Name="PainelCupom">
-                    <!-- Cabeçalho centralizado -->
-                    <StackPanel HorizontalAlignment="Center" Margin="-76,0,0,14">
+                    <!-- Cabeçalho centralizado sobre a MESMA faixa das colunas de item
+                         (120+36+28+72 = 256), que começam na borda esquerda deste painel.
+                         Antes era HorizontalAlignment="Center" com Margin="-76,0,0,14": a
+                         margem negativa acertava o centro por fora, mas também dava ao bloco
+                         76px a mais de largura disponível que o cupom tem. Enquanto as linhas
+                         do cabeçalho eram curtas ninguém via; uma razão social longa passava a
+                         quebrar só depois da borda do cupom — vazando para fora na tela e
+                         saindo cortada na impressão. Com largura fixa igual à do corpo, a
+                         quebra acontece dentro do cupom e o centro continua o mesmo. -->
+                    <StackPanel x:Name="PainelCabecalhoCupom"
+                                Width="256"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,14">
                         <Image x:Name="ImgLogo"
                                Width="56"
                                Height="56"

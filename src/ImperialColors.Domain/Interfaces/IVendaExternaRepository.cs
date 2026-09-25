@@ -1,4 +1,5 @@
 using ImperialColors.Domain.Entities;
+using ImperialColors.Domain.ReadModels;
 
 namespace ImperialColors.Domain.Interfaces;
 
@@ -6,6 +7,12 @@ public interface IVendaExternaRepository : IRepository<VendaExterna>
 {
     Task<IEnumerable<VendaExterna>> ObterTodosComItensAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<VendaExterna>> ObterPorPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken cancellationToken = default);
+
+    /// <summary>Faturamento, custo e quantidade por dia, agregados pelo banco — o par do
+    /// resumo de <see cref="IVendaRepository.ObterResumoDiarioAsync"/>, para o Dashboard
+    /// somar balcão e rua sem materializar as duas listas de vendas na memória.</summary>
+    Task<IReadOnlyList<ResumoVendasDiario>> ObterResumoDiarioAsync(
+        DateTime inicio, DateTime fimExclusivo, CancellationToken cancellationToken = default);
 
     /// <summary>Paginação real no banco (Skip/Take) — diferente de <see cref="ObterTodosComItensAsync"/>,
     /// que carrega a tabela inteira com Include(Itens) sempre que a tela abre.</summary>

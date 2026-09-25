@@ -4,6 +4,7 @@ using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Interfaces;
+using ImperialColors.Domain.ReadModels;
 
 namespace ImperialColors.Application.Services;
 
@@ -15,17 +16,20 @@ public class DashboardService : IDashboardService
     private const int TopDestaques = 5;
 
     private readonly IVendaRepository _vendaRepository;
+    private readonly IVendaExternaRepository _vendaExternaRepository;
     private readonly IProdutoRepository _produtoRepository;
     private readonly IProdutoService _produtoService;
     private readonly IRelatorioAnalyticsService _relatorioAnalyticsService;
 
     public DashboardService(
         IVendaRepository vendaRepository,
+        IVendaExternaRepository vendaExternaRepository,
         IProdutoRepository produtoRepository,
         IProdutoService produtoService,
         IRelatorioAnalyticsService relatorioAnalyticsService)
     {
         _vendaRepository = vendaRepository;
+        _vendaExternaRepository = vendaExternaRepository;
         _produtoRepository = produtoRepository;
         _produtoService = produtoService;
         _relatorioAnalyticsService = relatorioAnalyticsService;
@@ -53,7 +57,13 @@ public class DashboardService : IDashboardService
         var amanha = hoje.AddDays(1);
 
         var inicioCobertura = inicioMes < inicioUltimos7Dias ? inicioMes : inicioUltimos7Dias;
-        var resumoDiario = await _vendaRepository.ObterResumoDiarioAsync(inicioCobertura, amanha);
+
+        // Balcão e rua entram no MESMO resumo: para o lojista o dinheiro que entrou no dia é
+        // um só, e uma venda externa que não aparecesse aqui faria o faturamento do Dashboard
+        // divergir do Relatório Consolidado de Vendas, que já soma as duas origens.
+        var resumoBalcao = await _vendaRepository.ObterResumoDiarioAsync(inicioCobertura, amanha);
+        var resumoExternas = await _vendaExternaRepository.ObterResumoDiarioAsync(inicioCobertura, amanha);
+        var resumoDiario = SomarPorDia(resumoBalcao, resumoExternas);
 
         var totalProdutos = await _produtoRepository.ContarAsync();
         var produtosEstoqueCritico = await _produtoRepository.ContarComEstoqueCriticoAsync(LimiteEstoqueCritico);
@@ -146,19 +156,61 @@ public class DashboardService : IDashboardService
         // ObterPorPeriodoAsync também é inclusivo — ver comentário em ObterVisaoEstoqueAsync.
         var vendasMes = await _vendaRepository.ObterPorPeriodoAsync(inicioMes, fimMesExclusivo.AddTicks(-1));
 
-        var maioresVendas = vendasMes
+        var externasMes = await _vendaExternaRepository.ObterPorPeriodoAsync(inicioMes, fimMesExclusivo.AddTicks(-1), cancellationToken);
+
+        var destaquesBalcao = vendasMes.Select(v => new VendaDestaqueDto
+        {
+            Data = v.DataVenda,
+            ClienteNome = v.Cliente?.Nome ?? v.NomeCompradorCupom ?? "Consumidor",
+            Total = v.Total,
+            FormaPagamentoDescricao = PagamentoHelper.ObterDescricao(v.FormaPagamento, v.QuantidadeParcelas)
+        });
+
+        // A venda de rua disputa a lista em pé de igualdade: com o faturamento do painel já
+        // somando as duas origens, uma venda externa grande de fora da lista deixaria o
+        // destaque incoerente com o card logo acima. Ela não tem cliente nem forma de
+        // pagamento no modelo, então o número identifica a venda e o pagamento fica em
+        // branco — em vez de inventar um valor que ninguém registrou.
+        var destaquesExternas = externasMes.Select(v => new VendaDestaqueDto
+        {
+            Data = v.DataVenda,
+            ClienteNome = $"Venda externa {v.NumeroVendaExterna}",
+            Total = v.Total,
+            FormaPagamentoDescricao = "—"
+        });
+
+        var maioresVendas = destaquesBalcao
+            .Concat(destaquesExternas)
             .OrderByDescending(v => v.Total)
             .Take(TopDestaques)
-            .Select(v => new VendaDestaqueDto
-            {
-                Data = v.DataVenda,
-                ClienteNome = v.Cliente?.Nome ?? v.NomeCompradorCupom ?? "Consumidor",
-                Total = v.Total,
-                FormaPagamentoDescricao = PagamentoHelper.ObterDescricao(v.FormaPagamento, v.QuantidadeParcelas)
-            })
             .ToList();
 
         return new DashboardVendasDto { MaioresVendas = maioresVendas };
+    }
+
+    /// <summary>
+    /// Junta os resumos diários de balcão e de venda externa numa lista só, somando dia a
+    /// dia. Um dia que só teve venda de rua aparece igual — é uma linha nova, não um dia
+    /// perdido.
+    /// </summary>
+    private static IReadOnlyList<ResumoVendasDiario> SomarPorDia(
+        IReadOnlyList<ResumoVendasDiario> balcao, IReadOnlyList<ResumoVendasDiario> externas)
+    {
+        if (externas.Count == 0)
+            return balcao;
+
+        return balcao.Concat(externas)
+            .GroupBy(r => r.Data)
+            .Select(g => new ResumoVendasDiario
+            {
+                Data = g.Key,
+                QuantidadeVendas = g.Sum(r => r.QuantidadeVendas),
+                Faturamento = g.Sum(r => r.Faturamento),
+                Custo = g.Sum(r => r.Custo),
+                ItensSemCusto = g.Sum(r => r.ItensSemCusto)
+            })
+            .OrderBy(r => r.Data)
+            .ToList();
     }
 
     /// <summary>

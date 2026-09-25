@@ -3,6 +3,7 @@ using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
+using ImperialColors.Domain.ReadModels;
 using ImperialColors.Infrastructure.Data;
 using ImperialColors.Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,71 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             .OrderByDescending(v => v.DataVenda)
             .ThenByDescending(v => v.Id)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Mesma agregação de <c>VendaRepository.ObterResumoDiarioAsync</c>, aplicada à venda de
+    /// rua: uma linha por dia com movimento, somada pelo banco.
+    ///
+    /// Duas diferenças em relação ao balcão, que vêm do próprio modelo: venda externa não tem
+    /// status (não existe cancelamento — o registro é excluído), então não há filtro de
+    /// situação; e o item pode ser avulso (<c>ProdutoId</c> nulo, digitado na rua), caso em
+    /// que não há custo cadastrado para descontar — ele entra em <c>ItensSemCusto</c>, que é
+    /// o que faz a tela avisar que o lucro do período está subestimado.
+    /// </summary>
+    public async Task<IReadOnlyList<ResumoVendasDiario>> ObterResumoDiarioAsync(
+        DateTime inicio, DateTime fimExclusivo, CancellationToken cancellationToken = default)
+    {
+        await using var context = ContextFactory.CreateDbContext();
+
+        var porVenda = await context.Set<VendaExterna>()
+            .AsNoTracking()
+            .Where(v => v.DataVenda >= inicio && v.DataVenda < fimExclusivo)
+            .GroupBy(v => v.DataVenda.Date)
+            .Select(g => new
+            {
+                Data = g.Key,
+                Quantidade = g.Count(),
+                Faturamento = g.Sum(v => v.Total)
+            })
+            .ToListAsync(cancellationToken);
+
+        // IgnoreQueryFilters no produto: produto inativado depois da venda continua tendo o
+        // custo que valeu naquele dia — sem isso o lucro do passado mudaria sozinho quando
+        // alguém desativa um item do catálogo.
+        var porItem = await (
+            from item in context.Set<ItemVendaExterna>().AsNoTracking()
+            join produto in context.Set<Produto>().IgnoreQueryFilters().AsNoTracking()
+                on item.ProdutoId equals produto.Id into correspondentes
+            from produto in correspondentes.DefaultIfEmpty()
+            where item.VendaExterna.DataVenda >= inicio && item.VendaExterna.DataVenda < fimExclusivo
+            group new { item, produto } by item.VendaExterna.DataVenda.Date into g
+            select new
+            {
+                Data = g.Key,
+                Custo = g.Sum(x => x.produto != null && x.produto.Custo != null
+                    ? x.produto.Custo.Value * x.item.Quantidade
+                    : 0m),
+                ItensSemCusto = g.Count(x => x.produto == null || x.produto.Custo == null)
+            }).ToListAsync(cancellationToken);
+
+        var custosPorDia = porItem.ToDictionary(x => x.Data);
+
+        return porVenda
+            .Select(v =>
+            {
+                custosPorDia.TryGetValue(v.Data, out var c);
+                return new ResumoVendasDiario
+                {
+                    Data = v.Data,
+                    QuantidadeVendas = v.Quantidade,
+                    Faturamento = v.Faturamento,
+                    Custo = c?.Custo ?? 0m,
+                    ItensSemCusto = c?.ItensSemCusto ?? 0
+                };
+            })
+            .OrderBy(r => r.Data)
+            .ToList();
     }
 
     public async Task<VendaExterna?> ObterComItensAsync(int id, CancellationToken cancellationToken = default)
