@@ -19,6 +19,7 @@ public class ItemVendaExternaMapping : IEntityTypeConfiguration<ItemVendaExterna
         builder.Property(i => i.PrecoBase).HasColumnName("preco_base").HasPrecision(10, 2);
         builder.Property(i => i.PrecoUnitario).HasColumnName("preco_unitario").HasPrecision(10, 2);
         builder.Property(i => i.Subtotal).HasColumnName("subtotal").HasPrecision(12, 2);
+        builder.Property(i => i.Comissao).HasColumnName("comissao").HasPrecision(12, 2);
         builder.Property(i => i.CriadoEm).HasColumnName("criado_em");
         builder.Property(i => i.AtualizadoEm).HasColumnName("atualizado_em");
         builder.Property(i => i.Ativo).HasColumnName("ativo");

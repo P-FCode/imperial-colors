@@ -657,7 +657,9 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - Consolida vendas realizadas fora do estabelecimento físico
 - **Fluxo A – Produto cadastrado:** busca por código de barras ou texto; preenche nome e preço base; informa quantidade e valor praticado na rua; ao concluir, dá baixa automática no estoque
 - **Fluxo B – Item manual:** nome, quantidade e valor unitário livres, sem vínculo com produto — computado apenas no faturamento, sem baixa de estoque
-- **Comissão:** campo no registro da venda, ao lado do total, com o líquido aparecendo enquanto se digita. Vale zero quando a venda não gera comissão. Não pode ser negativa nem maior que o total da venda
+- **Comissão por produto:** o campo fica ao lado do produto, no fluxo de adicionar o item (*seleciona produto → preenche a comissão → quantidade e valor → Adicionar*). A comissão aparece como coluna na grade de conferência, editável, antes de salvar. Vale para os dois modos, estoque e manual
+  - A comissão da venda é a **soma** da dos itens: um item pode render comissão e outro da mesma venda não. O rodapé mostra o somatório e o líquido enquanto a venda é montada
+  - Cada comissão não pode ser negativa nem maior que **o valor daquele item** — o limite é por item, não pelo total da venda
   - **Faturamento é o líquido:** venda de R$ 160 com R$ 30 de comissão conta **R$ 130** no Dashboard e no Relatório Consolidado. O valor cheio continua na venda, para a conferência com o vendedor. No relatório a comissão tem coluna própria — não é somada ao desconto, que é abatimento dado ao cliente
   - **Botão Comissões:** sub-janela de controle dos acertos, com filtro *A pagar / Pagas / Todas*, totais e as ações de marcar como paga ou devolver para "a pagar" (as duas ficam registradas na auditoria). Só entram vendas **com** comissão — venda sem comissão não gera pendência. Paginada em 50 por página, como as demais listagens; trocar de filtro volta para a primeira página
   - Zerar a comissão ao editar a venda também limpa a marcação de pagamento

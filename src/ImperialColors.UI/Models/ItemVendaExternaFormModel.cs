@@ -12,6 +12,7 @@ public class ItemVendaExternaFormModel : INotifyPropertyChanged
     private decimal _quantidade = 1;
     private decimal _precoBase;
     private decimal _precoUnitario;
+    private decimal _comissao;
 
     public int Id
     {
@@ -53,6 +54,14 @@ public class ItemVendaExternaFormModel : INotifyPropertyChanged
     {
         get => _precoUnitario;
         set { if (_precoUnitario != value) { _precoUnitario = value; Notify(); Notify(nameof(Subtotal)); } }
+    }
+
+    /// <summary>Comissão deste item — editável direto na grade de conferência, como o
+    /// valor praticado e a quantidade.</summary>
+    public decimal Comissao
+    {
+        get => _comissao;
+        set { if (_comissao != value) { _comissao = value; Notify(); } }
     }
 
     public decimal Subtotal => Quantidade * PrecoUnitario;

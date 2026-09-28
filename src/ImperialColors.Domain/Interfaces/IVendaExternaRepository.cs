@@ -28,7 +28,6 @@ public interface IVendaExternaRepository : IRepository<VendaExterna>
     Task<VendaExterna> AtualizarTransacionalAsync(
         int vendaId,
         string? observacoes,
-        decimal comissao,
         IReadOnlyList<ItemVendaExterna> itens,
         string? usuario,
         CancellationToken cancellationToken = default);

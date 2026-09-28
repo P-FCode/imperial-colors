@@ -40,6 +40,11 @@ public class ItemVendaExternaDto
     public decimal PrecoBase { get; set; }
     public decimal PrecoUnitario { get; set; }
     public decimal Subtotal { get; set; }
+
+    /// <summary>Comissão deste item — ver
+    /// <see cref="Domain.Entities.ItemVendaExterna.Comissao"/>.</summary>
+    public decimal Comissao { get; set; }
+
     public bool ItemManual => !ProdutoId.HasValue;
     public string TipoDescricao => ItemManual ? "Manual" : "Estoque";
     public string DescricaoTroca => $"{NomeProduto} — Qtd: {Quantidade} @ R$ {PrecoUnitario:N2}";
@@ -48,7 +53,6 @@ public class ItemVendaExternaDto
 public class AtualizarVendaExternaDto
 {
     public int Id { get; set; }
-    public decimal Comissao { get; set; }
     public string? Observacoes { get; set; }
     public string? Usuario { get; set; }
     public List<AtualizarItemVendaExternaDto> Itens { get; set; } = new();
@@ -63,11 +67,11 @@ public class AtualizarItemVendaExternaDto
     public decimal Quantidade { get; set; }
     public decimal PrecoBase { get; set; }
     public decimal PrecoUnitario { get; set; }
+    public decimal Comissao { get; set; }
 }
 
 public class RegistrarVendaExternaDto
 {
-    public decimal Comissao { get; set; }
     public string? Observacoes { get; set; }
     public string? Usuario { get; set; }
     public List<RegistrarItemVendaExternaDto> Itens { get; set; } = new();
@@ -81,6 +85,7 @@ public class RegistrarItemVendaExternaDto
     public decimal Quantidade { get; set; }
     public decimal PrecoBase { get; set; }
     public decimal PrecoUnitario { get; set; }
+    public decimal Comissao { get; set; }
 }
 
 /// <summary>

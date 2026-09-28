@@ -39,10 +39,13 @@ public class ComissaoVendaExternaTests
         return (servico, repositorio);
     }
 
+    /// <summary>Venda de um item só — a comissão agora é do produto, não da venda.</summary>
     private static RegistrarVendaExternaDto VendaDe(decimal valor, decimal comissao) => new()
     {
-        Comissao = comissao,
-        Itens = [new RegistrarItemVendaExternaDto { NomeProduto = "Tinta", Quantidade = 1, PrecoUnitario = valor }]
+        Itens = [new RegistrarItemVendaExternaDto
+        {
+            NomeProduto = "Tinta", Quantidade = 1, PrecoUnitario = valor, Comissao = comissao
+        }]
     };
 
     // ===== O exemplo do pedido =====
@@ -78,13 +81,60 @@ public class ComissaoVendaExternaTests
     /// <summary>Comissão maior que a venda faria a loja registrar faturamento negativo no
     /// dia — o dinheiro que saiu seria maior que o que entrou naquela venda.</summary>
     [Fact]
-    public async Task ComissaoMaiorQueOTotalDaVenda_Recusa()
+    public async Task ComissaoMaiorQueOValorDoItem_Recusa()
     {
         var (servico, _) = CriarServico();
 
         var erro = await Assert.ThrowsAsync<DomainException>(() => servico.RegistrarAsync(VendaDe(100m, 150m)));
 
-        Assert.Contains("não pode ser maior que o total da venda", erro.Message);
+        Assert.Contains("não pode ser maior que o valor do item", erro.Message);
+    }
+
+    /// <summary>
+    /// A comissão da venda é a soma da dos itens: um item pode render comissão e outro da
+    /// mesma venda não. É esse total que o faturamento desconta e que o controle de acertos
+    /// mostra como dívida com o vendedor.
+    /// </summary>
+    [Fact]
+    public async Task ComissaoDaVenda_EhASomaDaDosItens()
+    {
+        var (servico, _) = CriarServico();
+
+        var venda = await servico.RegistrarAsync(new RegistrarVendaExternaDto
+        {
+            Itens =
+            [
+                new RegistrarItemVendaExternaDto { NomeProduto = "Tinta", Quantidade = 1, PrecoUnitario = 160m, Comissao = 30m },
+                new RegistrarItemVendaExternaDto { NomeProduto = "Pincel", Quantidade = 2, PrecoUnitario = 20m, Comissao = 5m },
+                // Item sem comissão na mesma venda — não soma nada.
+                new RegistrarItemVendaExternaDto { NomeProduto = "Lixa", Quantidade = 1, PrecoUnitario = 10m }
+            ]
+        });
+
+        Assert.Equal(210m, venda.Total);        // 160 + 40 + 10
+        Assert.Equal(35m, venda.Comissao);      // 30 + 5
+        Assert.Equal(175m, venda.TotalLiquido);
+        Assert.Equal(30m, venda.Itens.Single(i => i.NomeProduto == "Tinta").Comissao);
+        Assert.Equal(0m, venda.Itens.Single(i => i.NomeProduto == "Lixa").Comissao);
+    }
+
+    /// <summary>O limite é por item, não pelo total: uma comissão de R$ 150 num item de
+    /// R$ 100 tem que ser barrada mesmo que a venda inteira seja maior que isso.</summary>
+    [Fact]
+    public async Task ComissaoMaiorQueOItemMasMenorQueAVenda_Recusa()
+    {
+        var (servico, _) = CriarServico();
+
+        var erro = await Assert.ThrowsAsync<DomainException>(() => servico.RegistrarAsync(new RegistrarVendaExternaDto
+        {
+            Itens =
+            [
+                new RegistrarItemVendaExternaDto { NomeProduto = "Tinta", Quantidade = 1, PrecoUnitario = 100m, Comissao = 150m },
+                new RegistrarItemVendaExternaDto { NomeProduto = "Balde", Quantidade = 1, PrecoUnitario = 500m }
+            ]
+        }));
+
+        Assert.Contains("'Tinta'", erro.Message);
     }
 
     /// <summary>Negativo com sinal trocado viraria acréscimo no faturamento em vez de

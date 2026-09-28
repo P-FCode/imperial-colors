@@ -57,9 +57,15 @@
                                          Checked="ModoItem_Changed"/>
                         </StackPanel>
 
+                        <!-- A comissão fica logo depois do produto, antes de quantidade e
+                             valor: é por produto que o acerto com o vendedor é combinado na
+                             rua, então o campo acompanha a escolha do item em vez de ficar
+                             no rodapé da venda. -->
                         <Grid x:Name="PainelModoEstoque">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="120"/>
                                 <ColumnDefinition Width="12"/>
                                 <ColumnDefinition Width="90"/>
                                 <ColumnDefinition Width="12"/>
@@ -77,16 +83,21 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Comissão (R$)"/>
+                                <TextBox x:Name="TxtComissaoEstoque" Style="{StaticResource TextBoxNumerico}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4">
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="Quantidade"/>
                                 <TextBox x:Name="TxtQuantidadeEstoque" Style="{StaticResource TextBoxNumerico}" Text="1"/>
                             </StackPanel>
 
-                            <StackPanel Grid.Column="4">
+                            <StackPanel Grid.Column="6">
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="Valor praticado (R$)"/>
                                 <TextBox x:Name="TxtPrecoEstoque" Style="{StaticResource TextBoxNumerico}"/>
                             </StackPanel>
 
-                            <Button Grid.Column="6" Content="+ Adicionar"
+                            <Button Grid.Column="8" Content="+ Adicionar"
                                     Style="{StaticResource BotaoSecundario}"
                                     VerticalAlignment="Bottom" Height="36"
                                     Click="BtnAdicionarItemEstoque_Click"/>
@@ -95,6 +106,8 @@
                         <Grid x:Name="PainelModoManual" Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="120"/>
                                 <ColumnDefinition Width="12"/>
                                 <ColumnDefinition Width="90"/>
                                 <ColumnDefinition Width="12"/>
@@ -109,16 +122,21 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
+                                <TextBlock Style="{StaticResource LabelCampo}" Text="Comissão (R$)"/>
+                                <TextBox x:Name="TxtComissaoManual" Style="{StaticResource TextBoxNumerico}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4">
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="Quantidade"/>
                                 <TextBox x:Name="TxtQuantidadeManual" Style="{StaticResource TextBoxNumerico}" Text="1"/>
                             </StackPanel>
 
-                            <StackPanel Grid.Column="4">
+                            <StackPanel Grid.Column="6">
                                 <TextBlock Style="{StaticResource LabelCampo}" Text="Valor unitário (R$)"/>
                                 <TextBox x:Name="TxtPrecoManual" Style="{StaticResource TextBoxNumerico}"/>
                             </StackPanel>
 
-                            <Button Grid.Column="6" Content="+ Adicionar"
+                            <Button Grid.Column="8" Content="+ Adicionar"
                                     Style="{StaticResource BotaoSecundario}"
                                     VerticalAlignment="Bottom" Height="36"
                                     Click="BtnAdicionarItemManual_Click"/>
@@ -177,6 +195,7 @@
                             <DataGridTextColumn Header="Qtd." Binding="{Binding Quantidade, StringFormat='#,##0.##########'}" Width="70"/>
                             <DataGridTextColumn Header="Preço Base" Binding="{Binding PrecoBase, StringFormat=N2}" Width="90" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Valor Praticado" Binding="{Binding PrecoUnitario, StringFormat=N2}" Width="110"/>
+                            <DataGridTextColumn Header="Comissão" Binding="{Binding Comissao, StringFormat=N2}" Width="90"/>
                             <DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, StringFormat=N2}" Width="100" IsReadOnly="True"/>
                             <DataGridTemplateColumn Header="" Width="50">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -202,11 +221,10 @@
                     <!-- Comissão ao lado do total de propósito: é sobre esse valor que ela é
                          calculada, e o líquido logo abaixo mostra na hora o que sobra para a
                          loja — que é o que vai virar faturamento. -->
-                    <TextBlock Text="Comissão (R$):" FontWeight="SemiBold" FontSize="13"
-                               VerticalAlignment="Center" Margin="28,0,0,0"/>
-                    <TextBox x:Name="TxtComissao" Style="{StaticResource TextBoxNumerico}"
-                             Width="110" Margin="8,0,0,0" VerticalAlignment="Center"
-                             TextChanged="TxtComissao_TextChanged"/>
+                    <!-- Somatório do que foi preenchido item a item — o operador confere o
+                         total do acerto sem precisar somar as linhas da grade. -->
+                    <TextBlock x:Name="TxtComissaoVenda" FontSize="12" VerticalAlignment="Center"
+                               Margin="24,0,0,0" Foreground="{StaticResource CinzaTextoBrush}"/>
                     <TextBlock x:Name="TxtLiquidoVenda" FontSize="12" VerticalAlignment="Center"
                                Margin="10,0,0,0" Foreground="{StaticResource CinzaTextoBrush}"/>
                 </StackPanel>

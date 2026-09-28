@@ -45,7 +45,6 @@ public partial class VendaExternaFormView : Window
         TxtTituloModulo.Text = "Registrar Venda Externa";
         TxtSubtituloModulo.Text = "Adicione itens do estoque, digite manualmente ou importe uma lista (Excel, CSV ou TXT) para conferência";
         BtnAprovar.Content = "Aprovar e Concluir Venda";
-        TxtComissao.Text = string.Empty;
         TxtObservacoes.Text = string.Empty;
         RbModoEstoque.IsChecked = true;
         _itens.Clear();
@@ -65,7 +64,6 @@ public partial class VendaExternaFormView : Window
         TxtTituloModulo.Text = "Editar Venda Externa";
         TxtSubtituloModulo.Text = $"Venda {venda.NumeroVendaExterna} — ajuste quantidades, preços ou itens. O estoque será recalculado ao salvar.";
         BtnAprovar.Content = "Salvar Alterações";
-        TxtComissao.Text = venda.Comissao > 0 ? FormattingHelper.FormatarMoedaEntrada(venda.Comissao) : string.Empty;
         TxtObservacoes.Text = venda.Observacoes ?? string.Empty;
         RbModoEstoque.IsChecked = true;
         _itens.Clear();
@@ -80,7 +78,8 @@ public partial class VendaExternaFormView : Window
                 NomeProduto = item.NomeProduto,
                 Quantidade = item.Quantidade,
                 PrecoBase = item.PrecoBase,
-                PrecoUnitario = item.PrecoUnitario
+                PrecoUnitario = item.PrecoUnitario,
+                Comissao = item.Comissao
             });
         }
 
@@ -114,48 +113,26 @@ public partial class VendaExternaFormView : Window
             AtualizarTotal();
     }
 
+    /// <summary>
+    /// Total da venda e, ao lado, a soma das comissões dos itens com o líquido que fica para
+    /// a loja. É o líquido que vai virar faturamento, e vê-lo enquanto a venda é montada
+    /// evita fechá-la achando que entraram R$ 160 quando entraram R$ 130.
+    /// </summary>
     private void AtualizarTotal()
     {
         var total = _itens.Sum(i => i.Subtotal);
         TxtTotalVenda.Text = FormattingHelper.FormatarMoeda(total);
-        AtualizarLiquido(total);
-    }
 
-    private void TxtComissao_TextChanged(object sender, TextChangedEventArgs e)
-        => AtualizarLiquido(_itens.Sum(i => i.Subtotal));
-
-    /// <summary>
-    /// Mostra ao lado o que sobra para a loja enquanto o valor é digitado. É o número que
-    /// vai virar faturamento, e vê-lo na hora evita a surpresa de fechar a venda achando que
-    /// entraram R$ 160 quando entraram R$ 130.
-    /// </summary>
-    private void AtualizarLiquido(decimal total)
-    {
-        // Disparado pelo TextChanged do campo antes de o XAML terminar de montar o rótulo.
-        if (TxtLiquidoVenda is null)
-            return;
-
-        var comissao = LerComissao();
-
-        if (comissao is null or <= 0)
+        var comissao = _itens.Sum(i => i.Comissao);
+        if (comissao <= 0)
         {
+            TxtComissaoVenda.Text = string.Empty;
             TxtLiquidoVenda.Text = string.Empty;
             return;
         }
 
-        TxtLiquidoVenda.Text = comissao > total
-            ? "comissão maior que a venda"
-            : $"líquido: {FormattingHelper.FormatarMoeda(total - comissao.Value)}";
-    }
-
-    /// <summary>Campo vazio é venda sem comissão (devolve zero). Texto que não é valor
-    /// devolve null — quem barra é a validação ao concluir a venda.</summary>
-    private decimal? LerComissao()
-    {
-        if (string.IsNullOrWhiteSpace(TxtComissao.Text))
-            return 0m;
-
-        return FormattingHelper.TryParseMoeda(TxtComissao.Text, out var valor) ? valor : null;
+        TxtComissaoVenda.Text = $"comissões: {FormattingHelper.FormatarMoeda(comissao)}";
+        TxtLiquidoVenda.Text = $"líquido: {FormattingHelper.FormatarMoeda(total - comissao)}";
     }
 
     private void ModoItem_Changed(object sender, RoutedEventArgs e)
@@ -280,6 +257,9 @@ public partial class VendaExternaFormView : Window
             return;
         }
 
+        if (!TentarLerComissaoDoItem(TxtComissaoEstoque, quantidade * precoUnitario, produto.Nome, out var comissao))
+            return;
+
         _itens.Add(new ItemVendaExternaFormModel
         {
             ProdutoId = produto.Id,
@@ -287,10 +267,40 @@ public partial class VendaExternaFormView : Window
             NomeProduto = produto.Nome,
             Quantidade = quantidade,
             PrecoBase = produto.PrecoVenda,
-            PrecoUnitario = precoUnitario
+            PrecoUnitario = precoUnitario,
+            Comissao = comissao
         });
 
         LimparCamposItem();
+    }
+
+    /// <summary>
+    /// Campo vazio é item sem comissão. O limite (não maior que o próprio item) é validado
+    /// de novo no Service, que é quem manda; aqui a checagem existe para o operador ver o
+    /// erro antes de a linha entrar na grade — corrigir ali é mais fácil do que caçar a
+    /// linha errada depois, na hora de concluir a venda.
+    /// </summary>
+    private bool TentarLerComissaoDoItem(TextBox campo, decimal subtotalDoItem, string nomeProduto, out decimal comissao)
+    {
+        comissao = 0m;
+
+        if (string.IsNullOrWhiteSpace(campo.Text))
+            return true;
+
+        if (!FormattingHelper.TryParseMoeda(campo.Text, out comissao) || comissao < 0)
+        {
+            ExibirErroValidacao("Comissão inválida — informe um valor em reais ou deixe em branco.");
+            return false;
+        }
+
+        if (comissao > subtotalDoItem)
+        {
+            ExibirErroValidacao(
+                $"A comissão de '{nomeProduto}' ({FormattingHelper.FormatarMoeda(comissao)}) não pode ser maior que o valor do item ({FormattingHelper.FormatarMoeda(subtotalDoItem)}).");
+            return false;
+        }
+
+        return true;
     }
 
     private void BtnAdicionarItemManual_Click(object sender, RoutedEventArgs e)
@@ -316,13 +326,17 @@ public partial class VendaExternaFormView : Window
             return;
         }
 
+        if (!TentarLerComissaoDoItem(TxtComissaoManual, quantidade * precoUnitario, nome, out var comissao))
+            return;
+
         _itens.Add(new ItemVendaExternaFormModel
         {
             ProdutoId = null,
             NomeProduto = nome,
             Quantidade = quantidade,
             PrecoBase = 0,
-            PrecoUnitario = precoUnitario
+            PrecoUnitario = precoUnitario,
+            Comissao = comissao
         });
 
         LimparCamposItem();
@@ -420,20 +434,18 @@ public partial class VendaExternaFormView : Window
             }
         }
 
-        if (LerComissao() is not { } comissao)
+        // A comissão de cada item já foi conferida ao entrar na grade; aqui só se confirma
+        // que uma edição direta na célula não deixou nenhuma acima do próprio item.
+        foreach (var item in _itens.Where(i => i.Comissao > i.Subtotal))
         {
-            ExibirErroValidacao("Comissão inválida — informe um valor em reais ou deixe em branco.");
+            ExibirErroValidacao(
+                $"A comissão de '{item.NomeProduto}' ({FormattingHelper.FormatarMoeda(item.Comissao)}) não pode ser maior que o valor do item ({FormattingHelper.FormatarMoeda(item.Subtotal)}).");
             return;
         }
 
-        // O limite (comissão não maior que a venda) é validado no Service, que é quem manda;
-        // aqui a checagem existe só para o operador não descobrir isso depois de a tela já
-        // ter desabilitado o botão e ido ao banco.
-        var totalDaVenda = _itens.Sum(i => i.Subtotal);
-        if (comissao > totalDaVenda)
+        foreach (var item in _itens.Where(i => i.Comissao < 0))
         {
-            ExibirErroValidacao(
-                $"A comissão ({FormattingHelper.FormatarMoeda(comissao)}) não pode ser maior que o total da venda ({FormattingHelper.FormatarMoeda(totalDaVenda)}).");
+            ExibirErroValidacao($"A comissão de '{item.NomeProduto}' não pode ser negativa.");
             return;
         }
 
@@ -445,7 +457,6 @@ public partial class VendaExternaFormView : Window
                 var dtoEdicao = new AtualizarVendaExternaDto
                 {
                     Id = _vendaId,
-                    Comissao = comissao,
                     Observacoes = TxtObservacoes.Text.Trim(),
                     Usuario = _usuario,
                     Itens = _itens.Select(i => new AtualizarItemVendaExternaDto
@@ -456,7 +467,8 @@ public partial class VendaExternaFormView : Window
                         CodigoBarras = i.CodigoBarras,
                         Quantidade = i.Quantidade,
                         PrecoBase = i.PrecoBase,
-                        PrecoUnitario = i.PrecoUnitario
+                        PrecoUnitario = i.PrecoUnitario,
+                        Comissao = i.Comissao
                     }).ToList()
                 };
 
@@ -472,7 +484,6 @@ public partial class VendaExternaFormView : Window
             {
                 var dto = new RegistrarVendaExternaDto
                 {
-                    Comissao = comissao,
                     Observacoes = TxtObservacoes.Text.Trim(),
                     Usuario = _usuario,
                     Itens = _itens.Select(i => new RegistrarItemVendaExternaDto
@@ -482,7 +493,8 @@ public partial class VendaExternaFormView : Window
                         CodigoBarras = i.CodigoBarras,
                         Quantidade = i.Quantidade,
                         PrecoBase = i.PrecoBase,
-                        PrecoUnitario = i.PrecoUnitario
+                        PrecoUnitario = i.PrecoUnitario,
+                        Comissao = i.Comissao
                     }).ToList()
                 };
 
@@ -528,9 +540,11 @@ public partial class VendaExternaFormView : Window
         TxtBuscaProduto.Text = string.Empty;
         TxtQuantidadeEstoque.Text = "1";
         TxtPrecoEstoque.Text = string.Empty;
+        TxtComissaoEstoque.Text = string.Empty;
         TxtNomeManual.Text = string.Empty;
         TxtQuantidadeManual.Text = "1";
         TxtPrecoManual.Text = string.Empty;
+        TxtComissaoManual.Text = string.Empty;
         PopupResultadosProduto.IsOpen = false;
     }
 

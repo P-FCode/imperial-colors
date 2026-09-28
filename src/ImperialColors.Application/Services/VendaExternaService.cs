@@ -70,13 +70,10 @@ public class VendaExternaService : IVendaExternaService
 
         ValidarItens(dto.Itens);
 
-        ValidarComissao(dto.Comissao, dto.Itens.Sum(i => i.Quantidade * i.PrecoUnitario));
-
         var numero = await _vendaExternaRepository.GerarNumeroVendaExternaAsync(cancellationToken);
         var venda = new VendaExterna
         {
             NumeroVendaExterna = numero,
-            Comissao = dto.Comissao,
             Observacoes = dto.Observacoes?.Trim(),
             DataVenda = DateTime.Now
         };
@@ -88,7 +85,8 @@ public class VendaExternaService : IVendaExternaService
             CodigoBarras = string.IsNullOrWhiteSpace(i.CodigoBarras) ? null : i.CodigoBarras.Trim(),
             Quantidade = i.Quantidade,
             PrecoBase = i.PrecoBase,
-            PrecoUnitario = i.PrecoUnitario
+            PrecoUnitario = i.PrecoUnitario,
+            Comissao = i.Comissao
         }).ToList();
 
         foreach (var item in itens)
@@ -111,7 +109,6 @@ public class VendaExternaService : IVendaExternaService
             throw new DomainException("Adicione pelo menos um item à venda externa.");
 
         ValidarItensAtualizacao(dto.Itens);
-        ValidarComissao(dto.Comissao, dto.Itens.Sum(i => i.Quantidade * i.PrecoUnitario));
 
         var itens = dto.Itens.Select(i => new ItemVendaExterna
         {
@@ -121,14 +118,15 @@ public class VendaExternaService : IVendaExternaService
             CodigoBarras = string.IsNullOrWhiteSpace(i.CodigoBarras) ? null : i.CodigoBarras.Trim(),
             Quantidade = i.Quantidade,
             PrecoBase = i.PrecoBase,
-            PrecoUnitario = i.PrecoUnitario
+            PrecoUnitario = i.PrecoUnitario,
+            Comissao = i.Comissao
         }).ToList();
 
         foreach (var item in itens)
             item.CalcularSubtotal();
 
         var atualizada = await _vendaExternaRepository.AtualizarTransacionalAsync(
-            dto.Id, dto.Observacoes, dto.Comissao, itens, dto.Usuario, cancellationToken);
+            dto.Id, dto.Observacoes, itens, dto.Usuario, cancellationToken);
 
         return MapearParaDto(atualizada);
     }
@@ -195,19 +193,19 @@ public class VendaExternaService : IVendaExternaService
     }
 
     /// <summary>
-    /// Comissão é opcional (zero = venda sem comissão), mas quando existe não pode passar do
-    /// valor vendido: a comissão sai do faturamento, e uma comissão maior que a venda faria a
-    /// loja registrar faturamento negativo naquele dia. Negativo também não entra — se foi
-    /// digitado com sinal trocado, vira acréscimo no faturamento em vez de desconto.
+    /// Comissão é opcional (zero = item sem comissão), mas quando existe não pode passar do
+    /// que aquele item vendeu: a comissão sai do faturamento, e uma comissão maior que o
+    /// item faria a loja registrar faturamento negativo naquele dia. Negativo também não
+    /// entra — digitado com sinal trocado, vira acréscimo no faturamento em vez de desconto.
     /// </summary>
-    private static void ValidarComissao(decimal comissao, decimal totalDaVenda)
+    private static void ValidarComissaoDoItem(string nomeProduto, decimal comissao, decimal subtotalDoItem)
     {
         if (comissao < 0)
-            throw new DomainException("A comissão não pode ser negativa.");
+            throw new DomainException($"A comissão de '{nomeProduto}' não pode ser negativa.");
 
-        if (comissao > totalDaVenda)
+        if (comissao > subtotalDoItem)
             throw new DomainException(
-                $"A comissão (R$ {comissao:N2}) não pode ser maior que o total da venda (R$ {totalDaVenda:N2}).");
+                $"A comissão de '{nomeProduto}' (R$ {comissao:N2}) não pode ser maior que o valor do item (R$ {subtotalDoItem:N2}).");
     }
 
     /// <summary>Quantos pendentes o painel do Dashboard lista — ele responde "quem eu tenho
@@ -298,6 +296,8 @@ public class VendaExternaService : IVendaExternaService
 
             if (item.PrecoUnitario < 0)
                 throw new DomainException($"Preço unitário inválido para '{item.NomeProduto}'.");
+
+            ValidarComissaoDoItem(item.NomeProduto, item.Comissao, item.Quantidade * item.PrecoUnitario);
         }
     }
 
@@ -313,6 +313,8 @@ public class VendaExternaService : IVendaExternaService
 
             if (item.PrecoUnitario < 0)
                 throw new DomainException($"Preço unitário inválido para '{item.NomeProduto}'.");
+
+            ValidarComissaoDoItem(item.NomeProduto, item.Comissao, item.Quantidade * item.PrecoUnitario);
         }
     }
 
@@ -339,7 +341,8 @@ public class VendaExternaService : IVendaExternaService
                 Quantidade = i.Quantidade,
                 PrecoBase = i.PrecoBase,
                 PrecoUnitario = i.PrecoUnitario,
-                Subtotal = i.Subtotal
+                Subtotal = i.Subtotal,
+                Comissao = i.Comissao
             }).ToList()
         };
 }

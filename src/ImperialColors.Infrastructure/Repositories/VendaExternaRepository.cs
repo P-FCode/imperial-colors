@@ -323,7 +323,6 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
     public async Task<VendaExterna> AtualizarTransacionalAsync(
         int vendaId,
         string? observacoes,
-        decimal comissao,
         IReadOnlyList<ItemVendaExterna> itens,
         string? usuario,
         CancellationToken cancellationToken = default)
@@ -366,6 +365,7 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
                     antigo.PrecoBase = item.PrecoBase;
                     antigo.PrecoUnitario = item.PrecoUnitario;
                     antigo.Subtotal = item.Subtotal;
+                    antigo.Comissao = item.Comissao;
                 }
                 else
                 {
@@ -384,7 +384,8 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
                         Quantidade = item.Quantidade,
                         PrecoBase = item.PrecoBase,
                         PrecoUnitario = item.PrecoUnitario,
-                        Subtotal = item.Subtotal
+                        Subtotal = item.Subtotal,
+                        Comissao = item.Comissao
                     });
                 }
             }
@@ -393,11 +394,14 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             venda.Subtotal = itens.Sum(i => i.Quantidade * i.PrecoUnitario);
             venda.Total = venda.Subtotal;
 
-            // Zerar a comissão na edição também apaga o acerto: sem comissão não há o que
-            // ter sido pago, e deixar a marcação para trás faria a venda sumir do controle
-            // carregando um "pago" que não corresponde a nada.
-            venda.Comissao = comissao;
-            if (comissao <= 0)
+            // A comissão da venda é a soma da dos itens — recalculada aqui porque a edição
+            // pode ter removido, acrescentado ou mudado qualquer item.
+            venda.Comissao = itens.Sum(i => i.Comissao);
+
+            // Zerar toda a comissão na edição também apaga o acerto: sem comissão não há o
+            // que ter sido pago, e deixar a marcação para trás faria a venda sumir do
+            // controle carregando um "pago" que não corresponde a nada.
+            if (venda.Comissao <= 0)
             {
                 venda.ComissaoPaga = false;
                 venda.ComissaoPagaEm = null;

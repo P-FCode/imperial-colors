@@ -10,9 +10,14 @@ public class VendaExterna : BaseEntity
     public DateTime DataVenda { get; set; } = DateTime.Now;
 
     /// <summary>
-    /// Quanto da venda vai para quem vendeu na rua, em reais. Zero quando a venda não gera
-    /// comissão — e é justamente esse zero que decide se ela aparece no controle de
-    /// comissões: venda sem comissão não tem nada a pagar e não vira pendência.
+    /// Soma das comissões dos itens, em reais — gravada aqui, e não calculada a cada
+    /// consulta, porque é por ela que o faturamento diário, o controle de acertos e os
+    /// painéis agregam sem precisar entrar nos itens de cada venda.
+    ///
+    /// Zero quando a venda não gera comissão — e é justamente esse zero que decide se ela
+    /// aparece no controle: venda sem comissão não tem nada a pagar e não vira pendência.
+    ///
+    /// Mantida em dia por <see cref="CalcularTotais"/>.
     /// </summary>
     public decimal Comissao { get; set; }
 
@@ -42,5 +47,6 @@ public class VendaExterna : BaseEntity
     {
         Subtotal = Itens.Sum(i => i.Subtotal);
         Total = Subtotal;
+        Comissao = Itens.Sum(i => i.Comissao);
     }
 }
