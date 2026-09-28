@@ -130,22 +130,26 @@ public class ComissaoVendaExternaTests
         FiltroComissaoVendaExterna filtro, bool? pagaEsperado)
     {
         var (servico, repositorio) = CriarServico();
-        repositorio.Setup(r => r.ListarComComissaoAsync(It.IsAny<bool?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Comissionada(1, "VE-0001", 160m, 30m, paga: false)]);
+        repositorio.Setup(r => r.ListarComComissaoPaginadoAsync(
+                It.IsAny<bool?>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(([Comissionada(1, "VE-0001", 160m, 30m, paga: false)], 1));
 
-        await servico.ListarComissoesAsync(filtro);
+        await servico.ObterComissoesPaginadoAsync(filtro, pagina: 1, itensPorPagina: 50);
 
-        repositorio.Verify(r => r.ListarComComissaoAsync(pagaEsperado, It.IsAny<CancellationToken>()), Times.Once);
+        repositorio.Verify(r => r.ListarComComissaoPaginadoAsync(
+            pagaEsperado, 1, 50, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task ListarComissoes_TrazOPercentualEOLiquidoDeCadaVenda()
     {
         var (servico, repositorio) = CriarServico();
-        repositorio.Setup(r => r.ListarComComissaoAsync(It.IsAny<bool?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Comissionada(1, "VE-0007", 160m, 30m, paga: false)]);
+        repositorio.Setup(r => r.ListarComComissaoPaginadoAsync(
+                It.IsAny<bool?>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(([Comissionada(1, "VE-0007", 160m, 30m, paga: false)], 1));
 
-        var comissao = Assert.Single(await servico.ListarComissoesAsync(FiltroComissaoVendaExterna.APagar));
+        var pagina = await servico.ObterComissoesPaginadoAsync(FiltroComissaoVendaExterna.APagar, 1, 50);
+        var comissao = Assert.Single(pagina.Itens);
 
         Assert.Equal("VE-0007", comissao.NumeroVendaExterna);
         Assert.Equal(130m, comissao.TotalLiquido);

@@ -239,6 +239,33 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<(IReadOnlyList<VendaExterna> Itens, int Total)> ListarComComissaoPaginadoAsync(
+        bool? paga, int pagina, int itensPorPagina, CancellationToken cancellationToken = default)
+    {
+        pagina = Math.Max(1, pagina);
+        itensPorPagina = Math.Clamp(itensPorPagina, 1, 200);
+
+        await using var context = ContextFactory.CreateDbContext();
+
+        var consulta = context.Set<VendaExterna>()
+            .AsNoTracking()
+            .Where(v => v.Comissao > 0);
+
+        if (paga.HasValue)
+            consulta = consulta.Where(v => v.ComissaoPaga == paga.Value);
+
+        var total = await consulta.CountAsync(cancellationToken);
+
+        var itens = await consulta
+            .OrderByDescending(v => v.DataVenda)
+            .ThenByDescending(v => v.Id)
+            .Skip((pagina - 1) * itensPorPagina)
+            .Take(itensPorPagina)
+            .ToListAsync(cancellationToken);
+
+        return (itens, total);
+    }
+
     public async Task<ResumoComissoesVendaExterna> ObterResumoComissoesAsync(
         DateTime inicioMes, DateTime fimMesExclusivo, CancellationToken cancellationToken = default)
     {

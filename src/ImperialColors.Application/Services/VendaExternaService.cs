@@ -210,18 +210,30 @@ public class VendaExternaService : IVendaExternaService
                 $"A comissão (R$ {comissao:N2}) não pode ser maior que o total da venda (R$ {totalDaVenda:N2}).");
     }
 
-    public async Task<IReadOnlyList<ComissaoVendaExternaDto>> ListarComissoesAsync(
-        FiltroComissaoVendaExterna filtro, CancellationToken cancellationToken = default)
-    {
-        var paga = filtro switch
-        {
-            FiltroComissaoVendaExterna.APagar => (bool?)false,
-            FiltroComissaoVendaExterna.Pagas => true,
-            _ => null
-        };
+    /// <summary>Quantos pendentes o painel do Dashboard lista — ele responde "quem eu tenho
+    /// que pagar?", não substitui a tela de controle, que é paginada.</summary>
+    private const int PendentesNoPainel = 10;
 
-        var vendas = await _vendaExternaRepository.ListarComComissaoAsync(paga, cancellationToken);
-        return vendas.Select(MapearComissao).ToList();
+    private static bool? TraduzirFiltro(FiltroComissaoVendaExterna filtro) => filtro switch
+    {
+        FiltroComissaoVendaExterna.APagar => false,
+        FiltroComissaoVendaExterna.Pagas => true,
+        _ => null
+    };
+
+    public async Task<PaginacaoResultadoDto<ComissaoVendaExternaDto>> ObterComissoesPaginadoAsync(
+        FiltroComissaoVendaExterna filtro, int pagina, int itensPorPagina, CancellationToken cancellationToken = default)
+    {
+        var (vendas, total) = await _vendaExternaRepository.ListarComComissaoPaginadoAsync(
+            TraduzirFiltro(filtro), pagina, itensPorPagina, cancellationToken);
+
+        return new PaginacaoResultadoDto<ComissaoVendaExternaDto>
+        {
+            Itens = vendas.Select(MapearComissao).ToList(),
+            PaginaAtual = pagina,
+            ItensPorPagina = itensPorPagina,
+            TotalItens = total
+        };
     }
 
     public async Task<ResumoComissoesDto> ObterResumoComissoesAsync(CancellationToken cancellationToken = default)
@@ -241,7 +253,7 @@ public class VendaExternaService : IVendaExternaService
             TotalPago = resumo.TotalPago,
             QuantidadePaga = resumo.QuantidadePaga,
             TotalDoMes = resumo.TotalDoMes,
-            Pendentes = pendentes.Select(MapearComissao).ToList()
+            Pendentes = pendentes.Take(PendentesNoPainel).Select(MapearComissao).ToList()
         };
     }
 

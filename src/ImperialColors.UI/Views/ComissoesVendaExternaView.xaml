@@ -121,8 +121,19 @@
             <Grid>
                 <TextBlock x:Name="TxtResumoLista" VerticalAlignment="Center" FontSize="12"
                            Foreground="{StaticResource CinzaTextoBrush}"/>
-                <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
-                        HorizontalAlignment="Right" Click="BtnFechar_Click"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <!-- Desabilitados até a primeira carga dizer quantas páginas existem:
+                         habilitados de saída, um clique antes disso levaria para uma página
+                         que a tela ainda não sabe se existe. -->
+                    <Button x:Name="BtnPaginaAnterior" Style="{StaticResource BotaoSecundario}"
+                            Content="◀ Anterior" Margin="0,0,8,0" IsEnabled="False"
+                            Click="BtnPaginaAnterior_Click"/>
+                    <Button x:Name="BtnPaginaProxima" Style="{StaticResource BotaoSecundario}"
+                            Content="Próxima ▶" Margin="0,0,16,0" IsEnabled="False"
+                            Click="BtnPaginaProxima_Click"/>
+                    <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                            Click="BtnFechar_Click"/>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

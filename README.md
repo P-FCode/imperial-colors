@@ -659,7 +659,7 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - **Fluxo B – Item manual:** nome, quantidade e valor unitário livres, sem vínculo com produto — computado apenas no faturamento, sem baixa de estoque
 - **Comissão:** campo no registro da venda, ao lado do total, com o líquido aparecendo enquanto se digita. Vale zero quando a venda não gera comissão. Não pode ser negativa nem maior que o total da venda
   - **Faturamento é o líquido:** venda de R$ 160 com R$ 30 de comissão conta **R$ 130** no Dashboard e no Relatório Consolidado. O valor cheio continua na venda, para a conferência com o vendedor. No relatório a comissão tem coluna própria — não é somada ao desconto, que é abatimento dado ao cliente
-  - **Botão Comissões:** sub-janela de controle dos acertos, com filtro *A pagar / Pagas / Todas*, totais e as ações de marcar como paga ou devolver para "a pagar" (as duas ficam registradas na auditoria). Só entram vendas **com** comissão — venda sem comissão não gera pendência
+  - **Botão Comissões:** sub-janela de controle dos acertos, com filtro *A pagar / Pagas / Todas*, totais e as ações de marcar como paga ou devolver para "a pagar" (as duas ficam registradas na auditoria). Só entram vendas **com** comissão — venda sem comissão não gera pendência. Paginada em 50 por página, como as demais listagens; trocar de filtro volta para a primeira página
   - Zerar a comissão ao editar a venda também limpa a marcação de pagamento
 - **Importar Lista:** o botão abre um diálogo para escolher o formato, com o tutorial e um exemplo do layout esperado logo abaixo da opção marcada; em seguida seleciona-se o arquivo. Grade de conferência editável antes da aprovação
   - **Excel (.xlsx):** primeira aba, três colunas — A = código de barras, B = nome do produto, C = quantidade
@@ -804,7 +804,7 @@ O sistema utiliza tema centralizado em `Resources/AppTheme.xaml`:
 
 ### Performance e paginação
 
-- Listagens (Estoque, Clientes, Mercadorias, Vendas): **50 registros/página** com `Skip/Take` no PostgreSQL e `AsNoTracking`
+- Listagens (Estoque, Clientes, Mercadorias, Vendas, Vendas Externas, Comissões): **50 registros/página** com `Skip/Take` no PostgreSQL e `AsNoTracking`, com "Página X de Y" e os botões Anterior/Próxima
 - DataGrids com virtualização de linhas (`VirtualizingStackPanel.Recycling`)
 - Logos em cache (`BitmapCacheOption.OnLoad`) — não recarregados a cada navegação
 - PDV: desconto em **R$** ou **%** com cálculo automático do total líquido

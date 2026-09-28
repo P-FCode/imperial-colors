@@ -35,8 +35,14 @@ public interface IVendaExternaRepository : IRepository<VendaExterna>
 
     /// <summary>Vendas externas COM comissão (maior que zero), filtradas pela situação do
     /// pagamento — <c>null</c> traz pagas e a pagar. Venda sem comissão nunca entra: não há
-    /// o que controlar nela.</summary>
+    /// o que controlar nela. Sem paginação: usado pelo painel do Dashboard, que recorta os
+    /// primeiros pendentes; a tela de controle usa a versão paginada.</summary>
     Task<IReadOnlyList<VendaExterna>> ListarComComissaoAsync(bool? paga, CancellationToken cancellationToken = default);
+
+    /// <summary>Mesma consulta, paginada no banco — a lista de "Todas" cresce para sempre à
+    /// medida que as comissões vão sendo pagas.</summary>
+    Task<(IReadOnlyList<VendaExterna> Itens, int Total)> ListarComComissaoPaginadoAsync(
+        bool? paga, int pagina, int itensPorPagina, CancellationToken cancellationToken = default);
 
     /// <summary>Totais de comissão agregados pelo banco, para os painéis.</summary>
     Task<ResumoComissoesVendaExterna> ObterResumoComissoesAsync(

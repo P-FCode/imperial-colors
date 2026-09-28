@@ -11,23 +11,44 @@ namespace ImperialColors.UI.ViewModels;
 
 public class VendaExternaViewModel : BaseViewModel
 {
-    // Antes a tela sempre carregava a tabela inteira (ObterTodosAsync, com Include(Itens))
-    // ao abrir — sem limite, diferente de Produtos/Vendas/Clientes/Logs, que já são
-    // paginados no banco. Agora carrega em páginas de 100 registros, com "Carregar mais"
-    // buscando a próxima página sob demanda.
-    private const int ItensPorPagina = 100;
+    // Paginação de página cheia, como no Histórico de Vendas, Estoque e Clientes: 50 por
+    // página, com "Página X de Y" e os botões de anterior/próxima. Antes era uma lista que
+    // só crescia ("Carregar mais"), o que deixava a tela com milhares de linhas acumuladas
+    // depois de algumas horas de uso e sem como voltar para um trecho já passado.
+    public const int ItensPorPaginaPadrao = 50;
 
     private readonly IVendaExternaService _vendaExternaService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ISessaoService _sessaoService;
 
-    private int _paginaAtual = 1;
-    private int _totalRegistros;
-
     private ObservableCollection<VendaExternaDto> _vendas = new();
     public ObservableCollection<VendaExternaDto> Vendas { get => _vendas; set => SetProperty(ref _vendas, value); }
 
-    public bool TemMaisRegistros => Vendas.Count < _totalRegistros;
+    private int _paginaAtual = 1;
+    public int PaginaAtual
+    {
+        get => _paginaAtual;
+        set
+        {
+            SetProperty(ref _paginaAtual, value);
+            OnPropertyChanged(nameof(InfoPaginacao));
+            OnPropertyChanged(nameof(PodePaginaAnterior));
+            OnPropertyChanged(nameof(PodePaginaProxima));
+        }
+    }
+
+    private int _totalPaginas;
+    public int TotalPaginas { get => _totalPaginas; set => SetProperty(ref _totalPaginas, value); }
+
+    private int _totalItens;
+    public int TotalItens { get => _totalItens; set => SetProperty(ref _totalItens, value); }
+
+    public string InfoPaginacao => TotalPaginas <= 0
+        ? "Nenhuma venda externa"
+        : $"Página {PaginaAtual} de {TotalPaginas} — {TotalItens} venda(s)";
+
+    public bool PodePaginaAnterior => PaginaAtual > 1 && !Carregando;
+    public bool PodePaginaProxima => PaginaAtual < TotalPaginas && !Carregando;
 
     private VendaExternaDto? _vendaSelecionada;
     public VendaExternaDto? VendaSelecionada
@@ -44,7 +65,8 @@ public class VendaExternaViewModel : BaseViewModel
     public bool TemSelecao => VendaSelecionada is not null;
 
     public AsyncRelayCommand CarregarCommand { get; }
-    public AsyncRelayCommand CarregarMaisCommand { get; }
+    public AsyncRelayCommand PaginaAnteriorCommand { get; }
+    public AsyncRelayCommand PaginaProximaCommand { get; }
     public AsyncRelayCommand RegistrarVendaCommand { get; }
     public AsyncRelayCommand EditarVendaCommand { get; }
     public AsyncRelayCommand ExcluirVendaCommand { get; }
@@ -61,7 +83,8 @@ public class VendaExternaViewModel : BaseViewModel
         _sessaoService = sessaoService;
 
         CarregarCommand = new AsyncRelayCommand(CarregarAsync);
-        CarregarMaisCommand = new AsyncRelayCommand(CarregarMaisAsync, () => TemMaisRegistros && !Carregando);
+        PaginaAnteriorCommand = new AsyncRelayCommand(IrPaginaAnterior, () => PodePaginaAnterior);
+        PaginaProximaCommand = new AsyncRelayCommand(IrPaginaProxima, () => PodePaginaProxima);
         RegistrarVendaCommand = new AsyncRelayCommand(AbrirRegistro);
         EditarVendaCommand = new AsyncRelayCommand(AbrirEdicao, () => TemSelecao && !Carregando);
         ExcluirVendaCommand = new AsyncRelayCommand(ExcluirVenda, () => TemSelecao && !Carregando);
@@ -71,16 +94,38 @@ public class VendaExternaViewModel : BaseViewModel
         AbrirComissoesCommand = new AsyncRelayCommand(AbrirComissoes, () => !Carregando);
     }
 
-    public async Task CarregarAsync()
+    /// <summary>Recarrega desde a primeira página — usado ao abrir a tela e depois de
+    /// registrar, editar ou excluir uma venda.</summary>
+    public Task CarregarAsync()
+    {
+        PaginaAtual = 1;
+        return BuscarAsync();
+    }
+
+    private async Task BuscarAsync()
     {
         try
         {
             Carregando = true;
-            _paginaAtual = 1;
-            var resultado = await _vendaExternaService.ObterPaginadoAsync(_paginaAtual, ItensPorPagina);
-            _totalRegistros = resultado.TotalItens;
+            var resultado = await _vendaExternaService.ObterPaginadoAsync(PaginaAtual, ItensPorPaginaPadrao);
+
             Vendas = new ObservableCollection<VendaExternaDto>(resultado.Itens);
-            OnPropertyChanged(nameof(TemMaisRegistros));
+            TotalItens = resultado.TotalItens;
+            TotalPaginas = resultado.TotalPaginas;
+
+            // Excluir a última venda de uma página deixa o operador numa página que não
+            // existe mais; volta para a última válida em vez de mostrar uma grade vazia.
+            if (TotalPaginas > 0 && PaginaAtual > TotalPaginas)
+            {
+                PaginaAtual = TotalPaginas;
+                await BuscarAsync();
+                return;
+            }
+
+            VendaSelecionada = null;
+            OnPropertyChanged(nameof(InfoPaginacao));
+            OnPropertyChanged(nameof(PodePaginaAnterior));
+            OnPropertyChanged(nameof(PodePaginaProxima));
         }
         catch (Exception ex)
         {
@@ -92,28 +137,18 @@ public class VendaExternaViewModel : BaseViewModel
         }
     }
 
-    private async Task CarregarMaisAsync()
+    private async Task IrPaginaAnterior()
     {
-        if (!TemMaisRegistros) return;
+        if (PaginaAtual <= 1) return;
+        PaginaAtual--;
+        await BuscarAsync();
+    }
 
-        try
-        {
-            Carregando = true;
-            var resultado = await _vendaExternaService.ObterPaginadoAsync(_paginaAtual + 1, ItensPorPagina);
-            _paginaAtual++;
-            _totalRegistros = resultado.TotalItens;
-            foreach (var venda in resultado.Itens)
-                Vendas.Add(venda);
-            OnPropertyChanged(nameof(TemMaisRegistros));
-        }
-        catch (Exception ex)
-        {
-            MostrarErro($"Erro ao carregar mais vendas externas:\n\n{ex.Message}");
-        }
-        finally
-        {
-            Carregando = false;
-        }
+    private async Task IrPaginaProxima()
+    {
+        if (PaginaAtual >= TotalPaginas) return;
+        PaginaAtual++;
+        await BuscarAsync();
     }
 
     /// <summary>

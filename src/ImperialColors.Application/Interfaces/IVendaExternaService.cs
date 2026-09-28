@@ -20,10 +20,10 @@ public interface IVendaExternaService
     Task<IReadOnlyList<LinhaImportacaoVendaExternaDto>> ProcessarImportacaoTextoAsync(
         string conteudoArquivo, FormatoImportacaoLista formato, CancellationToken cancellationToken = default);
 
-    /// <summary>Vendas externas com comissão, para a tela de controle de acertos. Venda sem
-    /// comissão não aparece: não há o que pagar nela.</summary>
-    Task<IReadOnlyList<ComissaoVendaExternaDto>> ListarComissoesAsync(
-        FiltroComissaoVendaExterna filtro, CancellationToken cancellationToken = default);
+    /// <summary>Vendas externas com comissão, paginadas, para a tela de controle de acertos.
+    /// Venda sem comissão não aparece: não há o que pagar nela.</summary>
+    Task<PaginacaoResultadoDto<ComissaoVendaExternaDto>> ObterComissoesPaginadoAsync(
+        FiltroComissaoVendaExterna filtro, int pagina, int itensPorPagina, CancellationToken cancellationToken = default);
 
     /// <summary>Totais de comissão (a pagar, pago, do mês) e a lista de pendentes — usado
     /// pelo painel de Comissões do Dashboard e pela tela de controle.</summary>

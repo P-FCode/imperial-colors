@@ -20,8 +20,15 @@ public class ComissoesVendaExternaViewTests
     private static ComissoesVendaExternaView Criar(params ComissaoVendaExternaDto[] comissoes)
     {
         var servico = new Mock<IVendaExternaService>();
-        servico.Setup(s => s.ListarComissoesAsync(It.IsAny<FiltroComissaoVendaExterna>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(comissoes.ToList());
+        servico.Setup(s => s.ObterComissoesPaginadoAsync(
+                It.IsAny<FiltroComissaoVendaExterna>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PaginacaoResultadoDto<ComissaoVendaExternaDto>
+            {
+                Itens = comissoes.ToList(),
+                PaginaAtual = 1,
+                ItensPorPagina = 50,
+                TotalItens = comissoes.Length
+            });
         servico.Setup(s => s.ObterResumoComissoesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ResumoComissoesDto
             {
@@ -43,7 +50,8 @@ public class ComissoesVendaExternaViewTests
                  {
                      "TxtTotalAPagar", "TxtQuantidadeAPagar", "TxtTotalPago", "TxtQuantidadePaga",
                      "TxtTotalDoMes", "GridComissoes", "TxtSemComissoes", "TxtResumoLista",
-                     "RbAPagar", "RbPagas", "RbTodas", "BtnMarcarPaga", "BtnDesmarcar"
+                     "RbAPagar", "RbPagas", "RbTodas", "BtnMarcarPaga", "BtnDesmarcar",
+                     "BtnPaginaAnterior", "BtnPaginaProxima"
                  })
         {
             Assert.True(tela.FindName(nome) is not null, $"'{nome}' não existe no XAML");
@@ -64,6 +72,29 @@ public class ComissoesVendaExternaViewTests
 
         Assert.False(((Button)tela.FindName("BtnMarcarPaga")!).IsEnabled);
         Assert.False(((Button)tela.FindName("BtnDesmarcar")!).IsEnabled);
+
+        tela.Close();
+    }
+
+    /// <summary>
+    /// Antes da primeira carga a tela ainda não sabe quantas páginas existem, então os dois
+    /// botões começam desabilitados — quem os habilita é o resultado da consulta. Habilitados
+    /// de saída, um clique antes disso pediria uma página que pode não existir.
+    /// </summary>
+    [StaFact]
+    public void AoAbrir_OsBotoesDeNavegacaoComecamDesabilitados()
+    {
+        var tela = Criar(new ComissaoVendaExternaDto
+        {
+            VendaExternaId = 1,
+            NumeroVendaExterna = "VE-0001",
+            DataVenda = DateTime.Today,
+            TotalVenda = 160m,
+            Comissao = 30m
+        });
+
+        Assert.False(((Button)tela.FindName("BtnPaginaAnterior")!).IsEnabled);
+        Assert.False(((Button)tela.FindName("BtnPaginaProxima")!).IsEnabled);
 
         tela.Close();
     }

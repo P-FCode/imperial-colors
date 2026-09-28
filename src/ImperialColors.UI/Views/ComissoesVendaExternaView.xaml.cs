@@ -15,8 +15,13 @@ namespace ImperialColors.UI.Views;
 /// </summary>
 public partial class ComissoesVendaExternaView : Window
 {
+    /// <summary>Mesmo tamanho de página das demais listagens do sistema.</summary>
+    private const int ItensPorPagina = 50;
+
     private readonly IVendaExternaService _vendaExternaService;
     private bool _pronto;
+    private int _paginaAtual = 1;
+    private int _totalPaginas;
 
     public ComissoesVendaExternaView(IVendaExternaService vendaExternaService)
     {
@@ -42,9 +47,21 @@ public partial class ComissoesVendaExternaView : Window
         try
         {
             var filtro = FiltroSelecionado;
-            var comissoes = await _vendaExternaService.ListarComissoesAsync(filtro);
+            var pagina = await _vendaExternaService.ObterComissoesPaginadoAsync(filtro, _paginaAtual, ItensPorPagina);
             var resumo = await _vendaExternaService.ObterResumoComissoesAsync();
 
+            _totalPaginas = pagina.TotalPaginas;
+
+            // Marcar o último pendente de uma página vazia essa página quando o filtro é
+            // "A pagar" — volta para a última válida em vez de mostrar a grade vazia.
+            if (_totalPaginas > 0 && _paginaAtual > _totalPaginas)
+            {
+                _paginaAtual = _totalPaginas;
+                await CarregarAsync();
+                return;
+            }
+
+            var comissoes = pagina.Itens;
             GridComissoes.ItemsSource = comissoes;
 
             TxtTotalAPagar.Text = FormattingHelper.FormatarMoeda(resumo.TotalAPagar);
@@ -53,10 +70,12 @@ public partial class ComissoesVendaExternaView : Window
             TxtQuantidadePaga.Text = DescreverQuantidade(resumo.QuantidadePaga);
             TxtTotalDoMes.Text = FormattingHelper.FormatarMoeda(resumo.TotalDoMes);
 
-            var somaDaLista = comissoes.Sum(c => c.Comissao);
-            TxtResumoLista.Text = comissoes.Count == 0
+            TxtResumoLista.Text = pagina.TotalItens == 0
                 ? string.Empty
-                : $"{comissoes.Count} venda(s) nesta lista — {FormattingHelper.FormatarMoeda(somaDaLista)} em comissões";
+                : $"Página {_paginaAtual} de {Math.Max(_totalPaginas, 1)} — {pagina.TotalItens} venda(s) neste filtro";
+
+            BtnPaginaAnterior.IsEnabled = _paginaAtual > 1;
+            BtnPaginaProxima.IsEnabled = _paginaAtual < _totalPaginas;
 
             AtualizarMensagemDeListaVazia(filtro, comissoes.Count);
             AtualizarBotoes();
@@ -106,6 +125,24 @@ public partial class ComissoesVendaExternaView : Window
     {
         // O IsChecked do XAML dispara este evento antes de a tela existir por inteiro.
         if (!_pronto) return;
+
+        // Trocar de filtro volta para a primeira página: a página 3 de "A pagar" não tem
+        // relação nenhuma com a página 3 de "Pagas".
+        _paginaAtual = 1;
+        await CarregarAsync();
+    }
+
+    private async void BtnPaginaAnterior_Click(object sender, RoutedEventArgs e)
+    {
+        if (_paginaAtual <= 1) return;
+        _paginaAtual--;
+        await CarregarAsync();
+    }
+
+    private async void BtnPaginaProxima_Click(object sender, RoutedEventArgs e)
+    {
+        if (_paginaAtual >= _totalPaginas) return;
+        _paginaAtual++;
         await CarregarAsync();
     }
 
