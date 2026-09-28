@@ -20,6 +20,18 @@ public interface IVendaExternaService
     Task<IReadOnlyList<LinhaImportacaoVendaExternaDto>> ProcessarImportacaoTextoAsync(
         string conteudoArquivo, FormatoImportacaoLista formato, CancellationToken cancellationToken = default);
 
+    /// <summary>Vendas externas com comissão, para a tela de controle de acertos. Venda sem
+    /// comissão não aparece: não há o que pagar nela.</summary>
+    Task<IReadOnlyList<ComissaoVendaExternaDto>> ListarComissoesAsync(
+        FiltroComissaoVendaExterna filtro, CancellationToken cancellationToken = default);
+
+    /// <summary>Totais de comissão (a pagar, pago, do mês) e a lista de pendentes — usado
+    /// pelo painel de Comissões do Dashboard e pela tela de controle.</summary>
+    Task<ResumoComissoesDto> ObterResumoComissoesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Marca ou desmarca o acerto da comissão de uma venda externa.</summary>
+    Task MarcarComissaoAsync(int vendaExternaId, bool paga, CancellationToken cancellationToken = default);
+
     /// <summary>Mesmo que <see cref="ProcessarImportacaoTextoAsync"/>, mas para planilha:
     /// recebe as células já lidas do .xlsx pela tela — a leitura do arquivo do Excel mora na
     /// camada de apresentação, junto com a geração de relatórios.</summary>

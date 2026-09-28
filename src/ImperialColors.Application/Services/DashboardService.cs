@@ -17,6 +17,7 @@ public class DashboardService : IDashboardService
 
     private readonly IVendaRepository _vendaRepository;
     private readonly IVendaExternaRepository _vendaExternaRepository;
+    private readonly IVendaExternaService _vendaExternaService;
     private readonly IProdutoRepository _produtoRepository;
     private readonly IProdutoService _produtoService;
     private readonly IRelatorioAnalyticsService _relatorioAnalyticsService;
@@ -24,12 +25,14 @@ public class DashboardService : IDashboardService
     public DashboardService(
         IVendaRepository vendaRepository,
         IVendaExternaRepository vendaExternaRepository,
+        IVendaExternaService vendaExternaService,
         IProdutoRepository produtoRepository,
         IProdutoService produtoService,
         IRelatorioAnalyticsService relatorioAnalyticsService)
     {
         _vendaRepository = vendaRepository;
         _vendaExternaRepository = vendaExternaRepository;
+        _vendaExternaService = vendaExternaService;
         _produtoRepository = produtoRepository;
         _produtoService = produtoService;
         _relatorioAnalyticsService = relatorioAnalyticsService;
@@ -187,6 +190,14 @@ public class DashboardService : IDashboardService
 
         return new DashboardVendasDto { MaioresVendas = maioresVendas };
     }
+
+    /// <summary>
+    /// Reaproveita o resumo do próprio módulo de vendas externas em vez de refazer a
+    /// consulta aqui — mesmo padrão já usado na visão de Estoque, que chama o serviço de
+    /// produtos em vez de duplicar o mapeamento.
+    /// </summary>
+    public Task<ResumoComissoesDto> ObterVisaoComissoesAsync(CancellationToken cancellationToken = default)
+        => _vendaExternaService.ObterResumoComissoesAsync(cancellationToken);
 
     /// <summary>
     /// Junta os resumos diários de balcão e de venda externa numa lista só, somando dia a

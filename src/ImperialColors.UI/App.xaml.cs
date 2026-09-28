@@ -1,4 +1,4 @@
-﻿using DotNetEnv;
+using DotNetEnv;
 using ImperialColors.Domain.Helpers;
 using ImperialColors.Application.Configuration;
 using ImperialColors.Application.Extensions;
@@ -117,6 +117,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<ListaCompraFormView>();
                 services.AddTransient<TrocaFormView>();
                 services.AddTransient<VendaExternaFormView>();
+                services.AddTransient<ComissoesVendaExternaView>();
                 services.AddTransient<OrcamentoFormView>();
                 services.AddTransient<CupomView>();
                 services.AddTransient<GestaoUsuariosView>();

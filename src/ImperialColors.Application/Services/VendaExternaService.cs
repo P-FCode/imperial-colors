@@ -3,6 +3,7 @@ using ImperialColors.Application.Helpers;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Entities;
 using ImperialColors.Domain.Enums;
+using ImperialColors.Domain.Helpers;
 using ImperialColors.Domain.Exceptions;
 using ImperialColors.Domain.Interfaces;
 
@@ -69,10 +70,13 @@ public class VendaExternaService : IVendaExternaService
 
         ValidarItens(dto.Itens);
 
+        ValidarComissao(dto.Comissao, dto.Itens.Sum(i => i.Quantidade * i.PrecoUnitario));
+
         var numero = await _vendaExternaRepository.GerarNumeroVendaExternaAsync(cancellationToken);
         var venda = new VendaExterna
         {
             NumeroVendaExterna = numero,
+            Comissao = dto.Comissao,
             Observacoes = dto.Observacoes?.Trim(),
             DataVenda = DateTime.Now
         };
@@ -107,6 +111,7 @@ public class VendaExternaService : IVendaExternaService
             throw new DomainException("Adicione pelo menos um item à venda externa.");
 
         ValidarItensAtualizacao(dto.Itens);
+        ValidarComissao(dto.Comissao, dto.Itens.Sum(i => i.Quantidade * i.PrecoUnitario));
 
         var itens = dto.Itens.Select(i => new ItemVendaExterna
         {
@@ -123,7 +128,7 @@ public class VendaExternaService : IVendaExternaService
             item.CalcularSubtotal();
 
         var atualizada = await _vendaExternaRepository.AtualizarTransacionalAsync(
-            dto.Id, dto.Observacoes, itens, dto.Usuario, cancellationToken);
+            dto.Id, dto.Observacoes, dto.Comissao, itens, dto.Usuario, cancellationToken);
 
         return MapearParaDto(atualizada);
     }
@@ -189,6 +194,86 @@ public class VendaExternaService : IVendaExternaService
         return linhas;
     }
 
+    /// <summary>
+    /// Comissão é opcional (zero = venda sem comissão), mas quando existe não pode passar do
+    /// valor vendido: a comissão sai do faturamento, e uma comissão maior que a venda faria a
+    /// loja registrar faturamento negativo naquele dia. Negativo também não entra — se foi
+    /// digitado com sinal trocado, vira acréscimo no faturamento em vez de desconto.
+    /// </summary>
+    private static void ValidarComissao(decimal comissao, decimal totalDaVenda)
+    {
+        if (comissao < 0)
+            throw new DomainException("A comissão não pode ser negativa.");
+
+        if (comissao > totalDaVenda)
+            throw new DomainException(
+                $"A comissão (R$ {comissao:N2}) não pode ser maior que o total da venda (R$ {totalDaVenda:N2}).");
+    }
+
+    public async Task<IReadOnlyList<ComissaoVendaExternaDto>> ListarComissoesAsync(
+        FiltroComissaoVendaExterna filtro, CancellationToken cancellationToken = default)
+    {
+        var paga = filtro switch
+        {
+            FiltroComissaoVendaExterna.APagar => (bool?)false,
+            FiltroComissaoVendaExterna.Pagas => true,
+            _ => null
+        };
+
+        var vendas = await _vendaExternaRepository.ListarComComissaoAsync(paga, cancellationToken);
+        return vendas.Select(MapearComissao).ToList();
+    }
+
+    public async Task<ResumoComissoesDto> ObterResumoComissoesAsync(CancellationToken cancellationToken = default)
+    {
+        var hoje = Relogio.Hoje;
+        var inicioMes = new DateTime(hoje.Year, hoje.Month, 1);
+
+        var resumo = await _vendaExternaRepository.ObterResumoComissoesAsync(
+            inicioMes, inicioMes.AddMonths(1), cancellationToken);
+
+        var pendentes = await _vendaExternaRepository.ListarComComissaoAsync(paga: false, cancellationToken);
+
+        return new ResumoComissoesDto
+        {
+            TotalAPagar = resumo.TotalAPagar,
+            QuantidadeAPagar = resumo.QuantidadeAPagar,
+            TotalPago = resumo.TotalPago,
+            QuantidadePaga = resumo.QuantidadePaga,
+            TotalDoMes = resumo.TotalDoMes,
+            Pendentes = pendentes.Select(MapearComissao).ToList()
+        };
+    }
+
+    public async Task MarcarComissaoAsync(
+        int vendaExternaId, bool paga, CancellationToken cancellationToken = default)
+    {
+        var venda = await _vendaExternaRepository.MarcarComissaoAsync(vendaExternaId, paga, cancellationToken);
+
+        await _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = _usuarioAtual.Nome,
+            Modulo = "Vendas Externas",
+            Acao = paga ? "COMISSAO_PAGA" : "COMISSAO_ESTORNADA",
+            Descricao = paga
+                ? $"Comissão de {venda.Comissao:C} da venda externa {venda.NumeroVendaExterna} marcada como paga"
+                : $"Comissão de {venda.Comissao:C} da venda externa {venda.NumeroVendaExterna} voltou para 'a pagar'",
+            Nivel = paga ? NivelLogAuditoria.Info : NivelLogAuditoria.Warning
+        }, cancellationToken);
+    }
+
+    private static ComissaoVendaExternaDto MapearComissao(VendaExterna venda) => new()
+    {
+        VendaExternaId = venda.Id,
+        NumeroVendaExterna = venda.NumeroVendaExterna,
+        DataVenda = venda.DataVenda,
+        Usuario = venda.Usuario,
+        TotalVenda = venda.Total,
+        Comissao = venda.Comissao,
+        Paga = venda.ComissaoPaga,
+        PagaEm = venda.ComissaoPagaEm
+    };
+
     private static void ValidarItens(IReadOnlyList<RegistrarItemVendaExternaDto> itens)
     {
         foreach (var item in itens)
@@ -226,6 +311,9 @@ public class VendaExternaService : IVendaExternaService
             NumeroVendaExterna = venda.NumeroVendaExterna,
             Subtotal = venda.Subtotal,
             Total = venda.Total,
+            Comissao = venda.Comissao,
+            ComissaoPaga = venda.ComissaoPaga,
+            ComissaoPagaEm = venda.ComissaoPagaEm,
             Observacoes = venda.Observacoes,
             Usuario = venda.Usuario,
             DataVenda = venda.DataVenda,

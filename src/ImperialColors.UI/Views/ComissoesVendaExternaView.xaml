@@ -1,0 +1,129 @@
+<Window x:Class="ImperialColors.UI.Views.ComissoesVendaExternaView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:ImperialColors.UI.Converters"
+        Title="Comissões de Vendas Externas" Width="1020" Height="680"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- URI absoluta: a relativa resolve contra o assembly de entrada e quebra
+                     ao construir a tela em teste (mesmo padrão das outras telas). -->
+                <ResourceDictionary Source="pack://application:,,,/ImperialColors;component/Resources/AppTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <conv:MoedaConverter x:Key="MoedaConverter"/>
+            <conv:DataHoraConverter x:Key="DataHoraConverter"/>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource CinzaClaroBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="White" Padding="24,18">
+            <StackPanel>
+                <TextBlock Text="Comissões de Vendas Externas" FontSize="18" FontWeight="Bold"
+                           Foreground="{StaticResource PretoPrimarioBrush}"/>
+                <TextBlock FontSize="12" Margin="0,3,0,0" Foreground="{StaticResource CinzaTextoBrush}"
+                           Text="Só aparecem aqui as vendas externas que têm comissão. Venda sem comissão não gera acerto e fica de fora."/>
+            </StackPanel>
+        </Border>
+
+        <!-- Totais -->
+        <UniformGrid Grid.Row="1" Columns="3" Margin="20,16,20,0">
+            <Border Style="{StaticResource Card}" Margin="0,0,12,0" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="A PAGAR" FontSize="11" FontWeight="Bold"
+                               Foreground="{StaticResource CinzaTextoBrush}"/>
+                    <TextBlock x:Name="TxtTotalAPagar" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"
+                               Foreground="{StaticResource VermelhoErroBrush}"/>
+                    <TextBlock x:Name="TxtQuantidadeAPagar" FontSize="11" Margin="0,2,0,0"
+                               Foreground="{StaticResource CinzaTextoBrush}"/>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Margin="0,0,12,0" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="JÁ PAGO" FontSize="11" FontWeight="Bold"
+                               Foreground="{StaticResource CinzaTextoBrush}"/>
+                    <TextBlock x:Name="TxtTotalPago" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"
+                               Foreground="{StaticResource VerdeSucessoBrush}"/>
+                    <TextBlock x:Name="TxtQuantidadePaga" FontSize="11" Margin="0,2,0,0"
+                               Foreground="{StaticResource CinzaTextoBrush}"/>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="COMISSÕES DO MÊS" FontSize="11" FontWeight="Bold"
+                               Foreground="{StaticResource CinzaTextoBrush}"/>
+                    <TextBlock x:Name="TxtTotalDoMes" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"
+                               Foreground="{StaticResource PretoPrimarioBrush}"/>
+                    <TextBlock Text="pagas ou não — o custo de vender na rua no mês"
+                               FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
+                               Foreground="{StaticResource CinzaTextoBrush}"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Filtro e ações -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="15" Margin="20,16,20,0">
+            <Grid VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Mostrar:" VerticalAlignment="Center" Margin="0,0,10,0"
+                               Style="{StaticResource LabelCampo}"/>
+                    <RadioButton x:Name="RbAPagar" Content="A pagar" GroupName="FiltroComissao"
+                                 IsChecked="True" Margin="0,0,16,0" Checked="Filtro_Changed"/>
+                    <RadioButton x:Name="RbPagas" Content="Pagas" GroupName="FiltroComissao"
+                                 Margin="0,0,16,0" Checked="Filtro_Changed"/>
+                    <RadioButton x:Name="RbTodas" Content="Todas" GroupName="FiltroComissao"
+                                 Checked="Filtro_Changed"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="BtnMarcarPaga" Style="{StaticResource BotaoPrimario}" Margin="0,0,10,0"
+                            Content="✔  Marcar como paga" IsEnabled="False" Click="BtnMarcarPaga_Click"/>
+                    <Button x:Name="BtnDesmarcar" Style="{StaticResource BotaoSecundario}" Margin="0,0,10,0"
+                            Content="↩  Voltar para 'a pagar'" IsEnabled="False" Click="BtnDesmarcar_Click"/>
+                    <Button Style="{StaticResource BotaoSecundario}" Content="⟳  Atualizar" Click="BtnAtualizar_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource Card}" Padding="0" Margin="20,16,20,0">
+            <Grid>
+                <DataGrid x:Name="GridComissoes" Style="{StaticResource DataGridModerno}"
+                          ColumnHeaderStyle="{StaticResource DataGridHeaderModerno}"
+                          IsReadOnly="True" SelectionChanged="GridComissoes_SelectionChanged">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Nº Venda" Binding="{Binding NumeroVendaExterna}" Width="150"/>
+                        <DataGridTextColumn Header="Data" Binding="{Binding DataVenda, Converter={StaticResource DataHoraConverter}}" Width="150"/>
+                        <DataGridTextColumn Header="Total da venda" Binding="{Binding TotalVenda, Converter={StaticResource MoedaConverter}}" Width="130"/>
+                        <DataGridTextColumn Header="Comissão" Binding="{Binding Comissao, Converter={StaticResource MoedaConverter}}" Width="120"/>
+                        <DataGridTextColumn Header="% da venda" Binding="{Binding PercentualSobreVenda, StringFormat={}{0:N1}%}" Width="100"/>
+                        <DataGridTextColumn Header="Líquido" Binding="{Binding TotalLiquido, Converter={StaticResource MoedaConverter}}" Width="120"/>
+                        <DataGridTextColumn Header="Situação" Binding="{Binding SituacaoDescricao}" Width="100"/>
+                        <DataGridTextColumn Header="Pago em" Binding="{Binding PagaEm, Converter={StaticResource DataHoraConverter}}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <TextBlock x:Name="TxtSemComissoes" Visibility="Collapsed"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           FontSize="13" Foreground="{StaticResource CinzaTextoBrush}"
+                           TextWrapping="Wrap" TextAlignment="Center" MaxWidth="420"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="4" Background="White" Padding="20,12" Margin="0,16,0,0">
+            <Grid>
+                <TextBlock x:Name="TxtResumoLista" VerticalAlignment="Center" FontSize="12"
+                           Foreground="{StaticResource CinzaTextoBrush}"/>
+                <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                        HorizontalAlignment="Right" Click="BtnFechar_Click"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

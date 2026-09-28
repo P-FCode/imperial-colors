@@ -49,6 +49,7 @@ public class VendaExternaViewModel : BaseViewModel
     public AsyncRelayCommand EditarVendaCommand { get; }
     public AsyncRelayCommand ExcluirVendaCommand { get; }
     public AsyncRelayCommand RegistrarTrocaCommand { get; }
+    public AsyncRelayCommand AbrirComissoesCommand { get; }
 
     public VendaExternaViewModel(
         IVendaExternaService vendaExternaService,
@@ -65,6 +66,9 @@ public class VendaExternaViewModel : BaseViewModel
         EditarVendaCommand = new AsyncRelayCommand(AbrirEdicao, () => TemSelecao && !Carregando);
         ExcluirVendaCommand = new AsyncRelayCommand(ExcluirVenda, () => TemSelecao && !Carregando);
         RegistrarTrocaCommand = new AsyncRelayCommand(AbrirRegistrarTroca, () => TemSelecao && !Carregando);
+        // Sem exigir seleção: o controle de comissões é sobre o conjunto das vendas, não
+        // sobre a linha que está marcada na grade.
+        AbrirComissoesCommand = new AsyncRelayCommand(AbrirComissoes, () => !Carregando);
     }
 
     public async Task CarregarAsync()
@@ -110,6 +114,21 @@ public class VendaExternaViewModel : BaseViewModel
         {
             Carregando = false;
         }
+    }
+
+    /// <summary>
+    /// Recarrega a listagem ao fechar: marcar uma comissão como paga muda a coluna Situação
+    /// da venda na grade de trás, e sair da janela vendo o valor antigo faria parecer que o
+    /// acerto não foi gravado.
+    /// </summary>
+    private async Task AbrirComissoes()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var janela = scope.ServiceProvider.GetRequiredService<ComissoesVendaExternaView>();
+        janela.Owner = System.Windows.Application.Current.MainWindow;
+        janela.ShowDialog();
+
+        await CarregarAsync();
     }
 
     private async Task AbrirRegistro()

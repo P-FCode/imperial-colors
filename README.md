@@ -605,6 +605,7 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - Top 3 produtos mais vendidos
 - Resumo financeiro e últimas vendas
 - **Balcão e vendas externas somados:** faturamento, custo, lucro, margem, ticket médio, quantidade de vendas, o gráfico dos últimos 7 dias e os destaques de "Maiores Vendas do Mês" contam as duas origens — os mesmos números do Relatório Consolidado de Vendas. Venda externa não registra cliente nem forma de pagamento, então aparece nos destaques identificada pelo número, com o pagamento em branco
+- **Visão Comissões** — quanto a loja ainda deve aos vendedores de rua, quanto já pagou, o total de comissões do mês e a lista das pendentes. O acerto em si é feito em **Vendas externas → Comissões**
 
 ### Estoque
 - Cadastro completo de produtos (código interno, código de barras, categoria, marca, etc.)
@@ -656,6 +657,10 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - Consolida vendas realizadas fora do estabelecimento físico
 - **Fluxo A – Produto cadastrado:** busca por código de barras ou texto; preenche nome e preço base; informa quantidade e valor praticado na rua; ao concluir, dá baixa automática no estoque
 - **Fluxo B – Item manual:** nome, quantidade e valor unitário livres, sem vínculo com produto — computado apenas no faturamento, sem baixa de estoque
+- **Comissão:** campo no registro da venda, ao lado do total, com o líquido aparecendo enquanto se digita. Vale zero quando a venda não gera comissão. Não pode ser negativa nem maior que o total da venda
+  - **Faturamento é o líquido:** venda de R$ 160 com R$ 30 de comissão conta **R$ 130** no Dashboard e no Relatório Consolidado. O valor cheio continua na venda, para a conferência com o vendedor. No relatório a comissão tem coluna própria — não é somada ao desconto, que é abatimento dado ao cliente
+  - **Botão Comissões:** sub-janela de controle dos acertos, com filtro *A pagar / Pagas / Todas*, totais e as ações de marcar como paga ou devolver para "a pagar" (as duas ficam registradas na auditoria). Só entram vendas **com** comissão — venda sem comissão não gera pendência
+  - Zerar a comissão ao editar a venda também limpa a marcação de pagamento
 - **Importar Lista:** o botão abre um diálogo para escolher o formato, com o tutorial e um exemplo do layout esperado logo abaixo da opção marcada; em seguida seleciona-se o arquivo. Grade de conferência editável antes da aprovação
   - **Excel (.xlsx):** primeira aba, três colunas — A = código de barras, B = nome do produto, C = quantidade
   - **CSV (.csv):** campos separados por `;` (padrão do Excel em português) ou `,`; nome com o separador dentro deve vir entre aspas

@@ -28,9 +28,22 @@ public interface IVendaExternaRepository : IRepository<VendaExterna>
     Task<VendaExterna> AtualizarTransacionalAsync(
         int vendaId,
         string? observacoes,
+        decimal comissao,
         IReadOnlyList<ItemVendaExterna> itens,
         string? usuario,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Vendas externas COM comissão (maior que zero), filtradas pela situação do
+    /// pagamento — <c>null</c> traz pagas e a pagar. Venda sem comissão nunca entra: não há
+    /// o que controlar nela.</summary>
+    Task<IReadOnlyList<VendaExterna>> ListarComComissaoAsync(bool? paga, CancellationToken cancellationToken = default);
+
+    /// <summary>Totais de comissão agregados pelo banco, para os painéis.</summary>
+    Task<ResumoComissoesVendaExterna> ObterResumoComissoesAsync(
+        DateTime inicioMes, DateTime fimMesExclusivo, CancellationToken cancellationToken = default);
+
+    /// <summary>Marca (ou desmarca) a comissão como paga, gravando a data do acerto.</summary>
+    Task<VendaExterna> MarcarComissaoAsync(int vendaExternaId, bool paga, CancellationToken cancellationToken = default);
     Task ExcluirFisicamenteTransacionalAsync(int id, CancellationToken cancellationToken = default);
     Task<bool> PossuiTrocasAsync(int vendaExternaId, CancellationToken cancellationToken = default);
 }

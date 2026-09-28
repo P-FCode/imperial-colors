@@ -3,7 +3,7 @@ using ImperialColors.Application.Interfaces;
 
 namespace ImperialColors.UI.ViewModels;
 
-public enum VisaoDashboard { Financeiro, Estoque, Vendas }
+public enum VisaoDashboard { Financeiro, Estoque, Vendas, Comissoes }
 
 public class DashboardViewModel : BaseViewModel
 {
@@ -16,6 +16,7 @@ public class DashboardViewModel : BaseViewModel
     // se o operador só quer ver o financeiro.
     private bool _estoqueCarregado;
     private bool _vendasCarregado;
+    private bool _comissoesCarregado;
 
     private VisaoDashboard _visaoAtual = VisaoDashboard.Financeiro;
     public VisaoDashboard VisaoAtual { get => _visaoAtual; private set => SetProperty(ref _visaoAtual, value); }
@@ -23,6 +24,7 @@ public class DashboardViewModel : BaseViewModel
     public bool MostrarFinanceiro => VisaoAtual == VisaoDashboard.Financeiro;
     public bool MostrarEstoque => VisaoAtual == VisaoDashboard.Estoque;
     public bool MostrarVendas => VisaoAtual == VisaoDashboard.Vendas;
+    public bool MostrarComissoes => VisaoAtual == VisaoDashboard.Comissoes;
 
     private decimal _totalVendasHoje;
     public decimal TotalVendasHoje { get => _totalVendasHoje; set => SetProperty(ref _totalVendasHoje, value); }
@@ -86,6 +88,25 @@ public class DashboardViewModel : BaseViewModel
     private List<VendaDestaqueDto> _maioresVendas = new();
     public List<VendaDestaqueDto> MaioresVendas { get => _maioresVendas; set => SetProperty(ref _maioresVendas, value); }
 
+    // --- Comissões de venda externa ---
+
+    private decimal _comissoesAPagar;
+    public decimal ComissoesAPagar { get => _comissoesAPagar; set => SetProperty(ref _comissoesAPagar, value); }
+
+    private decimal _comissoesPagas;
+    public decimal ComissoesPagas { get => _comissoesPagas; set => SetProperty(ref _comissoesPagas, value); }
+
+    private decimal _comissoesDoMes;
+    public decimal ComissoesDoMes { get => _comissoesDoMes; set => SetProperty(ref _comissoesDoMes, value); }
+
+    private int _quantidadeComissoesAPagar;
+    public int QuantidadeComissoesAPagar { get => _quantidadeComissoesAPagar; set => SetProperty(ref _quantidadeComissoesAPagar, value); }
+
+    private List<ComissaoVendaExternaDto> _comissoesPendentes = new();
+    public List<ComissaoVendaExternaDto> ComissoesPendentes { get => _comissoesPendentes; set => SetProperty(ref _comissoesPendentes, value); }
+
+    public bool SemComissoesPendentes => ComissoesPendentes.Count == 0;
+
     public string DataHoje => DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("pt-BR"));
 
     public AsyncRelayCommand CarregarCommand { get; }
@@ -112,6 +133,7 @@ public class DashboardViewModel : BaseViewModel
         OnPropertyChanged(nameof(MostrarFinanceiro));
         OnPropertyChanged(nameof(MostrarEstoque));
         OnPropertyChanged(nameof(MostrarVendas));
+        OnPropertyChanged(nameof(MostrarComissoes));
         // Lazy: só busca se ainda não tem cache desta visão nesta sessão de tela.
         await CarregarVisaoAtualAsync(forcar: false);
     }
@@ -122,6 +144,7 @@ public class DashboardViewModel : BaseViewModel
     {
         VisaoDashboard.Estoque => CarregarEstoqueAsync(forcar),
         VisaoDashboard.Vendas => CarregarVendasAsync(forcar),
+        VisaoDashboard.Comissoes => CarregarComissoesAsync(forcar),
         _ => CarregarFinanceiroAsync()
     };
 
@@ -174,6 +197,39 @@ public class DashboardViewModel : BaseViewModel
         catch (Exception ex)
         {
             MostrarErro($"Erro ao carregar visão de estoque: {ex.Message}");
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Painel de comissões: quanto a loja ainda deve a quem vendeu na rua, quanto já
+    /// acertou, e quanto o mês gerou de comissão. Os pendentes vêm listados porque é a
+    /// pergunta prática do lojista — "quem eu tenho que pagar?".
+    /// </summary>
+    private async Task CarregarComissoesAsync(bool forcar)
+    {
+        if (_comissoesCarregado && !forcar) return;
+
+        try
+        {
+            Carregando = true;
+            var resumo = await _dashboardService.ObterVisaoComissoesAsync();
+
+            ComissoesAPagar = resumo.TotalAPagar;
+            ComissoesPagas = resumo.TotalPago;
+            ComissoesDoMes = resumo.TotalDoMes;
+            QuantidadeComissoesAPagar = resumo.QuantidadeAPagar;
+            ComissoesPendentes = resumo.Pendentes;
+            OnPropertyChanged(nameof(SemComissoesPendentes));
+
+            _comissoesCarregado = true;
+        }
+        catch (Exception ex)
+        {
+            MostrarErro($"Erro ao carregar comissões: {ex.Message}");
         }
         finally
         {

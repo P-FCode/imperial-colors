@@ -114,7 +114,8 @@ public class DashboardServiceTests
     private static DashboardService CriarServico(
         Mock<IVendaRepository> venda, Mock<IProdutoRepository> produto, Mock<IProdutoService> produtoService, Mock<IRelatorioAnalyticsService> analytics,
         Mock<IVendaExternaRepository>? vendaExterna = null)
-        => new(venda.Object, (vendaExterna ?? CriarMockVendaExterna()).Object, produto.Object, produtoService.Object, analytics.Object);
+        => new(venda.Object, (vendaExterna ?? CriarMockVendaExterna()).Object, Mock.Of<IVendaExternaService>(),
+            produto.Object, produtoService.Object, analytics.Object);
 
     [Fact]
     public async Task ObterDadosDashboardAsync_CalculaLucroECustoAPartirDoCustoDoProduto()

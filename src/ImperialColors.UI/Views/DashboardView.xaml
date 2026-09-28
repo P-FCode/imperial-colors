@@ -54,9 +54,12 @@
                     <ToggleButton Content="Estoque" Style="{StaticResource TogglePagamento}" Margin="0,0,8,0"
                                   IsChecked="{Binding MostrarEstoque, Mode=OneWay}"
                                   Command="{Binding TrocarVisaoCommand}" CommandParameter="{x:Static vm:VisaoDashboard.Estoque}"/>
-                    <ToggleButton Content="Vendas" Style="{StaticResource TogglePagamento}" Margin="0,0,20,0"
+                    <ToggleButton Content="Vendas" Style="{StaticResource TogglePagamento}" Margin="0,0,8,0"
                                   IsChecked="{Binding MostrarVendas, Mode=OneWay}"
                                   Command="{Binding TrocarVisaoCommand}" CommandParameter="{x:Static vm:VisaoDashboard.Vendas}"/>
+                    <ToggleButton Content="Comissões" Style="{StaticResource TogglePagamento}" Margin="0,0,20,0"
+                                  IsChecked="{Binding MostrarComissoes, Mode=OneWay}"
+                                  Command="{Binding TrocarVisaoCommand}" CommandParameter="{x:Static vm:VisaoDashboard.Comissoes}"/>
 
                     <Button Style="{StaticResource BotaoSecundario}"
                             Command="{Binding CarregarCommand}" Content="⟳  Atualizar"/>
@@ -369,6 +372,89 @@
                                                            Foreground="{StaticResource CinzaTextoBrush}" VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="3" Text="{Binding Total, Converter={StaticResource MoedaConverter}}"
                                                            FontSize="13" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ===== Visão Comissões (venda externa) ===== -->
+                <StackPanel Visibility="{Binding MostrarComissoes, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                    <UniformGrid Columns="3" Rows="1" Margin="0,0,0,20">
+                        <Border Style="{StaticResource Card}" Margin="0,0,12,0" Padding="20,18">
+                            <StackPanel>
+                                <TextBlock Text="COMISSÕES A PAGAR" FontSize="11" FontWeight="Bold"
+                                           Foreground="{StaticResource CinzaTextoBrush}"/>
+                                <TextBlock Text="{Binding ComissoesAPagar, Converter={StaticResource MoedaConverter}}"
+                                           FontSize="26" FontWeight="Bold" Margin="0,8,0,0"
+                                           Foreground="{StaticResource VermelhoErroBrush}"/>
+                                <TextBlock FontSize="11" Margin="0,2,0,0" Foreground="{StaticResource CinzaTextoBrush}">
+                                    <Run Text="{Binding QuantidadeComissoesAPagar, Mode=OneWay}"/><Run Text=" venda(s) aguardando acerto"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}" Margin="0,0,12,0" Padding="20,18">
+                            <StackPanel>
+                                <TextBlock Text="JÁ PAGO" FontSize="11" FontWeight="Bold"
+                                           Foreground="{StaticResource CinzaTextoBrush}"/>
+                                <TextBlock Text="{Binding ComissoesPagas, Converter={StaticResource MoedaConverter}}"
+                                           FontSize="26" FontWeight="Bold" Margin="0,8,0,0"
+                                           Foreground="{StaticResource VerdeSucessoBrush}"/>
+                                <TextBlock Text="total já repassado aos vendedores" FontSize="11" Margin="0,2,0,0"
+                                           Foreground="{StaticResource CinzaTextoBrush}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}" Padding="20,18">
+                            <StackPanel>
+                                <TextBlock Text="COMISSÕES DO MÊS" FontSize="11" FontWeight="Bold"
+                                           Foreground="{StaticResource CinzaTextoBrush}"/>
+                                <TextBlock Text="{Binding ComissoesDoMes, Converter={StaticResource MoedaConverter}}"
+                                           FontSize="26" FontWeight="Bold" Margin="0,8,0,0"
+                                           Foreground="{StaticResource PretoPrimarioBrush}"/>
+                                <TextBlock Text="pagas ou não — o custo de vender na rua no mês"
+                                           FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
+                                           Foreground="{StaticResource CinzaTextoBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <Border Style="{StaticResource Card}" Padding="20">
+                        <StackPanel>
+                            <TextBlock Text="Comissões a pagar" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock Text="O acerto é marcado em Vendas externas → Comissões."
+                                       FontSize="11" Margin="0,0,0,16"
+                                       Foreground="{StaticResource CinzaTextoBrush}"/>
+
+                            <TextBlock Text="Nenhuma comissão a pagar. Tudo acertado."
+                                       FontSize="13" Margin="0,8,0,8"
+                                       Foreground="{StaticResource CinzaTextoBrush}"
+                                       Visibility="{Binding SemComissoesPendentes, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                            <ItemsControl ItemsSource="{Binding ComissoesPendentes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="12,10" Margin="0,0,0,6" Background="{StaticResource CinzaClaroBrush}" CornerRadius="6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="140"/>
+                                                    <ColumnDefinition Width="150"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="130"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DataVenda, Converter={StaticResource DataConverter}}"
+                                                           FontSize="12" Foreground="{StaticResource CinzaTextoBrush}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding NumeroVendaExterna}" FontSize="12" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" FontSize="12" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource CinzaTextoBrush}">
+                                                    <Run Text="venda de "/><Run Text="{Binding TotalVenda, Converter={StaticResource MoedaConverter}, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock Grid.Column="3" Text="{Binding Comissao, Converter={StaticResource MoedaConverter}}"
+                                                           FontSize="13" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                                           Foreground="{StaticResource VermelhoErroBrush}"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

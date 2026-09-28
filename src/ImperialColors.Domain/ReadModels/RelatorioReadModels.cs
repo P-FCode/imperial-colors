@@ -45,3 +45,17 @@ public class ProdutoEncalhadoResumo
     public decimal EstoqueAtual { get; set; }
     public decimal ValorTotalParado { get; set; }
 }
+
+/// <summary>
+/// Totais de comissão de venda externa, agregados pelo banco. Separa o que ainda é dívida
+/// com o vendedor (a pagar) do que já foi acertado, e mostra à parte quanto o mês corrente
+/// gerou de comissão — que é o custo de vender na rua no período, pago ou não.
+/// </summary>
+public class ResumoComissoesVendaExterna
+{
+    public decimal TotalAPagar { get; set; }
+    public int QuantidadeAPagar { get; set; }
+    public decimal TotalPago { get; set; }
+    public int QuantidadePaga { get; set; }
+    public decimal TotalDoMes { get; set; }
+}

@@ -580,8 +580,8 @@ public class RelatorioService : IRelatorioService
             AdicionarCabecalhoRelatorio(document, "Relatorio Consolidado de Vendas (Geral)",
                 $"Periodo: {inicio:dd/MM/yyyy} a {fim:dd/MM/yyyy} — Balcao + Vendas Externas");
 
-            var tabela = new ITextTable(new float[] { 1.6f, 1.2f, 1.5f, 2.5f, 0.8f, 1.2f, 1f, 1.2f, 1.5f }).UseAllAvailableWidth();
-            AdicionarCabecalhoTabela(tabela, "Data", "Origem", "Cod. Venda", "Cliente/Resumo", "Itens", "Subtotal", "Desconto", "Total", "Pagamento");
+            var tabela = new ITextTable(new float[] { 1.5f, 1.1f, 1.4f, 2.2f, 0.7f, 1.1f, 1f, 1f, 1.1f, 1.4f }).UseAllAvailableWidth();
+            AdicionarCabecalhoTabela(tabela, "Data", "Origem", "Cod. Venda", "Cliente/Resumo", "Itens", "Subtotal", "Desconto", "Comissao", "Total", "Pagamento");
 
             var cultura = new System.Globalization.CultureInfo("pt-BR");
             var lista = linhas.ToList();
@@ -594,6 +594,7 @@ public class RelatorioService : IRelatorioService
                 tabela.AddCell(CelulaTabela(linha.TotalItens.ToString(), TextAlignment.RIGHT));
                 tabela.AddCell(CelulaTabela(linha.Subtotal.ToString("C2", cultura), TextAlignment.RIGHT));
                 tabela.AddCell(CelulaTabela(linha.Desconto.ToString("C2", cultura), TextAlignment.RIGHT));
+                tabela.AddCell(CelulaTabela(linha.Comissao.ToString("C2", cultura), TextAlignment.RIGHT));
                 tabela.AddCell(CelulaTabela(linha.Total.ToString("C2", cultura), TextAlignment.RIGHT));
                 tabela.AddCell(CelulaTabela(linha.FormaPagamento ?? "—"));
             }
@@ -602,9 +603,12 @@ public class RelatorioService : IRelatorioService
             var totalGeral = lista.Sum(l => l.Total);
             var totalBalcao = lista.Where(l => l.Origem == "Balcão").Sum(l => l.Total);
             var totalExterna = lista.Where(l => l.Origem == "Externa").Sum(l => l.Total);
+            var totalComissao = lista.Sum(l => l.Comissao);
+            // Os totais sao LIQUIDOS (ja sem comissao); a comissao sai ao lado para nao
+            // parecer que o numero de faturamento simplesmente encolheu sem explicacao.
             document.Add(new ITextParagraph(
-                    $"\nTotal Geral: {totalGeral.ToString("C2", cultura)} | Balcao: {totalBalcao.ToString("C2", cultura)} | Externa: {totalExterna.ToString("C2", cultura)} | {lista.Count} venda(s)")
-                .SetFont(ObterFonte(true)).SetFontSize(12).SetTextAlignment(TextAlignment.RIGHT));
+                    $"\nTotal Geral: {totalGeral.ToString("C2", cultura)} | Balcao: {totalBalcao.ToString("C2", cultura)} | Externa: {totalExterna.ToString("C2", cultura)} | Comissoes: {totalComissao.ToString("C2", cultura)} | {lista.Count} venda(s)")
+                .SetFont(ObterFonte(true)).SetFontSize(11).SetTextAlignment(TextAlignment.RIGHT));
         });
     }
 
@@ -619,12 +623,14 @@ public class RelatorioService : IRelatorioService
             ws.Cell(1, 1).Value = $"{_config.EmpresaNome} - Relatorio Consolidado de Vendas (Geral)";
             ws.Cell(1, 1).Style.Font.Bold = true;
             ws.Cell(1, 1).Style.Font.FontSize = 14;
-            ws.Range(1, 1, 1, 9).Merge();
+            ws.Range(1, 1, 1, 10).Merge();
 
             ws.Cell(2, 1).Value = $"Periodo: {inicio:dd/MM/yyyy} a {fim:dd/MM/yyyy} — Balcao + Vendas Externas";
-            ws.Range(2, 1, 2, 9).Merge();
+            ws.Range(2, 1, 2, 10).Merge();
 
-            var headers = new[] { "Data", "Origem", "Cod. Venda", "Cliente/Resumo", "Itens", "Subtotal", "Desconto", "Total", "Pagamento" };
+            // "Total" e liquido (ja sem desconto e sem comissao) — a comissao tem coluna
+            // propria para o numero ser explicavel, e nao um faturamento que encolheu sozinho.
+            var headers = new[] { "Data", "Origem", "Cod. Venda", "Cliente/Resumo", "Itens", "Subtotal", "Desconto", "Comissao", "Total", "Pagamento" };
             for (var i = 0; i < headers.Length; i++)
             {
                 var cell = ws.Cell(4, i + 1);
@@ -646,20 +652,25 @@ public class RelatorioService : IRelatorioService
                 ws.Cell(row, 6).Style.NumberFormat.Format = "R$ #,##0.00";
                 ws.Cell(row, 7).Value = linha.Desconto;
                 ws.Cell(row, 7).Style.NumberFormat.Format = "R$ #,##0.00";
-                ws.Cell(row, 8).Value = linha.Total;
+                ws.Cell(row, 8).Value = linha.Comissao;
                 ws.Cell(row, 8).Style.NumberFormat.Format = "R$ #,##0.00";
-                ws.Cell(row, 9).Value = linha.FormaPagamento ?? "—";
+                ws.Cell(row, 9).Value = linha.Total;
+                ws.Cell(row, 9).Style.NumberFormat.Format = "R$ #,##0.00";
+                ws.Cell(row, 10).Value = linha.FormaPagamento ?? "—";
                 if (row % 2 == 0)
                     ws.Row(row).Style.Fill.BackgroundColor = XLColor.FromArgb(248, 249, 250);
                 row++;
             }
 
             var totalRow = row + 1;
-            ws.Cell(totalRow, 7).Value = "Total Geral:";
+            ws.Cell(totalRow, 7).Value = "Totais:";
             ws.Cell(totalRow, 7).Style.Font.Bold = true;
-            ws.Cell(totalRow, 8).Value = lista.Sum(l => l.Total);
+            ws.Cell(totalRow, 8).Value = lista.Sum(l => l.Comissao);
             ws.Cell(totalRow, 8).Style.NumberFormat.Format = "R$ #,##0.00";
             ws.Cell(totalRow, 8).Style.Font.Bold = true;
+            ws.Cell(totalRow, 9).Value = lista.Sum(l => l.Total);
+            ws.Cell(totalRow, 9).Style.NumberFormat.Format = "R$ #,##0.00";
+            ws.Cell(totalRow, 9).Style.Font.Bold = true;
 
             ws.Columns().AdjustToContents();
             workbook.SaveAs(caminhoArquivo);

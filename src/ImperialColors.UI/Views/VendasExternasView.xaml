@@ -33,6 +33,9 @@
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal">
                 <Button Style="{StaticResource BotaoSecundario}" Margin="0,0,10,0"
+                        Command="{Binding AbrirComissoesCommand}" Content="💰  Comissões"
+                        ToolTip="Controle das comissões de venda externa — o que já foi pago e o que falta."/>
+                <Button Style="{StaticResource BotaoSecundario}" Margin="0,0,10,0"
                         Command="{Binding EditarVendaCommand}" Content="✏  Editar"/>
                 <Button Style="{StaticResource BotaoSecundario}" Margin="0,0,10,0"
                         Command="{Binding RegistrarTrocaCommand}" Content="↔  Registrar Troca"/>
@@ -55,6 +58,8 @@
                     <DataGridTextColumn Header="Itens" Binding="{Binding TotalItens}" Width="70"/>
                     <DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, Converter={StaticResource MoedaConverter}}" Width="110"/>
                     <DataGridTextColumn Header="Total" Binding="{Binding Total, Converter={StaticResource MoedaConverter}}" Width="110"/>
+                    <DataGridTextColumn Header="Comissão" Binding="{Binding Comissao, Converter={StaticResource MoedaConverter}}" Width="110"/>
+                    <DataGridTextColumn Header="Situação" Binding="{Binding SituacaoComissao}" Width="110"/>
                     <DataGridTextColumn Header="Usuário" Binding="{Binding Usuario}" Width="*"/>
                     <DataGridTextColumn Header="Observações" Binding="{Binding Observacoes}" Width="180"/>
                 </DataGrid.Columns>

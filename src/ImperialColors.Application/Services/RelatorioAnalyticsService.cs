@@ -109,7 +109,9 @@ public class RelatorioAnalyticsService : IRelatorioAnalyticsService
                 TotalItens = venda.TotalItens,
                 Subtotal = venda.Subtotal,
                 Desconto = 0,
-                Total = venda.Total,
+                Comissao = venda.Comissao,
+                // Líquido, como no Dashboard — ver VendaExterna.TotalLiquido.
+                Total = venda.TotalLiquido,
                 FormaPagamento = "Venda Externa"
             });
         }

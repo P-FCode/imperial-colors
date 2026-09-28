@@ -52,7 +52,11 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             {
                 Data = g.Key,
                 Quantidade = g.Count(),
-                Faturamento = g.Sum(v => v.Total)
+                // LÍQUIDO, não o total cobrado: a comissão é dinheiro que passou pela venda
+                // e não fica na loja. Uma venda de R$ 160 com R$ 30 de comissão entra como
+                // R$ 130 de faturamento. O valor cheio continua na venda, para a conferência
+                // com o vendedor e para o comprovante.
+                Faturamento = g.Sum(v => v.Total - v.Comissao)
             })
             .ToListAsync(cancellationToken);
 
@@ -217,9 +221,82 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
         }, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<VendaExterna>> ListarComComissaoAsync(
+        bool? paga, CancellationToken cancellationToken = default)
+    {
+        await using var context = ContextFactory.CreateDbContext();
+
+        var consulta = context.Set<VendaExterna>()
+            .AsNoTracking()
+            .Where(v => v.Comissao > 0);
+
+        if (paga.HasValue)
+            consulta = consulta.Where(v => v.ComissaoPaga == paga.Value);
+
+        return await consulta
+            .OrderByDescending(v => v.DataVenda)
+            .ThenByDescending(v => v.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<ResumoComissoesVendaExterna> ObterResumoComissoesAsync(
+        DateTime inicioMes, DateTime fimMesExclusivo, CancellationToken cancellationToken = default)
+    {
+        await using var context = ContextFactory.CreateDbContext();
+
+        var comComissao = context.Set<VendaExterna>().AsNoTracking().Where(v => v.Comissao > 0);
+
+        // Uma ida ao banco para os três recortes: o que se deve, o que já foi acertado e o
+        // que o mês gerou. Agregado no servidor — a tela mostra números, não a lista toda.
+        var totais = await comComissao
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                TotalAPagar = g.Sum(v => v.ComissaoPaga ? 0m : v.Comissao),
+                QuantidadeAPagar = g.Count(v => !v.ComissaoPaga),
+                TotalPago = g.Sum(v => v.ComissaoPaga ? v.Comissao : 0m),
+                QuantidadePaga = g.Count(v => v.ComissaoPaga),
+                TotalDoMes = g.Sum(v => v.DataVenda >= inicioMes && v.DataVenda < fimMesExclusivo ? v.Comissao : 0m)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return totais is null
+            ? new ResumoComissoesVendaExterna()
+            : new ResumoComissoesVendaExterna
+            {
+                TotalAPagar = totais.TotalAPagar,
+                QuantidadeAPagar = totais.QuantidadeAPagar,
+                TotalPago = totais.TotalPago,
+                QuantidadePaga = totais.QuantidadePaga,
+                TotalDoMes = totais.TotalDoMes
+            };
+    }
+
+    public async Task<VendaExterna> MarcarComissaoAsync(
+        int vendaExternaId, bool paga, CancellationToken cancellationToken = default)
+    {
+        await using var context = ContextFactory.CreateDbContext();
+
+        var venda = await context.Set<VendaExterna>()
+            .FirstOrDefaultAsync(v => v.Id == vendaExternaId, cancellationToken)
+            ?? throw new DomainException($"Venda externa com Id {vendaExternaId} não encontrada.");
+
+        if (venda.Comissao <= 0)
+            throw new DomainException($"A venda externa {venda.NumeroVendaExterna} não tem comissão para acertar.");
+
+        venda.ComissaoPaga = paga;
+        // Desmarcar apaga a data: um acerto desfeito não pode deixar para trás a data de um
+        // pagamento que nao aconteceu.
+        venda.ComissaoPagaEm = paga ? DateTime.Now : null;
+
+        await context.SaveChangesAsync(cancellationToken);
+        return venda;
+    }
+
     public async Task<VendaExterna> AtualizarTransacionalAsync(
         int vendaId,
         string? observacoes,
+        decimal comissao,
         IReadOnlyList<ItemVendaExterna> itens,
         string? usuario,
         CancellationToken cancellationToken = default)
@@ -288,6 +365,17 @@ public class VendaExternaRepository : RepositoryBase<VendaExterna>, IVendaExtern
             venda.Observacoes = string.IsNullOrWhiteSpace(observacoes) ? null : observacoes.Trim();
             venda.Subtotal = itens.Sum(i => i.Quantidade * i.PrecoUnitario);
             venda.Total = venda.Subtotal;
+
+            // Zerar a comissão na edição também apaga o acerto: sem comissão não há o que
+            // ter sido pago, e deixar a marcação para trás faria a venda sumir do controle
+            // carregando um "pago" que não corresponde a nada.
+            venda.Comissao = comissao;
+            if (comissao <= 0)
+            {
+                venda.ComissaoPaga = false;
+                venda.ComissaoPagaEm = null;
+            }
+
             venda.AtualizadoEm = Relogio.Agora;
 
             await context.SaveChangesAsync(cancellationToken);

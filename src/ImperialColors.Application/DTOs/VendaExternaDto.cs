@@ -6,11 +6,27 @@ public class VendaExternaDto
     public string NumeroVendaExterna { get; set; } = string.Empty;
     public decimal Subtotal { get; set; }
     public decimal Total { get; set; }
+
+    /// <summary>Comissão de quem vendeu, em reais — ver
+    /// <see cref="Domain.Entities.VendaExterna.Comissao"/>.</summary>
+    public decimal Comissao { get; set; }
+    public bool ComissaoPaga { get; set; }
+    public DateTime? ComissaoPagaEm { get; set; }
+
     public string? Observacoes { get; set; }
     public string? Usuario { get; set; }
     public DateTime DataVenda { get; set; }
     public int TotalItens => Itens.Count;
     public List<ItemVendaExternaDto> Itens { get; set; } = new();
+
+    public bool TemComissao => Comissao > 0;
+
+    /// <summary>O que fica para a loja — é este valor que conta como faturamento.</summary>
+    public decimal TotalLiquido => Total - Comissao;
+
+    public string SituacaoComissao => !TemComissao
+        ? "Sem comissão"
+        : ComissaoPaga ? "Paga" : "A pagar";
 }
 
 public class ItemVendaExternaDto
@@ -32,6 +48,7 @@ public class ItemVendaExternaDto
 public class AtualizarVendaExternaDto
 {
     public int Id { get; set; }
+    public decimal Comissao { get; set; }
     public string? Observacoes { get; set; }
     public string? Usuario { get; set; }
     public List<AtualizarItemVendaExternaDto> Itens { get; set; } = new();
@@ -50,6 +67,7 @@ public class AtualizarItemVendaExternaDto
 
 public class RegistrarVendaExternaDto
 {
+    public decimal Comissao { get; set; }
     public string? Observacoes { get; set; }
     public string? Usuario { get; set; }
     public List<RegistrarItemVendaExternaDto> Itens { get; set; } = new();
@@ -90,4 +108,53 @@ public class LinhaImportacaoVendaExternaDto
     public decimal PrecoUnitario { get; set; }
     public bool VinculadoEstoque => ProdutoId.HasValue;
     public string TipoDescricao => VinculadoEstoque ? "Estoque" : "Manual";
+}
+
+/// <summary>Filtro da tela de controle de comissões.</summary>
+public enum FiltroComissaoVendaExterna
+{
+    /// <summary>Comissão ainda não repassada — o que a loja deve.</summary>
+    APagar = 0,
+    Pagas = 1,
+    Todas = 2
+}
+
+/// <summary>
+/// Uma linha do controle de comissões. Só existe para venda externa COM comissão: venda sem
+/// comissão não tem nada a pagar e não aparece na tela.
+/// </summary>
+public class ComissaoVendaExternaDto
+{
+    public int VendaExternaId { get; set; }
+    public string NumeroVendaExterna { get; set; } = string.Empty;
+    public DateTime DataVenda { get; set; }
+    public string? Usuario { get; set; }
+    public decimal TotalVenda { get; set; }
+    public decimal Comissao { get; set; }
+    public bool Paga { get; set; }
+    public DateTime? PagaEm { get; set; }
+
+    public decimal TotalLiquido => TotalVenda - Comissao;
+    public string SituacaoDescricao => Paga ? "Paga" : "A pagar";
+
+    /// <summary>Quanto a comissão representa da venda — ajuda a notar um valor digitado
+    /// errado (uma comissão de 90% de uma venda dificilmente foi intencional).</summary>
+    public decimal PercentualSobreVenda => TotalVenda > 0
+        ? Math.Round(Comissao / TotalVenda * 100m, 1)
+        : 0m;
+}
+
+/// <summary>Totais do painel de comissões — do Dashboard e da tela de controle.</summary>
+public class ResumoComissoesDto
+{
+    public decimal TotalAPagar { get; set; }
+    public decimal TotalPago { get; set; }
+    public int QuantidadeAPagar { get; set; }
+    public int QuantidadePaga { get; set; }
+
+    /// <summary>Comissões do mês corrente, pagas ou não — o custo de vender na rua no mês.</summary>
+    public decimal TotalDoMes { get; set; }
+
+    public decimal TotalGeral => TotalAPagar + TotalPago;
+    public List<ComissaoVendaExternaDto> Pendentes { get; set; } = new();
 }

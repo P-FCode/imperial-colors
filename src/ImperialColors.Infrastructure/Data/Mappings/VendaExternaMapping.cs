@@ -14,6 +14,9 @@ public class VendaExternaMapping : IEntityTypeConfiguration<VendaExterna>
         builder.Property(v => v.NumeroVendaExterna).HasColumnName("numero_venda_externa").HasMaxLength(30).IsRequired();
         builder.Property(v => v.Subtotal).HasColumnName("subtotal").HasPrecision(12, 2);
         builder.Property(v => v.Total).HasColumnName("total").HasPrecision(12, 2);
+        builder.Property(v => v.Comissao).HasColumnName("comissao").HasPrecision(12, 2);
+        builder.Property(v => v.ComissaoPaga).HasColumnName("comissao_paga");
+        builder.Property(v => v.ComissaoPagaEm).HasColumnName("comissao_paga_em");
         builder.Property(v => v.Observacoes).HasColumnName("observacoes").HasMaxLength(500);
         builder.Property(v => v.Usuario).HasColumnName("usuario").HasMaxLength(100);
         builder.Property(v => v.DataVenda).HasColumnName("data_venda");

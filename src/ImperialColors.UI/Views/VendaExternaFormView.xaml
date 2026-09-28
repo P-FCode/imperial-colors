@@ -198,6 +198,17 @@
                     <TextBlock Text="Total da venda:" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
                     <TextBlock x:Name="TxtTotalVenda" FontWeight="Bold" FontSize="18"
                                Foreground="{StaticResource AzulPrimarioBrush}" Margin="10,0,0,0"/>
+
+                    <!-- Comissão ao lado do total de propósito: é sobre esse valor que ela é
+                         calculada, e o líquido logo abaixo mostra na hora o que sobra para a
+                         loja — que é o que vai virar faturamento. -->
+                    <TextBlock Text="Comissão (R$):" FontWeight="SemiBold" FontSize="13"
+                               VerticalAlignment="Center" Margin="28,0,0,0"/>
+                    <TextBox x:Name="TxtComissao" Style="{StaticResource TextBoxNumerico}"
+                             Width="110" Margin="8,0,0,0" VerticalAlignment="Center"
+                             TextChanged="TxtComissao_TextChanged"/>
+                    <TextBlock x:Name="TxtLiquidoVenda" FontSize="12" VerticalAlignment="Center"
+                               Margin="10,0,0,0" Foreground="{StaticResource CinzaTextoBrush}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"

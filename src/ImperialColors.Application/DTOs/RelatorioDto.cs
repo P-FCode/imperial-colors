@@ -43,6 +43,14 @@ public class LinhaRelatorioVendaConsolidadaDto
     public int TotalItens { get; set; }
     public decimal Subtotal { get; set; }
     public decimal Desconto { get; set; }
+
+    /// <summary>Comissão paga ao vendedor (só venda externa). Fica em coluna própria, e não
+    /// somada ao desconto: desconto é abatimento dado ao cliente, comissão é custo da loja —
+    /// confundir os dois faria o relatório dizer que o cliente pagou menos do que pagou.</summary>
+    public decimal Comissao { get; set; }
+
+    /// <summary>Líquido: o que ficou para a loja depois do desconto e da comissão. É por ele
+    /// que o relatório soma o faturamento, igual ao Dashboard.</summary>
     public decimal Total { get; set; }
     public string? FormaPagamento { get; set; }
 }
