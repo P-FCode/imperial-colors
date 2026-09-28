@@ -747,6 +747,14 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 - Em caso de falha: log silencioso em `C:\backup_sistema\backup_erros.log`; tenta novamente na próxima abertura
 - Variáveis `.env`: `BACKUP_PATH`, `BACKUP_INTERVALO_DIAS`, `BACKUP_PREFIXO_EMPRESA`, `PG_DUMP_PATH` (opcional)
 
+### Atualização do Sistema
+- Botão **⭳ Atualizar Sistema** em **Configurações → Sobre o Sistema**: consulta a última Release publicada no GitHub, compara com a versão do próprio executável, baixa o `ImperialColors-win-x64.zip` anexado e troca os arquivos
+- A versão instalada vem do assembly, gravada pelo workflow de release a partir da tag `vX.Y.Z` — não existe número de versão escrito à mão no código
+- **Qual repositório fornece as releases é configurável:** variável `ATUALIZACAO_REPO` no `.env`, no formato `dono/repositorio`. Em branco, usa `P-FCode/imperial-colors`
+  - O repositório precisa ser **público**: o atualizador consulta a API do GitHub sem token, e num repositório privado a resposta é `404`
+  - Trocar o valor vale na próxima abertura do sistema, **sem depender de publicar release** — é o que permite mudar o projeto de conta sem deixar máquinas já instaladas apontando para o lugar antigo
+  - O repositório em uso é registrado no log a cada verificação, indicando se veio do `.env` ou do padrão
+
 ### Configurações
 - **Empresa e preferências gerais são editáveis na tela** — não é mais preciso abrir o `.env` por fora
   - **Dados da empresa:** nome fantasia, razão social, subtítulo, CNPJ (com máscara e validação de dígitos), Inscrição Estadual, endereço, telefone e e-mail. Salvar aplica na hora: título da janela, cabeçalho do menu, cupons e relatórios passam a usar os novos dados sem reiniciar

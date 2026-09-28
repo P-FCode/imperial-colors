@@ -154,6 +154,12 @@ public static class InfrastructureExtensions
         });
         services.AddTransient<IFiscalApiClient, FiscalApiClient>();
 
+        // Qual repositório do GitHub fornece as releases — lido uma vez na subida, do .env.
+        // Fica registrado como instância (e não Func<>, como BackupOptions): a pasta de
+        // backup muda pela tela de Configurações em tempo real, o repositório de atualização
+        // não tem tela e só muda quando alguém edita o .env e reabre o sistema.
+        services.AddSingleton(AtualizacaoConfig.CarregarDoAmbiente());
+
         // Atualização do sistema pelas Releases do GitHub. Timeout longo porque o mesmo
         // cliente faz a consulta (rápida) e o download do pacote self-contained, que passa
         // de 100 MB — 30 segundos derrubariam o download em qualquer conexão de loja.

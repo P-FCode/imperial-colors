@@ -8,13 +8,16 @@ using System.Text.Json.Serialization;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Helpers;
+using ImperialColors.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace ImperialColors.Infrastructure.Atualizacao;
 
 /// <summary>
-/// Busca a última release publicada em <c>github.com/P-FCode/imperial-colors</c>, baixa o
-/// pacote anexado e prepara a troca de arquivos.
+/// Busca a última release publicada no repositório do sistema no GitHub, baixa o pacote
+/// anexado e prepara a troca de arquivos. Qual repositório é esse vem de
+/// <see cref="AtualizacaoConfig"/> (variável <c>ATUALIZACAO_REPO</c> do <c>.env</c>), não
+/// do código — ver o motivo no sumário daquela classe.
 ///
 /// A versão instalada vem do próprio assembly, gravada pelo workflow de release a partir da
 /// tag. Não existe número de versão escrito à mão em lugar nenhum do código, de propósito:
@@ -23,9 +26,6 @@ namespace ImperialColors.Infrastructure.Atualizacao;
 /// </summary>
 public sealed class AtualizadorSistemaService : IAtualizadorSistemaService
 {
-    public const string Proprietario = "P-FCode";
-    public const string Repositorio = "imperial-colors";
-
     /// <summary>Nome do pacote gerado por <c>.github/workflows/release.yml</c>.</summary>
     public const string NomeArquivoPreferido = "ImperialColors-win-x64.zip";
 
@@ -33,11 +33,16 @@ public sealed class AtualizadorSistemaService : IAtualizadorSistemaService
 
     private readonly HttpClient _http;
     private readonly ILogger<AtualizadorSistemaService> _logger;
+    private readonly AtualizacaoConfig _repositorio;
 
-    public AtualizadorSistemaService(HttpClient http, ILogger<AtualizadorSistemaService> logger)
+    public AtualizadorSistemaService(
+        HttpClient http,
+        ILogger<AtualizadorSistemaService> logger,
+        AtualizacaoConfig repositorio)
     {
         _http = http;
         _logger = logger;
+        _repositorio = repositorio;
     }
 
     public string VersaoInstaladaTexto => VersaoRelease.Formatar(ObterVersaoInstalada());
@@ -60,11 +65,19 @@ public sealed class AtualizadorSistemaService : IAtualizadorSistemaService
 
     public async Task<ResultadoVerificacaoAtualizacaoDto> VerificarAsync(CancellationToken cancellationToken = default)
     {
+        // Deixa no log qual repositório está valendo: numa troca de conta, é por aqui que se
+        // confirma que a máquina do cliente já está olhando para o lugar novo — sem depender
+        // de esperar a próxima release para descobrir que ainda estava no antigo.
+        _logger.LogInformation(
+            "Verificando atualização em {Repositorio} ({Origem}).",
+            _repositorio.Caminho,
+            _repositorio.ConfiguradoPeloAmbiente ? $"definido em {AtualizacaoConfig.Variavel}" : "padrão do sistema");
+
         ReleaseGitHub? release;
         try
         {
             using var resposta = await _http.GetAsync(
-                $"repos/{Proprietario}/{Repositorio}/releases/latest", cancellationToken);
+                $"repos/{_repositorio.Caminho}/releases/latest", cancellationToken);
 
             if (resposta.StatusCode == HttpStatusCode.NotFound)
                 return ResultadoVerificacaoAtualizacaoDto.Falha(
