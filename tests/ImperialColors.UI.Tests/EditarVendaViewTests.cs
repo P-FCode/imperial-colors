@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using ImperialColors.Application.DTOs;
 using ImperialColors.Application.Interfaces;
 using ImperialColors.Domain.Enums;
@@ -47,6 +48,25 @@ public class EditarVendaViewTests
         {
             Assert.True(tela.FindName(nome) is not null, $"'{nome}' não existe no XAML");
         }
+
+        tela.Close();
+    }
+
+    /// <summary>
+    /// A modal usa AplicarEstiloModerno, que deixa a janela sem borda e com fundo
+    /// transparente — quem desenha a moldura é o XAML. Sem uma raiz opaca, a tela de trás
+    /// (o histórico de vendas) aparece por baixo do conteúdo em vez de uma janela por cima.
+    /// </summary>
+    [StaFact]
+    public void Tela_DesenhaAPropriaMolduraOpaca()
+    {
+        var tela = Criar();
+
+        Assert.Equal(Brushes.Transparent, tela.Background);
+
+        var moldura = Assert.IsType<Border>(tela.Content);
+        var fundo = Assert.IsType<SolidColorBrush>(moldura.Background);
+        Assert.Equal(byte.MaxValue, fundo.Color.A);
 
         tela.Close();
     }

@@ -172,12 +172,15 @@ public partial class EditarVendaView : Window
         if (termo.Length < 2)
         {
             LstClientes.ItemsSource = null;
+            LstClientes.Visibility = Visibility.Collapsed;
             return;
         }
 
         try
         {
-            LstClientes.ItemsSource = (await _clienteService.BuscarAsync(termo)).ToList();
+            var encontrados = (await _clienteService.BuscarAsync(termo)).ToList();
+            LstClientes.ItemsSource = encontrados;
+            LstClientes.Visibility = encontrados.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
         catch (Exception ex)
         {

@@ -2,8 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Editar Venda" Width="700" Height="760"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="White">
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
 
     <Window.Resources>
         <ResourceDictionary>
@@ -15,206 +14,237 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid Margin="24,20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <!-- AplicarEstiloModerno deixa a janela sem borda e transparente: esta Border é a
+         moldura da modal. Sem ela, a tela de trás aparece por baixo do conteúdo. -->
+    <Border Background="White" CornerRadius="8" BorderBrush="#E8E8E8" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="18" ShadowDepth="2" Opacity="0.18" Color="#000000"/>
+        </Border.Effect>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,14">
-            <TextBlock x:Name="TxtTitulo" FontSize="20" FontWeight="Bold"
-                       Foreground="{StaticResource PretoPrimarioBrush}"/>
-            <TextBlock Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap"
-                       Foreground="{StaticResource CinzaTextoBrush}"
-                       Text="Corrige o que foi digitado errado no fechamento: pagamento, quem comprou e observações. Itens, desconto e total não mudam aqui — para isso, registre a devolução e faça a venda de novo."/>
-            <!-- A nota já transmitida é documento fechado: corrigir a venda no sistema não a
-                 altera, e o operador precisa saber disso antes de salvar. -->
-            <Border x:Name="AvisoNotaFiscal" Visibility="Collapsed" Margin="0,10,0,0"
-                    Background="#FFF6E5" BorderBrush="#F0B400" BorderThickness="1"
-                    CornerRadius="6" Padding="12,8">
-                <TextBlock x:Name="TxtAvisoNotaFiscal" FontSize="12" TextWrapping="Wrap"
-                           Foreground="{StaticResource PretoPrimarioBrush}"/>
-            </Border>
-        </StackPanel>
+        <Grid Background="{StaticResource CinzaClaroBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-        <!-- Total da venda: aqui só para conferência, é o valor que os pagamentos têm que cobrir. -->
-        <Border Grid.Row="1" Background="{StaticResource PretoPrimarioBrush}" CornerRadius="10"
-                Padding="16" Margin="0,0,0,14">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                    <TextBlock Text="TOTAL DA VENDA" FontSize="10" Foreground="#CCFFFFFF"/>
-                    <TextBlock x:Name="TxtTotal" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                    <TextBlock Text="TOTAL PAGO" FontSize="10" Foreground="#CCFFFFFF"/>
-                    <TextBlock x:Name="TxtTotalPago" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                </StackPanel>
-                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                    <TextBlock Text="SALDO RESTANTE" FontSize="10" Foreground="#CCFFFFFF"/>
-                    <TextBlock x:Name="TxtSaldoRestante" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12">
-            <StackPanel>
-
-                <!-- COMPRADOR -->
-                <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Quem comprou" FontSize="15" FontWeight="Bold" Margin="0,0,0,12"/>
-
-                        <RadioButton x:Name="RbConsumidorFinal" GroupName="ModoComprador"
-                                     Content="Consumidor Final" FontWeight="SemiBold"
-                                     Margin="0,0,0,14" Checked="ModoComprador_Changed"/>
-
-                        <RadioButton x:Name="RbClienteCadastrado" GroupName="ModoComprador"
-                                     Content="Cliente cadastrado" FontWeight="SemiBold"
-                                     Margin="0,0,0,8" Checked="ModoComprador_Changed"/>
-                        <Border x:Name="PainelClienteCadastrado" Padding="12,0,0,14" Visibility="Collapsed">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource LabelCampo}" Text="Buscar por Nome, CPF ou CNPJ"/>
-                                <TextBox x:Name="TxtBuscaCliente" Style="{StaticResource TextBoxModerno}"
-                                         TextChanged="TxtBuscaCliente_TextChanged" Margin="0,0,0,10"/>
-                                <ListBox x:Name="LstClientes" MaxHeight="150"
-                                         SelectionChanged="LstClientes_SelectionChanged">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Margin="0,4">
-                                                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding DocumentoExibicao}" FontSize="11"
-                                                           Foreground="{StaticResource CinzaTextoBrush}"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                                <TextBlock x:Name="TxtClienteAtual" Margin="0,8,0,0" FontSize="12"
-                                           TextWrapping="Wrap" FontWeight="SemiBold"
-                                           Foreground="{StaticResource VerdeSucessoBrush}"/>
-                            </StackPanel>
-                        </Border>
-
-                        <RadioButton x:Name="RbDadosCupom" GroupName="ModoComprador"
-                                     Content="Informar dados no cupom (sem cadastro)" FontWeight="SemiBold"
-                                     Margin="0,0,0,8" Checked="ModoComprador_Changed"/>
-                        <Border x:Name="PainelDadosCupom" Padding="12,0,0,0" Visibility="Collapsed">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                    <RadioButton x:Name="RbPessoaFisica" GroupName="TipoPessoaComprador" Content="PF"
-                                                 IsChecked="True" Margin="0,0,16,0" Checked="TipoPessoa_Changed"/>
-                                    <RadioButton x:Name="RbPessoaJuridica" GroupName="TipoPessoaComprador" Content="PJ"
-                                                 Checked="TipoPessoa_Changed"/>
-                                </StackPanel>
-                                <StackPanel Margin="0,0,0,12">
-                                    <TextBlock x:Name="LblNomeCupom" Style="{StaticResource LabelCampo}" Text="Nome *"/>
-                                    <TextBox x:Name="TxtNomeCupom" Style="{StaticResource TextBoxModerno}" MaxLength="120"/>
-                                </StackPanel>
-                                <StackPanel>
-                                    <TextBlock x:Name="LblDocumentoCupom" Style="{StaticResource LabelCampo}" Text="CPF"/>
-                                    <TextBox x:Name="TxtDocumentoCupom" Style="{StaticResource TextBoxModerno}"
-                                             MaxLength="14" TextChanged="TxtDocumentoCupom_TextChanged"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Border>
-
-                <!-- PAGAMENTO -->
-                <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Como foi pago" FontSize="15" FontWeight="Bold" Margin="0,0,0,4"/>
-                        <TextBlock Margin="0,0,0,12" FontSize="12" TextWrapping="Wrap"
+            <Border x:Name="BorderCabecalho" Grid.Row="0" Background="White" Padding="24,18"
+                    CornerRadius="8,8,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock x:Name="TxtTitulo" FontSize="17" FontWeight="SemiBold"
+                                   Foreground="{StaticResource PretoPrimarioBrush}"/>
+                        <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap"
                                    Foreground="{StaticResource CinzaTextoBrush}"
-                                   Text="A lista abaixo começa com o pagamento que está gravado na venda. Remova o que estiver errado e adicione as formas corretas até zerar o saldo."/>
-
-                        <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,12">
-                            <DataGrid x:Name="DgPagamentos" AutoGenerateColumns="False" CanUserAddRows="False"
-                                      HeadersVisibility="Column" IsReadOnly="True" BorderThickness="0"
-                                      MaxHeight="160" GridLinesVisibility="Horizontal">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Forma" Binding="{Binding Descricao}" Width="*"/>
-                                    <DataGridTextColumn Header="Valor" Binding="{Binding ValorFormatado}" Width="100"/>
-                                    <DataGridTextColumn Header="Troco" Binding="{Binding TrocoFormatado}" Width="80"/>
-                                    <DataGridTemplateColumn Header="" Width="40">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Button Content="✕" Style="{StaticResource BotaoPerigo}" Padding="4,2"
-                                                        Click="BtnRemoverPagamento_Click" Tag="{Binding}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Border>
-
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Adicionar forma de pagamento" Margin="0,0,0,10"/>
-                        <UniformGrid Columns="3" Margin="0,0,0,12">
-                            <ToggleButton x:Name="BtnDinheiro" Tag="Dinheiro" Style="{StaticResource TogglePagamento}"
-                                          Margin="0,0,6,6" Click="FormaPagamento_Click" Content="💵 Dinheiro"/>
-                            <ToggleButton x:Name="BtnPix" Tag="Pix" Style="{StaticResource TogglePagamento}"
-                                          Margin="3,0,3,6" Click="FormaPagamento_Click" Content="📱 Pix"/>
-                            <ToggleButton x:Name="BtnDebito" Tag="CartaoDebito" Style="{StaticResource TogglePagamento}"
-                                          Margin="6,0,0,6" Click="FormaPagamento_Click" Content="💳 Débito"/>
-                            <ToggleButton x:Name="BtnCredito" Tag="CartaoCredito" Style="{StaticResource TogglePagamento}"
-                                          Margin="0,0,6,0" Click="FormaPagamento_Click" Content="💳 Crédito"/>
-                            <ToggleButton x:Name="BtnBoleto" Tag="Boleto" Style="{StaticResource TogglePagamento}"
-                                          Margin="3,0,3,0" Click="FormaPagamento_Click" Content="📄 Boleto"/>
-                        </UniformGrid>
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="12"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Style="{StaticResource LabelCampo}" Text="Valor deste pagamento (R$)"/>
-                                <TextBox x:Name="TxtValorPagamento" Style="{StaticResource TextBoxNumerico}"
-                                         TextChanged="TxtValorPagamento_TextChanged"/>
-                            </StackPanel>
-                            <StackPanel x:Name="PainelRecebido" Grid.Column="2" Visibility="Collapsed">
-                                <TextBlock Style="{StaticResource LabelCampo}" Text="Valor recebido em espécie (R$)"/>
-                                <TextBox x:Name="TxtValorRecebido" Style="{StaticResource TextBoxNumerico}"
-                                         TextChanged="TxtValorRecebido_TextChanged"/>
-                            </StackPanel>
-                            <StackPanel x:Name="PainelParcelas" Grid.Column="2" Visibility="Collapsed">
-                                <TextBlock Style="{StaticResource LabelCampo}" Text="Parcelas"/>
-                                <ComboBox x:Name="CmbParcelas" Style="{StaticResource ComboBoxModerno}"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <TextBlock x:Name="TxtInfoTroco" Margin="0,8,0,0" FontSize="11"
-                                   Foreground="{StaticResource VerdeSucessoBrush}" Visibility="Collapsed"/>
-
-                        <Button Style="{StaticResource BotaoSecundario}" Content="+ Adicionar pagamento"
-                                HorizontalAlignment="Left" Margin="0,12,0,0" Click="BtnAdicionarPagamento_Click"/>
+                                   Text="Corrige o que foi digitado errado no fechamento: pagamento, quem comprou e observações. Itens, desconto e total não mudam aqui — para isso, registre a devolução e faça a venda de novo."/>
                     </StackPanel>
+                    <Button Grid.Column="1" VerticalAlignment="Top" Width="32" Height="32"
+                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                            Click="BtnCancelar_Click" ToolTip="Fechar">
+                        <TextBlock Text="✕" FontSize="14" Foreground="{StaticResource CinzaTextoBrush}"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <StackPanel Grid.Row="1" Margin="20,14,20,0">
+                <!-- A nota já transmitida é documento fechado: corrigir a venda no sistema não
+                     a altera, e o operador precisa saber disso antes de salvar. -->
+                <Border x:Name="AvisoNotaFiscal" Visibility="Collapsed" Margin="0,0,0,12"
+                        Background="#FFF6E5" BorderBrush="#F0B400" BorderThickness="1"
+                        CornerRadius="6" Padding="12,8">
+                    <TextBlock x:Name="TxtAvisoNotaFiscal" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource PretoPrimarioBrush}"/>
                 </Border>
 
-                <!-- OBSERVAÇÕES -->
-                <Border Style="{StaticResource Card}" Padding="18">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource LabelCampo}" Text="Observações"/>
-                        <TextBox x:Name="TxtObservacoes" Style="{StaticResource TextBoxModerno}"
-                                 AcceptsReturn="True" TextWrapping="Wrap" Height="70"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </StackPanel>
+                <!-- Total da venda: aqui só para conferência, é o valor que os pagamentos
+                     têm que cobrir. -->
+                <Border Background="{StaticResource PretoPrimarioBrush}" CornerRadius="10" Padding="16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                            <TextBlock Text="TOTAL DA VENDA" FontSize="10" Foreground="#CCFFFFFF"/>
+                            <TextBlock x:Name="TxtTotal" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                            <TextBlock Text="TOTAL PAGO" FontSize="10" Foreground="#CCFFFFFF"/>
+                            <TextBlock x:Name="TxtTotalPago" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                            <TextBlock Text="SALDO RESTANTE" FontSize="10" Foreground="#CCFFFFFF"/>
+                            <TextBlock x:Name="TxtSaldoRestante" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                        </StackPanel>
+                    </Grid>
                 </Border>
             </StackPanel>
-        </ScrollViewer>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Style="{StaticResource BotaoSecundario}" Content="Cancelar"
-                    Width="120" Margin="0,0,10,0" Click="BtnCancelar_Click"/>
-            <Button x:Name="BtnSalvar" Style="{StaticResource BotaoPrimario}" Content="Salvar correção"
-                    Width="170" IsEnabled="False" Click="BtnSalvar_Click"/>
-        </StackPanel>
-    </Grid>
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="20,14,20,0">
+                <StackPanel>
+
+                    <!-- COMPRADOR -->
+                    <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Quem comprou" FontSize="15" FontWeight="Bold" Margin="0,0,0,12"/>
+
+                            <RadioButton x:Name="RbConsumidorFinal" GroupName="ModoComprador"
+                                         Content="Consumidor Final" FontWeight="SemiBold"
+                                         Margin="0,0,0,14" Checked="ModoComprador_Changed"/>
+
+                            <RadioButton x:Name="RbClienteCadastrado" GroupName="ModoComprador"
+                                         Content="Cliente cadastrado" FontWeight="SemiBold"
+                                         Margin="0,0,0,8" Checked="ModoComprador_Changed"/>
+                            <Border x:Name="PainelClienteCadastrado" Padding="12,0,0,14" Visibility="Collapsed">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource LabelCampo}" Text="Buscar por Nome, CPF ou CNPJ"/>
+                                    <TextBox x:Name="TxtBuscaCliente" Style="{StaticResource TextBoxModerno}"
+                                             TextChanged="TxtBuscaCliente_TextChanged" Margin="0,0,0,10"/>
+                                    <!-- Some enquanto não há resultado: lista vazia desenha
+                                         uma faixa cinza solta embaixo da busca. -->
+                                    <ListBox x:Name="LstClientes" MaxHeight="150" Visibility="Collapsed"
+                                             SelectionChanged="LstClientes_SelectionChanged">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,4">
+                                                    <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding DocumentoExibicao}" FontSize="11"
+                                                               Foreground="{StaticResource CinzaTextoBrush}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <TextBlock x:Name="TxtClienteAtual" Margin="0,8,0,0" FontSize="12"
+                                               TextWrapping="Wrap" FontWeight="SemiBold"
+                                               Foreground="{StaticResource VerdeSucessoBrush}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <RadioButton x:Name="RbDadosCupom" GroupName="ModoComprador"
+                                         Content="Informar dados no cupom (sem cadastro)" FontWeight="SemiBold"
+                                         Margin="0,0,0,8" Checked="ModoComprador_Changed"/>
+                            <Border x:Name="PainelDadosCupom" Padding="12,0,0,0" Visibility="Collapsed">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <RadioButton x:Name="RbPessoaFisica" GroupName="TipoPessoaComprador" Content="PF"
+                                                     IsChecked="True" Margin="0,0,16,0" Checked="TipoPessoa_Changed"/>
+                                        <RadioButton x:Name="RbPessoaJuridica" GroupName="TipoPessoaComprador" Content="PJ"
+                                                     Checked="TipoPessoa_Changed"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,12">
+                                        <TextBlock x:Name="LblNomeCupom" Style="{StaticResource LabelCampo}" Text="Nome *"/>
+                                        <TextBox x:Name="TxtNomeCupom" Style="{StaticResource TextBoxModerno}" MaxLength="120"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock x:Name="LblDocumentoCupom" Style="{StaticResource LabelCampo}" Text="CPF"/>
+                                        <TextBox x:Name="TxtDocumentoCupom" Style="{StaticResource TextBoxModerno}"
+                                                 MaxLength="14" TextChanged="TxtDocumentoCupom_TextChanged"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- PAGAMENTO -->
+                    <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Como foi pago" FontSize="15" FontWeight="Bold" Margin="0,0,0,4"/>
+                            <TextBlock Margin="0,0,0,12" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{StaticResource CinzaTextoBrush}"
+                                       Text="A lista abaixo começa com o pagamento que está gravado na venda. Remova o que estiver errado e adicione as formas corretas até zerar o saldo."/>
+
+                            <Border BorderBrush="#E8E8E8" BorderThickness="1" CornerRadius="6"
+                                    Margin="0,0,0,12">
+                                <DataGrid x:Name="DgPagamentos" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          HeadersVisibility="Column" IsReadOnly="True" BorderThickness="0"
+                                          Background="White" MaxHeight="160" GridLinesVisibility="Horizontal">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Forma" Binding="{Binding Descricao}" Width="*"/>
+                                        <DataGridTextColumn Header="Valor" Binding="{Binding ValorFormatado}" Width="100"/>
+                                        <DataGridTextColumn Header="Troco" Binding="{Binding TrocoFormatado}" Width="80"/>
+                                        <DataGridTemplateColumn Header="" Width="40">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="✕" Style="{StaticResource BotaoPerigo}" Padding="4,2"
+                                                            Click="BtnRemoverPagamento_Click" Tag="{Binding}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
+
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Adicionar forma de pagamento" Margin="0,0,0,10"/>
+                            <UniformGrid Columns="3" Margin="0,0,0,12">
+                                <ToggleButton x:Name="BtnDinheiro" Tag="Dinheiro" Style="{StaticResource TogglePagamento}"
+                                              Margin="0,0,6,6" Click="FormaPagamento_Click" Content="💵 Dinheiro"/>
+                                <ToggleButton x:Name="BtnPix" Tag="Pix" Style="{StaticResource TogglePagamento}"
+                                              Margin="3,0,3,6" Click="FormaPagamento_Click" Content="📱 Pix"/>
+                                <ToggleButton x:Name="BtnDebito" Tag="CartaoDebito" Style="{StaticResource TogglePagamento}"
+                                              Margin="6,0,0,6" Click="FormaPagamento_Click" Content="💳 Débito"/>
+                                <ToggleButton x:Name="BtnCredito" Tag="CartaoCredito" Style="{StaticResource TogglePagamento}"
+                                              Margin="0,0,6,0" Click="FormaPagamento_Click" Content="💳 Crédito"/>
+                                <ToggleButton x:Name="BtnBoleto" Tag="Boleto" Style="{StaticResource TogglePagamento}"
+                                              Margin="3,0,3,0" Click="FormaPagamento_Click" Content="📄 Boleto"/>
+                            </UniformGrid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Style="{StaticResource LabelCampo}" Text="Valor deste pagamento (R$)"/>
+                                    <TextBox x:Name="TxtValorPagamento" Style="{StaticResource TextBoxNumerico}"
+                                             TextChanged="TxtValorPagamento_TextChanged"/>
+                                </StackPanel>
+                                <StackPanel x:Name="PainelRecebido" Grid.Column="2" Visibility="Collapsed">
+                                    <TextBlock Style="{StaticResource LabelCampo}" Text="Valor recebido em espécie (R$)"/>
+                                    <TextBox x:Name="TxtValorRecebido" Style="{StaticResource TextBoxNumerico}"
+                                             TextChanged="TxtValorRecebido_TextChanged"/>
+                                </StackPanel>
+                                <StackPanel x:Name="PainelParcelas" Grid.Column="2" Visibility="Collapsed">
+                                    <TextBlock Style="{StaticResource LabelCampo}" Text="Parcelas"/>
+                                    <ComboBox x:Name="CmbParcelas" Style="{StaticResource ComboBoxModerno}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock x:Name="TxtInfoTroco" Margin="0,8,0,0" FontSize="11"
+                                       Foreground="{StaticResource VerdeSucessoBrush}" Visibility="Collapsed"/>
+
+                            <Button Style="{StaticResource BotaoSecundario}" Content="+ Adicionar pagamento"
+                                    HorizontalAlignment="Left" Margin="0,12,0,0" Click="BtnAdicionarPagamento_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- OBSERVAÇÕES -->
+                    <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource LabelCampo}" Text="Observações"/>
+                            <TextBox x:Name="TxtObservacoes" Style="{StaticResource TextBoxModerno}"
+                                     AcceptsReturn="True" TextWrapping="Wrap" Height="70"
+                                     VerticalScrollBarVisibility="Auto"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="3" Background="White" Padding="24,16" Margin="0,14,0,0"
+                    CornerRadius="0,0,8,8">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource BotaoSecundario}" Content="Cancelar"
+                            Width="120" Margin="0,0,10,0" Click="BtnCancelar_Click"/>
+                    <Button x:Name="BtnSalvar" Style="{StaticResource BotaoPrimario}" Content="Salvar correção"
+                            Width="170" IsEnabled="False" Click="BtnSalvar_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
 </Window>
