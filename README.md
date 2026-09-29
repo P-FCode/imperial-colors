@@ -634,6 +634,14 @@ Se o IP do servidor mudar, atualiza-se **só o `hosts` do servidor** (ou a reser
 
 ### Histórico de Vendas
 - Listagem paginada com filtro por período (coluna **Cliente** removida da grid; busca por nome de cliente ainda funciona)
+- Botão **Editar Venda** — corrige uma venda já fechada (só vendas finalizadas):
+  - Mexe em **forma de pagamento** (inclusive composição com várias formas, parcelas e valor recebido/troco), **quem comprou** (Consumidor Final, cliente cadastrado ou nome+CPF/CNPJ no cupom) e **observações**
+  - **Itens, desconto e total não mudam aqui.** Alterá-los exigiria estornar e refazer a baixa de estoque de cada item — para isso o caminho continua sendo **Registrar Devolução** (que repõe o estoque) e uma venda nova
+  - A tela abre com o pagamento que está gravado: corrige-se uma linha, não se redigita a composição inteira. Venda antiga, anterior ao pagamento composto, entra como uma linha só com o resumo do cabeçalho
+  - O botão **Salvar** só libera com o saldo zerado — mesma trava do fechamento do PDV, para a venda nunca ficar com valor pago diferente do que ela vale
+  - Venda **cancelada** não pode ser editada (estoque já reposto); venda **aberta** ainda vai passar pelo fechamento normal do PDV
+  - Se a venda já tem NF-e/NFC-e autorizada, a tela avisa: **a nota transmitida não muda**. A correção vale para o registro interno e para o cupom; para corrigir a nota, cancele-a e emita outra
+  - Toda edição fica na **auditoria** (`VENDA_EDITADA`, nível Warning) com o antes e o depois de pagamento, comprador e observações
 - Botão **Registrar Devolução** cancela vendas finalizadas e repõe estoque automaticamente (transação no PostgreSQL)
 - Botão **Registrar Troca** — módulo profissional de troca de produtos:
   - **Etapa 1 – Item Devolvido:** selecione o produto da venda original e a quantidade devolvida
@@ -851,6 +859,17 @@ O sistema utiliza tema centralizado em `Resources/AppTheme.xaml`:
 5. Aplique desconto se necessário
 6. Clique em **✓ FINALIZAR VENDA**
 7. O cupom será exibido automaticamente
+
+### Corrigir uma venda já fechada
+1. Acesse **Vendas** no menu
+2. Selecione uma venda com status **Finalizada**
+3. Clique em **✏ Editar Venda**
+4. Ajuste o que estiver errado:
+   - **Como foi pago:** remova a linha errada (✕) e adicione as formas corretas até o **Saldo restante** chegar a zero
+   - **Quem comprou:** Consumidor Final, cliente cadastrado (busca por nome/CPF/CNPJ) ou dados no cupom
+   - **Observações**
+5. Clique em **Salvar correção** — o botão só libera com o saldo zerado
+> Para corrigir **item, quantidade, preço ou desconto**, esta tela não serve: registre a devolução (que repõe o estoque) e faça a venda de novo.
 
 ### Registrar devolução de venda
 1. Acesse **Vendas** no menu

@@ -312,6 +312,53 @@ public class VendaRepository : RepositoryBase<Venda>, IVendaRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<Venda> AtualizarDadosGeraisAsync(Venda vendaComAlteracoes, CancellationToken cancellationToken = default)
+    {
+        var idAtualizado = await ExecutarEmTransacaoAsync(async context =>
+        {
+            var venda = await context.Set<Venda>()
+                .Include(v => v.Pagamentos)
+                .FirstOrDefaultAsync(v => v.Id == vendaComAlteracoes.Id, cancellationToken)
+                ?? throw new DomainException($"Venda com Id {vendaComAlteracoes.Id} não encontrada.");
+
+            venda.ClienteId = vendaComAlteracoes.ClienteId;
+            venda.NomeCompradorCupom = vendaComAlteracoes.NomeCompradorCupom;
+            venda.DocumentoCompradorCupom = vendaComAlteracoes.DocumentoCompradorCupom;
+            venda.TipoPessoaComprador = vendaComAlteracoes.TipoPessoaComprador;
+
+            venda.FormaPagamento = vendaComAlteracoes.FormaPagamento;
+            venda.QuantidadeParcelas = vendaComAlteracoes.QuantidadeParcelas;
+            venda.ValorPago = vendaComAlteracoes.ValorPago;
+            venda.Troco = vendaComAlteracoes.Troco;
+            venda.Observacoes = vendaComAlteracoes.Observacoes;
+            venda.AtualizadoEm = Relogio.Agora;
+
+            // As linhas de pagamento são substituídas por completo em vez de conciliadas uma
+            // a uma: trocar "cartão 3x" por "dinheiro + pix" muda a quantidade de linhas, e
+            // casar as antigas com as novas não teria critério — nenhuma delas é referenciada
+            // por outro registro.
+            context.Set<VendaPagamento>().RemoveRange(venda.Pagamentos);
+            venda.Pagamentos = vendaComAlteracoes.Pagamentos
+                .Select(p => new VendaPagamento
+                {
+                    VendaId = venda.Id,
+                    FormaPagamento = p.FormaPagamento,
+                    Valor = p.Valor,
+                    ValorRecebido = p.ValorRecebido,
+                    QuantidadeParcelas = p.QuantidadeParcelas,
+                    Ordem = p.Ordem
+                })
+                .ToList();
+
+            await context.SaveChangesAsync(cancellationToken);
+            return venda.Id;
+        }, cancellationToken);
+
+        // Releitura depois do commit: ObterComItensAsync abre o próprio contexto pelo
+        // factory e só enxerga as mudanças com a transação já concluída.
+        return (await ObterComItensAsync(idAtualizado))!;
+    }
+
     public Task CancelarComEstornoAsync(int vendaId, CancellationToken cancellationToken = default)
         => ExecutarEmTransacaoAsync(async context =>
         {

@@ -116,6 +116,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<FornecedorFormView>();
                 services.AddTransient<ListaCompraFormView>();
                 services.AddTransient<TrocaFormView>();
+                services.AddTransient<EditarVendaView>();
                 services.AddTransient<VendaExternaFormView>();
                 services.AddTransient<ComissoesVendaExternaView>();
                 services.AddTransient<OrcamentoFormView>();

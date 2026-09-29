@@ -74,7 +74,7 @@ public class ItemVendaDto
     public string NomeExibicao => $"{NomeProduto}  ×{Quantidade} {Unidade}  — R$ {PrecoUnitario:N2}/un";
 }
 
-public class CriarVendaDto
+public class CriarVendaDto : IIdentificacaoCompradorDto, IDadosPagamentoVendaDto
 {
     public int? ClienteId { get; set; }
     public bool ConsumidorFinal { get; set; } = true;
@@ -90,6 +90,55 @@ public class CriarVendaDto
     public string? Observacoes { get; set; }
     public string? Usuario { get; set; }
     public List<CriarItemVendaDto> Itens { get; set; } = new();
+}
+
+/// <summary>
+/// Correção de uma venda já registrada: forma de pagamento, identificação do comprador e
+/// observações.
+///
+/// Itens, desconto e total ficam de fora de propósito. Mudá-los exigiria estornar e refazer
+/// a baixa de estoque de cada item, e deixaria uma NF-e já transmitida divergindo do que foi
+/// vendido — para isso o caminho certo continua sendo a devolução (que repõe o estoque) e
+/// uma venda nova.
+/// </summary>
+/// <summary>Campos de identificação do comprador, compartilhados por quem cria e por quem
+/// corrige a venda — para a regra de resolver cliente/avulso existir uma vez só.</summary>
+public interface IIdentificacaoCompradorDto
+{
+    int? ClienteId { get; }
+    bool ConsumidorFinal { get; }
+    string? NomeCompradorAvulso { get; }
+    string? DocumentoCompradorAvulso { get; }
+    TipoPessoa? TipoPessoaCompradorAvulso { get; }
+}
+
+/// <summary>Mesma ideia para o pagamento: o PDV e a correção passam pela mesma
+/// normalização e validação em <c>PagamentoHelper</c>.</summary>
+public interface IDadosPagamentoVendaDto
+{
+    FormaPagamento FormaPagamento { get; }
+    int QuantidadeParcelas { get; }
+    decimal ValorPago { get; }
+    List<CriarVendaPagamentoDto> Pagamentos { get; }
+}
+
+public class AtualizarVendaDto : IIdentificacaoCompradorDto, IDadosPagamentoVendaDto
+{
+    public int Id { get; set; }
+
+    public int? ClienteId { get; set; }
+    public bool ConsumidorFinal { get; set; } = true;
+    public string? NomeCompradorAvulso { get; set; }
+    public string? DocumentoCompradorAvulso { get; set; }
+    public TipoPessoa? TipoPessoaCompradorAvulso { get; set; }
+
+    public FormaPagamento FormaPagamento { get; set; } = FormaPagamento.Dinheiro;
+    public int QuantidadeParcelas { get; set; } = 1;
+    public decimal ValorPago { get; set; }
+    public List<CriarVendaPagamentoDto> Pagamentos { get; set; } = new();
+
+    public string? Observacoes { get; set; }
+    public string? Usuario { get; set; }
 }
 
 public class CriarVendaPagamentoDto

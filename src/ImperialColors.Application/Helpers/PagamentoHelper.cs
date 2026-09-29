@@ -68,7 +68,7 @@ public static class PagamentoHelper
             throw new DomainException("Selecione parcelas entre 1x e 12x.");
     }
 
-    public static List<CriarVendaPagamentoDto> NormalizarPagamentos(CriarVendaDto dto, decimal totalVenda)
+    public static List<CriarVendaPagamentoDto> NormalizarPagamentos(IDadosPagamentoVendaDto dto, decimal totalVenda)
     {
         if (dto.Pagamentos.Count > 0)
             return dto.Pagamentos;

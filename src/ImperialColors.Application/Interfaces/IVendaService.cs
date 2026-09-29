@@ -14,6 +14,10 @@ public interface IVendaService
         CancellationToken cancellationToken = default);
     Task<VendaDto> CriarAsync(CriarVendaDto dto);
     Task<VendaDto> FinalizarAsync(int id);
+
+    /// <summary>Corrige pagamento, comprador e observações de uma venda já registrada —
+    /// itens e total não mudam. Ver <see cref="AtualizarVendaDto"/>.</summary>
+    Task<VendaDto> AtualizarAsync(AtualizarVendaDto dto);
     Task CancelarAsync(int id);
     Task ExcluirFisicamenteAsync(int id);
     Task<decimal> ObterTotalVendasDiaAsync();

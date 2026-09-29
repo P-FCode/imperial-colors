@@ -34,6 +34,9 @@
                         ToolTip="Gera a NF-e ou NFC-e desta venda a partir dos itens e pagamentos já registrados."/>
                 <Button Style="{StaticResource BotaoSecundario}" Command="{Binding ImprimirCupomCommand}"
                         Margin="0,0,10,0" Content="🧾  Cupom"/>
+                <Button Style="{StaticResource BotaoSecundario}" Command="{Binding EditarVendaCommand}"
+                        Margin="0,0,10,0" Content="✏  Editar Venda"
+                        ToolTip="Corrige o pagamento, o comprador e as observações de uma venda já fechada. Itens e total não mudam."/>
                 <Button Style="{StaticResource BotaoSecundario}" Command="{Binding RegistrarTrocaCommand}"
                         Margin="0,0,10,0" Content="🔄  Registrar Troca"/>
                 <Button Style="{StaticResource BotaoPerigo}" Command="{Binding CancelarVendaCommand}"

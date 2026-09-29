@@ -32,6 +32,7 @@ public class VendaViewModel : BaseViewModel
             OnPropertyChanged(nameof(PodeCancelarVenda));
             OnPropertyChanged(nameof(PodeEmitirNota));
             OnPropertyChanged(nameof(PodeRegistrarTroca));
+            OnPropertyChanged(nameof(PodeEditarVenda));
             OnPropertyChanged(nameof(PodeExcluirVenda));
             NotifyCanExecuteChanged();
         }
@@ -45,6 +46,9 @@ public class VendaViewModel : BaseViewModel
     public bool PodeEmitirNota => TemSelecao && VendaSelecionada?.Status == StatusVenda.Finalizada;
     public bool PodeRegistrarTroca => TemSelecao && VendaSelecionada?.Status == StatusVenda.Finalizada;
     public bool PodeExcluirVenda => TemSelecao && VendaSelecionada?.Status != StatusVenda.Aberta;
+    /// <summary>Venda cancelada já teve o estoque reposto e não vale mais nada; venda aberta
+    /// ainda vai passar pelo fechamento normal do PDV. Só a finalizada tem o que corrigir.</summary>
+    public bool PodeEditarVenda => TemSelecao && VendaSelecionada?.Status == StatusVenda.Finalizada;
 
     private DateTime? _dataInicio = DateTime.Today.AddDays(-30);
     public DateTime? DataInicio
@@ -101,6 +105,7 @@ public class VendaViewModel : BaseViewModel
     public AsyncRelayCommand CancelarVendaCommand { get; }
     public AsyncRelayCommand ExcluirVendaCommand { get; }
     public AsyncRelayCommand RegistrarTrocaCommand { get; }
+    public AsyncRelayCommand EditarVendaCommand { get; }
     public AsyncRelayCommand ImprimirCupomCommand { get; }
     public AsyncRelayCommand EmitirNotaCommand { get; }
     public AsyncRelayCommand FiltrarCommand { get; }
@@ -119,6 +124,7 @@ public class VendaViewModel : BaseViewModel
         CancelarVendaCommand = new AsyncRelayCommand(CancelarVenda, () => PodeCancelarVenda && !Carregando);
         ExcluirVendaCommand = new AsyncRelayCommand(ExcluirVenda, () => PodeExcluirVenda && !Carregando);
         RegistrarTrocaCommand = new AsyncRelayCommand(AbrirRegistrarTroca, () => PodeRegistrarTroca && !Carregando);
+        EditarVendaCommand = new AsyncRelayCommand(EditarVenda, () => PodeEditarVenda && !Carregando);
         ImprimirCupomCommand = new AsyncRelayCommand(ImprimirCupom, () => TemSelecao);
         EmitirNotaCommand = new AsyncRelayCommand(EmitirNota, () => PodeEmitirNota && !Carregando);
         FiltrarCommand = new AsyncRelayCommand(FiltrarAsync);
@@ -273,6 +279,80 @@ public class VendaViewModel : BaseViewModel
                 VendaSelecionada,
                 mensagem: "Por favor, selecione uma venda na lista antes de clicar em Registrar Troca."))
             RegistrarTrocaCommand.Execute(null);
+    }
+
+    /// <summary>
+    /// Correção de uma venda já fechada — forma de pagamento trocada, CPF que faltou no
+    /// cupom, parcelamento digitado errado. Itens e total não entram: mudá-los significaria
+    /// mexer na baixa de estoque, e o caminho para isso é a devolução seguida de venda nova.
+    /// </summary>
+    private async Task EditarVenda()
+    {
+        if (!ValidarSelecao(
+                VendaSelecionada,
+                entidade: "venda",
+                mensagem: "Por favor, selecione uma venda na lista antes de clicar em Editar Venda."))
+            return;
+
+        var venda = VendaSelecionada!;
+
+        if (venda.Status != StatusVenda.Finalizada)
+        {
+            MostrarErro("Somente vendas finalizadas podem ser editadas.");
+            return;
+        }
+
+        try
+        {
+            // A grade da listagem não traz as linhas de pagamento; sem recarregar, a tela de
+            // edição mostraria uma composição vazia e o operador redigitaria tudo.
+            var vendaCompleta = await _vendaService.ObterComItensAsync(venda.Id);
+            if (vendaCompleta is null)
+            {
+                MostrarErro("Venda não encontrada ou foi removida.");
+                return;
+            }
+
+            using var escopo = _scopeFactory.CreateScope();
+            var modal = escopo.ServiceProvider.GetRequiredService<Views.EditarVendaView>();
+            modal.Inicializar(vendaCompleta, await ObterAvisoDeNotaFiscalAsync(vendaCompleta));
+
+            if (ModalWindowHelper.ExibirDialogo(modal) != true || modal.Resultado is not { } alteracoes)
+                return;
+
+            await _vendaService.AtualizarAsync(alteracoes);
+            MostrarSucesso($"Venda #{vendaCompleta.NumeroVenda} corrigida com sucesso.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            MostrarErro($"Erro ao editar venda: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Nota já transmitida é documento fechado: corrigir a venda aqui não altera o que foi
+    /// para a SEFAZ. O aviso existe para o operador não sair daqui achando que a nota foi
+    /// junto — se a nota é que está errada, o caminho é cancelá-la e emitir outra.
+    /// </summary>
+    private async Task<string?> ObterAvisoDeNotaFiscalAsync(VendaDto venda)
+    {
+        try
+        {
+            var notas = await _notaFiscalService.ListarPorVendaAsync(venda.Id);
+            if (notas.FirstOrDefault(n => NotaFiscalSituacaoHelper.BloqueiaNovaNota(n.Status)) is not { } emitida)
+                return null;
+
+            return $"Esta venda já tem a {DescricaoNota(emitida)}. A correção vale para o registro " +
+                   "interno e para o cupom — a nota transmitida não muda. Para corrigir a nota, " +
+                   "cancele-a e emita outra.";
+        }
+        catch
+        {
+            // Sem conexão com o serviço fiscal a edição continua: o aviso é informativo, não
+            // é condição para corrigir o pagamento de uma venda.
+            return null;
+        }
     }
 
     private async Task CancelarVenda()

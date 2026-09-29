@@ -203,7 +203,7 @@ public class VendaService : IVendaService, IVendaContingenciaSync
         return MapParaDto(vendaCompleta!);
     }
 
-    private async Task ResolverIdentificacaoCompradorAsync(Venda venda, CriarVendaDto dto)
+    private async Task ResolverIdentificacaoCompradorAsync(Venda venda, IIdentificacaoCompradorDto dto)
     {
         if (dto.ClienteId is > 0)
         {
@@ -253,6 +253,84 @@ public class VendaService : IVendaService, IVendaContingenciaSync
             : dto.DocumentoCompradorAvulso.Trim();
         venda.TipoPessoaComprador = dto.TipoPessoaCompradorAvulso;
     }
+
+    public async Task<VendaDto> AtualizarAsync(AtualizarVendaDto dto)
+    {
+        var venda = await _vendaRepository.ObterComItensAsync(dto.Id)
+            ?? throw new DomainException($"Venda com Id {dto.Id} não encontrada.");
+
+        // Venda cancelada já teve o estoque reposto e não vale mais nada; corrigir o
+        // pagamento dela só criaria um registro contraditório.
+        if (venda.Status == StatusVenda.Cancelada)
+            throw new DomainException("Venda cancelada não pode ser editada.");
+
+        var antes = DescreverParaAuditoria(venda);
+
+        await ResolverIdentificacaoCompradorAsync(venda, dto);
+
+        // O total continua sendo o da venda gravada: a correção não mexe em itens nem em
+        // desconto, então o pagamento é conferido contra o mesmo valor de sempre.
+        var pagamentos = PagamentoHelper.NormalizarPagamentos(dto, venda.Total);
+        PagamentoHelper.ValidarPagamentosCompostos(venda.Total, pagamentos);
+
+        var (formaResumo, parcelasResumo, valorPagoResumo, trocoTotal) =
+            PagamentoHelper.ResumirPagamentosLegado(pagamentos);
+
+        venda.FormaPagamento = pagamentos.Count > 1 ? formaResumo : pagamentos[0].FormaPagamento;
+        venda.QuantidadeParcelas = parcelasResumo;
+        venda.ValorPago = valorPagoResumo;
+        venda.Troco = trocoTotal;
+        venda.Observacoes = string.IsNullOrWhiteSpace(dto.Observacoes) ? null : dto.Observacoes.Trim();
+        venda.Pagamentos = pagamentos.Select((p, index) => new VendaPagamento
+        {
+            VendaId = venda.Id,
+            FormaPagamento = p.FormaPagamento,
+            Valor = p.Valor,
+            ValorRecebido = p.ValorRecebido,
+            QuantidadeParcelas = p.QuantidadeParcelas,
+            Ordem = index + 1
+        }).ToList();
+
+        var atualizada = await _vendaRepository.AtualizarDadosGeraisAsync(venda);
+
+        _logger.LogInformation("Venda corrigida: {NumeroVenda}", atualizada.NumeroVenda);
+
+        // O log guarda o antes e o depois porque é o único lugar onde se descobre que uma
+        // venda fechada foi mexida — e por quem.
+        await _auditoria.RegistrarAsync(new RegistrarLogAuditoriaDto
+        {
+            NomeUsuario = dto.Usuario ?? _usuarioAtual.Nome,
+            Modulo = "PDV",
+            Acao = "VENDA_EDITADA",
+            Descricao = $"Venda {atualizada.NumeroVenda} corrigida — pagamento/comprador alterados",
+            Nivel = NivelLogAuditoria.Warning,
+            PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                VendaId = atualizada.Id,
+                atualizada.NumeroVenda,
+                Antes = antes,
+                Depois = DescreverParaAuditoria(atualizada)
+            })
+        });
+
+        return MapParaDto(atualizada);
+    }
+
+    private static object DescreverParaAuditoria(Venda venda) => new
+    {
+        Comprador = venda.NomeCompradorCupom,
+        Documento = venda.DocumentoCompradorCupom,
+        venda.ClienteId,
+        FormaPagamento = venda.FormaPagamento.ToString(),
+        venda.QuantidadeParcelas,
+        venda.ValorPago,
+        venda.Troco,
+        venda.Observacoes,
+        Pagamentos = venda.Pagamentos
+            .OrderBy(p => p.Ordem)
+            .Select(p => new { Forma = p.FormaPagamento.ToString(), p.Valor, p.ValorRecebido, p.QuantidadeParcelas })
+            .ToList()
+    };
 
     public async Task<VendaDto> FinalizarAsync(int id)
     {

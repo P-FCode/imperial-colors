@@ -37,5 +37,12 @@ public interface IVendaRepository : IRepository<Venda>
         CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Venda>> ObterUltimasFinalizadasAsync(int quantidade = 5, CancellationToken cancellationToken = default);
     Task CancelarComEstornoAsync(int vendaId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Grava a correção de uma venda: comprador, pagamento e observações do cabeçalho, mais
+    /// a substituição das linhas de pagamento. Itens, desconto e total NÃO são tocados — a
+    /// edição não mexe em estoque, então nada aqui precisa de estorno.
+    /// </summary>
+    Task<Venda> AtualizarDadosGeraisAsync(Venda vendaComAlteracoes, CancellationToken cancellationToken = default);
     Task ExcluirFisicamenteComEstornoAsync(int vendaId, CancellationToken cancellationToken = default);
 }
